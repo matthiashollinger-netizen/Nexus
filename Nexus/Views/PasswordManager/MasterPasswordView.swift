@@ -124,6 +124,7 @@ struct MasterPasswordView: View {
             // Auto-unlock from Keychain
             if !isFirstSetup, let stored = KeychainService.loadMasterPassword() {
                 vm.unlock(password: stored)
+                if !vm.isUnlocked { failedAttempts += 1 }  // show reset if Keychain pw is stale
             } else {
                 focused = true
             }

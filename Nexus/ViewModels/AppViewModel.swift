@@ -10,8 +10,11 @@ final class AppViewModel {
     var activeSessions: [ConnectionSession] = []
     var selectedTabId: UUID? = nil
 
-    // Sidebar selection
-    var selectedSidebarItem: SidebarItem? = nil
+    // Sidebar selection (Set enables Cmd+Click / Shift+Click multi-select)
+    var selectedSidebarItems: Set<SidebarItem> = []
+
+    /// Convenience: the single selected item (for edit operations)
+    var selectedSidebarItem: SidebarItem? { selectedSidebarItems.first }
 
     // Sheet / window state
     var showPasswordManager: Bool = false
@@ -103,6 +106,24 @@ final class AppViewModel {
     func deleteSession(_ session: Session) {
         sessions.removeAll { $0.id == session.id }
         db.saveSessions(sessions)
+    }
+
+    func deleteSidebarSelection(_ items: Set<SidebarItem>) {
+        for item in items {
+            switch item {
+            case .session(let s): sessions.removeAll { $0.id == s.id }
+            case .folder(let f): deleteFolderRecursive(f)
+            }
+        }
+        db.saveSessions(sessions)
+        db.saveFolders(folders)
+        selectedSidebarItems.removeAll()
+    }
+
+    private func deleteFolderRecursive(_ folder: Folder) {
+        childFolders(of: folder.id).forEach { deleteFolderRecursive($0) }
+        sessions.removeAll { $0.folderId == folder.id }
+        folders.removeAll { $0.id == folder.id }
     }
 
     // MARK: - Connect / Disconnect

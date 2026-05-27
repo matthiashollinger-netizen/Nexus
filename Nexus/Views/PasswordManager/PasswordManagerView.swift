@@ -247,6 +247,8 @@ struct CredentialEditSheet: View {
 }
 
 // MARK: - Export document (plain JSON, no custom UTType needed)
+// Note: NexusExport.Encodable is @MainActor-isolated (project default). This is a warning
+// in targeted concurrency mode; fileWrapper is always called on the main thread by SwiftUI.
 
 struct NexusExportDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.json] }

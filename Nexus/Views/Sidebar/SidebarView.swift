@@ -4,25 +4,26 @@ struct SidebarView: View {
     @Environment(AppViewModel.self) private var vm
     @State private var searchText = ""
 
-    private var canEditSelected: Bool {
-        switch vm.selectedSidebarItem {
-        case .session, .folder: return true
-        case nil: return false
+    // Only allow edit when exactly one item is selected
+    private var canEditSelected: Bool { vm.selectedSidebarItems.count == 1 }
+    private var canDeleteSelected: Bool { !vm.selectedSidebarItems.isEmpty }
+
+    private func editSelected() {
+        guard let item = vm.selectedSidebarItem else { return }
+        switch item {
+        case .session(let s): vm.editingSession = s
+        case .folder(let f):  vm.editingFolder  = f
         }
     }
 
-    private func editSelected() {
-        switch vm.selectedSidebarItem {
-        case .session(let s): vm.editingSession = s
-        case .folder(let f):  vm.editingFolder  = f
-        case nil: break
-        }
+    private func deleteSelected() {
+        vm.deleteSidebarSelection(vm.selectedSidebarItems)
     }
 
     var body: some View {
         @Bindable var vm = vm
 
-        List(selection: $vm.selectedSidebarItem) {
+        List(selection: $vm.selectedSidebarItems) {
             Section {
                 // Root-level folders
                 ForEach(vm.childFolders(of: nil)) { folder in
@@ -36,8 +37,10 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .searchable(text: $searchText, placement: .sidebar)
+        // Delete key removes selected items
+        .onDeleteCommand { deleteSelected() }
         .toolbar {
-            // Edit selected item
+            // Edit selected item (Cmd+E)
             ToolbarItem(placement: .automatic) {
                 Button {
                     editSelected()
@@ -47,6 +50,17 @@ struct SidebarView: View {
                 .disabled(!canEditSelected)
                 .help("action.edit")
                 .keyboardShortcut("e", modifiers: .command)
+            }
+            // Delete selected (Cmd+Backspace)
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    deleteSelected()
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .disabled(!canDeleteSelected)
+                .help("action.delete")
+                .keyboardShortcut(.delete, modifiers: .command)
             }
             // Add new item
             ToolbarItem(placement: .automatic) {
@@ -96,7 +110,6 @@ struct FolderRow: View {
 
     private var childFolders: [Folder] { vm.childFolders(of: folder.id) }
     private var childSessions: [Session] { vm.sessions(in: folder.id).filtered(by: searchText) }
-    private var isExpanded: Bool { folder.isExpanded }
 
     var body: some View {
         DisclosureGroup(isExpanded: Binding(
@@ -116,6 +129,7 @@ struct FolderRow: View {
         } label: {
             Label(folder.name, systemImage: "folder")
                 .tag(SidebarItem.folder(folder))
+                // Context menu on label only — does NOT propagate to child session rows
                 .contextMenu {
                     Button {
                         vm.addSessionParentFolderId = folder.id
@@ -152,27 +166,32 @@ struct SessionRow: View {
     @Environment(AppViewModel.self) private var vm
 
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
             Image(systemName: session.connectionType.systemImage)
                 .foregroundStyle(.secondary)
                 .frame(width: 16)
             VStack(alignment: .leading, spacing: 1) {
                 Text(session.name.isEmpty ? session.host : session.name)
                     .font(.body)
+                    .lineLimit(1)
                 if !session.description.isEmpty {
                     Text(session.description)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 } else if !session.host.isEmpty && !session.name.isEmpty {
                     Text(session.host)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
-            Spacer()
+            Spacer(minLength: 0)
         }
-        .tag(SidebarItem.session(session))
+        // Full-width hit area so click anywhere on the row selects it
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+        .tag(SidebarItem.session(session))
         .onTapGesture(count: 2) {
             vm.connect(to: session)
         }
