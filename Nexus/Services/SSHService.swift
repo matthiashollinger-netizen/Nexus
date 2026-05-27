@@ -11,15 +11,28 @@ struct SSHArgumentBuilder {
     let strictHostKeyChecking: Bool
 
     func build() -> [String] {
+        // If the user entered "user@host" in the host field, split it out
+        var effectiveUser = username
+        var effectiveHost = host
+        if host.contains("@"), let atRange = host.range(of: "@", options: .backwards) {
+            let parsedUser = String(host[..<atRange.lowerBound])
+            let parsedHost = String(host[atRange.upperBound...])
+            if effectiveUser.isEmpty { effectiveUser = parsedUser }
+            effectiveHost = parsedHost
+        }
+
         var args: [String] = []
 
         args += ["-p", "\(port)"]
         args += ["-o", "ConnectTimeout=10"]
+        args += ["-o", "ServerAliveInterval=60"]
 
         if useLegacyAlgorithms {
-            // ssh-dss (DSA) removed in OpenSSH 9+; only add ssh-rsa
+            // Note: diffie-hellman-group1-sha1 was completely removed in OpenSSH 9
+            // and cannot be re-enabled even with +. Only include algorithms that still
+            // exist in the binary.
             args += [
-                "-o", "KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1,diffie-hellman-group1-sha1",
+                "-o", "KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1",
                 "-o", "HostKeyAlgorithms=+ssh-rsa",
                 "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa"
             ]
@@ -33,7 +46,13 @@ struct SSHArgumentBuilder {
             args += ["-i", keyPath]
         }
 
-        args += ["\(username)@\(host)"]
+        // Build destination: prefer "user@host", fall back to host-only if no user
+        if effectiveUser.isEmpty {
+            args += [effectiveHost]
+        } else {
+            args += ["\(effectiveUser)@\(effectiveHost)"]
+        }
+
         return args
     }
 

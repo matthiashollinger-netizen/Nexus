@@ -56,6 +56,10 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
     }
 
     private func startSSH() {
+        guard !cs.session.host.isEmpty else {
+            cs.state = .failed("Kein Hostname konfiguriert")
+            return
+        }
         cs.state = .connecting
         startProcess(executable: "/usr/bin/ssh", args: cs.sshArgs)
         cs.state = .connected

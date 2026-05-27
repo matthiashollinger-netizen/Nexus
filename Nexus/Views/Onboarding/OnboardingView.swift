@@ -73,6 +73,9 @@ struct OnboardingView: View {
         vm.settings.hasCompletedOnboarding = true
         if enableEncryption {
             vm.settings.masterPasswordEnabled = true
+            // isUnlocked was set to true at init (when encryption was off).
+            // Reset it so ContentView transitions to MasterPasswordView.
+            vm.isUnlocked = false
         }
         vm.saveSettings()
     }
