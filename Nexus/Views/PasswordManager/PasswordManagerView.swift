@@ -60,7 +60,7 @@ struct PasswordManagerView: View {
         .fileExporter(
             isPresented: $showExport,
             document: NexusExportDocument(vm: vm),
-            contentType: .nexusExport,
+            contentType: .json,
             defaultFilename: "nexus-export"
         ) { _ in }
         .frame(minWidth: 700, minHeight: 460)
@@ -222,29 +222,26 @@ struct CredentialEditSheet: View {
     }
 }
 
-// MARK: - Export document
+// MARK: - Export document (plain JSON, no custom UTType needed)
 
 struct NexusExportDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.nexusExport, .json] }
+    static var readableContentTypes: [UTType] { [.json] }
     let vm: AppViewModel
 
     init(vm: AppViewModel) { self.vm = vm }
     init(configuration: ReadConfiguration) throws { vm = AppViewModel() }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let credentials = vm.credentials
         let bundle = NexusExport(
             sessions: vm.sessions,
             folders: vm.folders,
-            credentials: credentials,
+            credentials: vm.credentials,
             settings: vm.settings,
             exportDate: Date()
         )
-        let data = try JSONEncoder().encode(bundle)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        let data = try encoder.encode(bundle)
         return FileWrapper(regularFileWithContents: data)
     }
-}
-
-extension UTType {
-    static let nexusExport = UTType(exportedAs: "com.hollinger.nexus.export")
 }

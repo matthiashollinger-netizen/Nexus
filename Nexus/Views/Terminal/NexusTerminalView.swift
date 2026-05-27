@@ -56,15 +56,36 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
     override func dataReceived(slice: ArraySlice<UInt8>) {
         super.dataReceived(slice: slice)
 
+        let text = String(bytes: slice, encoding: .utf8) ?? ""
+        let lower = text.lowercased()
+
         // Auto-send stored password on password prompt
         if !passwordSent, let pwd = cs.sshPassword {
-            let text = String(bytes: slice, encoding: .utf8) ?? ""
-            let lower = text.lowercased()
             if lower.contains("password:") || lower.contains("passphrase for key") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
                     guard let self, !self.passwordSent else { return }
                     self.send(txt: pwd + "\r")
                     self.passwordSent = true
+                }
+            }
+        }
+
+        // Detect shell prompt → offer "save credentials?" if no credential linked
+        if !cs.credentialSaveOffered {
+            // Common prompt endings: "$ ", "# ", "% ", "> "
+            let lines = text.components(separatedBy: .newlines)
+            let hasPrompt = lines.contains { line in
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                return !trimmed.isEmpty &&
+                    (trimmed.hasSuffix("$ ") || trimmed.hasSuffix("# ") ||
+                     trimmed.hasSuffix("% ") || trimmed.hasSuffix("> ") ||
+                     trimmed.last == "$" || trimmed.last == "#" || trimmed.last == "%")
+            }
+            if hasPrompt {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.cs.credentialSaveOffered = true
+                    self.cs.shouldOfferCredentialSave = true
                 }
             }
         }

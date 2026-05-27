@@ -4,11 +4,14 @@ struct AddSessionView: View {
     @Environment(AppViewModel.self) private var vm
     @Environment(\.dismiss) private var dismiss
 
-    // Edit mode: pass existing session
     var existingSession: Session?
     var parentFolderId: UUID?
 
     @State private var draft: Session
+    // Quick-entry credentials (auto-create Credential on save)
+    @State private var quickUsername: String = ""
+    @State private var quickPassword: String = ""
+    @State private var useQuickCredential: Bool = false
 
     init(session: Session? = nil, parentFolderId: UUID? = nil) {
         self.existingSession = session
@@ -24,6 +27,12 @@ struct AddSessionView: View {
 
     private var isEditing: Bool { existingSession != nil }
     private var title: String { isEditing ? String(localized: "session.edit") : String(localized: "session.new") }
+    // Existing linked credential name (for display)
+    private var linkedCredentialName: String? {
+        guard let cid = draft.credentialId else { return nil }
+        let cred = vm.credentials.first { $0.id == cid }
+        return cred?.name.isEmpty == false ? cred?.name : cred?.username
+    }
 
     var body: some View {
         NavigationStack {
@@ -55,8 +64,51 @@ struct AddSessionView: View {
                     SSHSection(draft: $draft)
                 }
 
-                Section("session.credential") {
-                    CredentialPicker(selectedId: $draft.credentialId)
+                // ── Zugangsdaten ──────────────────────────────────────
+                Section {
+                    // If already linked to a credential
+                    if let credName = linkedCredentialName {
+                        HStack {
+                            Image(systemName: "key.fill").foregroundStyle(.secondary)
+                            Text(credName)
+                            Spacer()
+                            Button("action.change") { draft.credentialId = nil }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(Color.accentColor)
+                                .font(.callout)
+                        }
+                    } else {
+                        // Choose existing credential
+                        CredentialPicker(selectedId: $draft.credentialId)
+                            .onChange(of: draft.credentialId) { _, newVal in
+                                if newVal != nil { useQuickCredential = false }
+                            }
+
+                        Divider()
+
+                        // OR enter credentials inline
+                        Toggle("session.credential.enter_now", isOn: $useQuickCredential)
+                            .onChange(of: useQuickCredential) { _, on in
+                                if on { draft.credentialId = nil }
+                            }
+
+                        if useQuickCredential {
+                            LabeledContent("cred.username") {
+                                TextField("session.username.placeholder", text: $quickUsername)
+                                    .autocorrectionDisabled()
+                            }
+                            LabeledContent("cred.password") {
+                                SecureField("cred.password.placeholder", text: $quickPassword)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("session.credential")
+                } footer: {
+                    if useQuickCredential && !quickPassword.isEmpty {
+                        Label("session.credential.auto_save_hint", systemImage: "info.circle")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
 
                 Section("session.tags") {
@@ -75,10 +127,38 @@ struct AddSessionView: View {
                 }
             }
         }
-        .frame(minWidth: 480, minHeight: 520)
+        .frame(minWidth: 480, minHeight: 560)
+        .onAppear {
+            // Pre-fill quick username from session username
+            if !draft.username.isEmpty { quickUsername = draft.username }
+        }
     }
 
     private func save() {
+        // If quick-entry credentials were filled → auto-create Credential
+        if useQuickCredential && (!quickUsername.isEmpty || !quickPassword.isEmpty) {
+            var cred = Credential()
+            let label = draft.name.isEmpty ? draft.host : draft.name
+            cred.name = label
+            cred.username = quickUsername.isEmpty ? draft.username : quickUsername
+            cred.password = quickPassword
+
+            // Check if an identical credential already exists
+            if let existing = vm.credentials.first(where: {
+                $0.username == cred.username && $0.password == cred.password
+            }) {
+                draft.credentialId = existing.id
+            } else {
+                vm.addCredential(cred)
+                draft.credentialId = cred.id
+            }
+        }
+
+        // Sync username from quick-entry back to session
+        if useQuickCredential && !quickUsername.isEmpty {
+            draft.username = quickUsername
+        }
+
         if isEditing {
             vm.updateSession(draft)
         } else {
@@ -155,7 +235,8 @@ struct SerialSection: View {
         Section("session.serial") {
             LabeledContent("session.serial.port") {
                 Picker("", selection: $draft.serialPort) {
-                    ForEach(availablePorts, id: \.self) { Text($0) }
+                    Text("session.serial.port.select").tag("")   // placeholder tag matches empty default
+                    ForEach(availablePorts, id: \.self) { Text($0).tag($0) }
                     if !availablePorts.contains(draft.serialPort) && !draft.serialPort.isEmpty {
                         Text(draft.serialPort).tag(draft.serialPort)
                     }

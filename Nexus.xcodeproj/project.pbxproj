@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		40D171482FC6F93B00E74C32 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = AA00000000000000000000AB /* SwiftTerm */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		40D170F42FC6EB8700E74C32 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				40D171482FC6F93B00E74C32 /* SwiftTerm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,7 +117,7 @@
 			);
 			name = Nexus;
 			packageProductDependencies = (
-				AA00000000000000000000AB /* XCSwiftPackageProductDependency */,
+				AA00000000000000000000AB /* SwiftTerm */,
 			);
 			productName = Nexus;
 			productReference = 40D170E62FC6EB8500E74C32 /* Nexus.app */;
@@ -196,10 +201,10 @@
 				Base,
 			);
 			mainGroup = 40D170DD2FC6EB8500E74C32;
+			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				AA00000000000000000000AA /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 			);
-			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 40D170E72FC6EB8500E74C32 /* Products */;
 			projectDirPath = "";
@@ -589,7 +594,7 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		AA00000000000000000000AB /* XCSwiftPackageProductDependency */ = {
+		AA00000000000000000000AB /* SwiftTerm */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = AA00000000000000000000AA /* XCRemoteSwiftPackageReference "SwiftTerm" */;
 			productName = SwiftTerm;

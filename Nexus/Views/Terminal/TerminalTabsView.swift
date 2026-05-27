@@ -116,6 +116,13 @@ struct TabContentView: View {
                 fontSize: vm.settings.terminalFontSize
             )
             .id(selected.id)
+            .sheet(isPresented: Binding(
+                get: { selected.shouldOfferCredentialSave },
+                set: { selected.shouldOfferCredentialSave = $0 }
+            )) {
+                SaveCredentialsSheet(cs: selected)
+                    .environment(vm)
+            }
         } else {
             Color.black
         }

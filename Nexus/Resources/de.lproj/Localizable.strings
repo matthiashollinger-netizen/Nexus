@@ -8,6 +8,7 @@
 "action.connect" = "Verbinden";
 "action.import" = "Importieren";
 "action.export" = "Exportieren";
+"action.change" = "Ändern";
 
 // MARK: - Fehler
 "error.wrong_password" = "Falsches Master-Passwort oder beschädigte Datei";
@@ -39,6 +40,8 @@
 "session.folder.none" = "Kein Ordner";
 "session.credential" = "Anmeldedaten";
 "session.credential.none" = "Keine";
+"session.credential.enter_now" = "Zugangsdaten jetzt eingeben";
+"session.credential.auto_save_hint" = "Zugangsdaten werden im Passwort-Manager gespeichert und mit dieser Session verknüpft.";
 "session.tags" = "Tags";
 "session.ssh" = "SSH-Optionen";
 "session.ssh.key" = "Privater Schlüssel";
@@ -49,6 +52,7 @@
 // MARK: - Seriell
 "session.serial" = "Serielle Einstellungen";
 "session.serial.port" = "Schnittstelle";
+"session.serial.port.select" = "Schnittstelle auswählen…";
 "session.serial.baud" = "Baudrate";
 "session.serial.data_bits" = "Datenbits";
 "session.serial.stop_bits" = "Stoppbits";
@@ -77,6 +81,7 @@
 // MARK: - Passwort-Manager
 "pwmgr.title" = "Passwort-Manager";
 "pwmgr.select" = "Anmeldedaten auswählen";
+"pwmgr.info" = "Info";
 "pwmgr.export" = "Datenbank exportieren";
 "pwmgr.import" = "Datenbank importieren";
 
@@ -99,12 +104,23 @@
 
 // MARK: - Master-Passwort
 "masterpassword.title" = "Master-Passwort eingeben";
-"masterpassword.setup_hint" = "Lege ein Master-Passwort fest, um gespeicherte Anmeldedaten zu schützen.";
+"masterpassword.setup_title" = "Master-Passwort einrichten";
+"masterpassword.setup_hint" = "Deine Anmeldedaten werden mit AES-256 verschlüsselt.";
+"masterpassword.enter_hint" = "Gib dein Master-Passwort ein, um auf die gespeicherten Anmeldedaten zuzugreifen.";
 "masterpassword.placeholder" = "Master-Passwort";
 "masterpassword.confirm" = "Passwort bestätigen";
 "masterpassword.unlock" = "Entsperren";
+"masterpassword.setup_btn" = "Passwort festlegen";
 "masterpassword.skip" = "Überspringen";
 "masterpassword.mismatch" = "Passwörter stimmen nicht überein";
+"masterpassword.save_keychain" = "Im macOS-Schlüsselbund speichern (automatisch entsperren)";
+"masterpassword.sync_icloud" = "Über iCloud-Schlüsselbund synchronisieren";
+
+// MARK: - Zugangsdaten speichern
+"savecreds.title" = "Zugangsdaten speichern?";
+"savecreds.name_placeholder" = "z. B. Produktionsserver";
+"savecreds.hint" = "Zugangsdaten werden im Passwort-Manager gespeichert und mit dieser Session verknüpft.";
+"savecreds.save_and_link" = "Speichern & Verknüpfen";
 
 // MARK: - Einstellungen
 "settings.general" = "Allgemein";

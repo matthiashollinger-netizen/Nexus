@@ -8,6 +8,7 @@
 "action.connect" = "Connect";
 "action.import" = "Import";
 "action.export" = "Export";
+"action.change" = "Change";
 
 // MARK: - Errors
 "error.wrong_password" = "Wrong master password or corrupt file";
@@ -39,6 +40,8 @@
 "session.folder.none" = "No Folder";
 "session.credential" = "Credential";
 "session.credential.none" = "None";
+"session.credential.enter_now" = "Enter credentials now";
+"session.credential.auto_save_hint" = "Credentials will be saved to the Password Manager and linked to this session.";
 "session.tags" = "Tags";
 "session.ssh" = "SSH Options";
 "session.ssh.key" = "Private Key";
@@ -49,6 +52,7 @@
 // MARK: - Serial
 "session.serial" = "Serial Settings";
 "session.serial.port" = "Port";
+"session.serial.port.select" = "Select port…";
 "session.serial.baud" = "Baud Rate";
 "session.serial.data_bits" = "Data Bits";
 "session.serial.stop_bits" = "Stop Bits";
@@ -77,6 +81,7 @@
 // MARK: - Password Manager
 "pwmgr.title" = "Password Manager";
 "pwmgr.select" = "Select a credential";
+"pwmgr.info" = "Info";
 "pwmgr.export" = "Export Database";
 "pwmgr.import" = "Import Database";
 
@@ -99,12 +104,23 @@
 
 // MARK: - Master Password
 "masterpassword.title" = "Enter Master Password";
-"masterpassword.setup_hint" = "Set a master password to protect your stored credentials.";
+"masterpassword.setup_title" = "Set up Master Password";
+"masterpassword.setup_hint" = "Your credentials will be encrypted with AES-256.";
+"masterpassword.enter_hint" = "Enter your master password to access stored credentials.";
 "masterpassword.placeholder" = "Master Password";
 "masterpassword.confirm" = "Confirm Password";
 "masterpassword.unlock" = "Unlock";
+"masterpassword.setup_btn" = "Set Password";
 "masterpassword.skip" = "Skip";
 "masterpassword.mismatch" = "Passwords do not match";
+"masterpassword.save_keychain" = "Save in macOS Keychain (auto-unlock)";
+"masterpassword.sync_icloud" = "Sync via iCloud Keychain";
+
+// MARK: - Save Credentials Sheet
+"savecreds.title" = "Save credentials?";
+"savecreds.name_placeholder" = "e.g. Production Server";
+"savecreds.hint" = "Credentials will be saved to the Password Manager and linked to this session.";
+"savecreds.save_and_link" = "Save &amp; Link";
 
 // MARK: - Settings
 "settings.general" = "General";

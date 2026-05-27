@@ -21,6 +21,10 @@ final class ConnectionSession: Identifiable {
     var sshArgs: [String] = []
     var sshPassword: String? = nil
     var tempKeyPath: String? = nil
+    /// true = session has no stored credential → offer "save credentials" sheet after login
+    var shouldOfferCredentialSave: Bool = false
+    /// Prevents the save-offer from showing more than once per session
+    var credentialSaveOffered: Bool = false
 
     // Telnet
     var telnetService: TelnetService?
@@ -69,6 +73,8 @@ final class ConnectionSession: Identifiable {
         )
         sshArgs = builder.build()
         sshPassword = credential?.password
+        // No credential linked → offer to save after successful login
+        credentialSaveOffered = (credential != nil)
     }
 
     // MARK: - Telnet
