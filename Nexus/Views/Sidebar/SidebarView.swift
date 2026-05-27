@@ -116,31 +116,31 @@ struct FolderRow: View {
         } label: {
             Label(folder.name, systemImage: "folder")
                 .tag(SidebarItem.folder(folder))
-        }
-        .contextMenu {
-            Button {
-                vm.addSessionParentFolderId = folder.id
-                vm.showAddSession = true
-            } label: {
-                Label("sidebar.add_session", systemImage: "plus.circle")
-            }
-            Button {
-                vm.addSessionParentFolderId = folder.id
-                vm.showAddFolder = true
-            } label: {
-                Label("sidebar.add_subfolder", systemImage: "folder.badge.plus")
-            }
-            Divider()
-            Button {
-                vm.editingFolder = folder
-            } label: {
-                Label("action.edit", systemImage: "pencil")
-            }
-            Button(role: .destructive) {
-                vm.deleteFolder(folder)
-            } label: {
-                Label("action.delete", systemImage: "trash")
-            }
+                .contextMenu {
+                    Button {
+                        vm.addSessionParentFolderId = folder.id
+                        vm.showAddSession = true
+                    } label: {
+                        Label("sidebar.add_session", systemImage: "plus.circle")
+                    }
+                    Button {
+                        vm.addSessionParentFolderId = folder.id
+                        vm.showAddFolder = true
+                    } label: {
+                        Label("sidebar.add_subfolder", systemImage: "folder.badge.plus")
+                    }
+                    Divider()
+                    Button {
+                        vm.editingFolder = folder
+                    } label: {
+                        Label("action.edit", systemImage: "pencil")
+                    }
+                    Button(role: .destructive) {
+                        vm.deleteFolder(folder)
+                    } label: {
+                        Label("action.delete", systemImage: "trash")
+                    }
+                }
         }
     }
 }

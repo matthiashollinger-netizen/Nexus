@@ -121,6 +121,11 @@
 "masterpassword.mismatch" = "Passwords do not match";
 "masterpassword.save_keychain" = "Save in macOS Keychain (auto-unlock)";
 "masterpassword.sync_icloud" = "Sync via iCloud Keychain";
+"masterpassword.reset_hint" = "Forgotten your password? You can reset all encrypted data and start over.";
+"masterpassword.reset_btn" = "Reset & Delete Credentials";
+"masterpassword.reset_confirm_title" = "Delete all credentials?";
+"masterpassword.reset_confirm_msg" = "This will permanently delete all saved credentials and the master password. This cannot be undone.";
+"masterpassword.reset_confirm_btn" = "Delete All";
 
 // MARK: - Save Credentials Sheet
 "savecreds.title" = "Save credentials?";

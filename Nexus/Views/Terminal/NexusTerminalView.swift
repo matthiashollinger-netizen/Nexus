@@ -77,11 +77,11 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
         // Only capture events from our window
         guard let eventWindow = event.window, eventWindow === self.window else { return }
 
-        // Cmd+V — paste from clipboard
+        // Cmd+V — paste from clipboard (replace buffer, don't append)
         if event.modifierFlags.contains(.command) && event.keyCode == 9 {
             if let pasted = NSPasteboard.general.string(forType: .string), !pasted.isEmpty {
                 // Strip newlines from pasted password (common when copying from a doc)
-                captureBuffer += pasted.components(separatedBy: .newlines).joined()
+                captureBuffer = pasted.components(separatedBy: .newlines).joined()
             }
             return
         }

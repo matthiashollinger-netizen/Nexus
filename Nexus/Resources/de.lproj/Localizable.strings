@@ -121,6 +121,11 @@
 "masterpassword.mismatch" = "Passwörter stimmen nicht überein";
 "masterpassword.save_keychain" = "Im macOS-Schlüsselbund speichern (automatisch entsperren)";
 "masterpassword.sync_icloud" = "Über iCloud-Schlüsselbund synchronisieren";
+"masterpassword.reset_hint" = "Passwort vergessen? Du kannst alle verschlüsselten Daten löschen und neu beginnen.";
+"masterpassword.reset_btn" = "Zurücksetzen & Daten löschen";
+"masterpassword.reset_confirm_title" = "Alle Anmeldedaten löschen?";
+"masterpassword.reset_confirm_msg" = "Alle gespeicherten Anmeldedaten und das Master-Passwort werden unwiderruflich gelöscht.";
+"masterpassword.reset_confirm_btn" = "Alles löschen";
 
 // MARK: - Zugangsdaten speichern
 "savecreds.title" = "Zugangsdaten speichern?";

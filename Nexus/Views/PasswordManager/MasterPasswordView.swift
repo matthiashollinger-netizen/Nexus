@@ -7,6 +7,9 @@ struct MasterPasswordView: View {
     @State private var saveToKeychain = true
     @State private var syncToiCloud = false
     @State private var isFirstSetup = false
+    @State private var keychainError: String? = nil
+    @State private var showResetConfirm = false
+    @State private var failedAttempts = 0
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -57,6 +60,7 @@ struct MasterPasswordView: View {
                 }
             }
 
+            // Error messages
             if let error = vm.unlockError {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -64,6 +68,16 @@ struct MasterPasswordView: View {
                 }
                 .foregroundStyle(.red)
                 .font(.callout)
+            }
+            if let kErr = keychainError {
+                HStack(spacing: 4) {
+                    Image(systemName: "key.slash")
+                    Text(kErr)
+                }
+                .foregroundStyle(.orange)
+                .font(.caption)
+                .frame(maxWidth: 300)
+                .multilineTextAlignment(.center)
             }
 
             HStack(spacing: 12) {
@@ -82,6 +96,24 @@ struct MasterPasswordView: View {
                 .disabled(password.isEmpty)
                 .keyboardShortcut(.return, modifiers: [])
             }
+
+            // Reset option — shown after 2 failed attempts or always in non-first-setup if unlockError is set
+            if !isFirstSetup && failedAttempts >= 2 {
+                Divider().frame(width: 300)
+                VStack(spacing: 6) {
+                    Text("masterpassword.reset_hint")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 300)
+                    Button(String(localized: "masterpassword.reset_btn")) {
+                        showResetConfirm = true
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.red)
+                    .font(.callout)
+                }
+            }
         }
         .padding(40)
         .frame(width: 460)
@@ -96,28 +128,67 @@ struct MasterPasswordView: View {
                 focused = true
             }
         }
+        .confirmationDialog(
+            String(localized: "masterpassword.reset_confirm_title"),
+            isPresented: $showResetConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "masterpassword.reset_confirm_btn"), role: .destructive) {
+                resetAll()
+            }
+            Button(String(localized: "action.cancel"), role: .cancel) {}
+        } message: {
+            Text("masterpassword.reset_confirm_msg")
+        }
     }
 
     private func unlock() {
+        keychainError = nil
         if isFirstSetup {
             guard password == confirmPassword else {
                 vm.unlockError = String(localized: "masterpassword.mismatch")
                 return
             }
             if saveToKeychain {
-                try? KeychainService.saveMasterPassword(password, syncToiCloud: syncToiCloud)
+                do {
+                    try KeychainService.saveMasterPassword(password, syncToiCloud: syncToiCloud)
+                } catch {
+                    keychainError = error.localizedDescription
+                }
             }
             vm.masterPassword = password
             vm.settings.masterPasswordEnabled = true
             vm.saveSettings()
-            // Save initial (empty) credential store
             try? vm.db.saveCredentials([], masterPassword: password)
             vm.isUnlocked = true
         } else {
             vm.unlock(password: password)
-            if vm.isUnlocked && saveToKeychain && !KeychainService.hasMasterPasswordInKeychain {
-                try? KeychainService.saveMasterPassword(password, syncToiCloud: syncToiCloud)
+            if vm.isUnlocked {
+                if saveToKeychain && !KeychainService.hasMasterPasswordInKeychain {
+                    do {
+                        try KeychainService.saveMasterPassword(password, syncToiCloud: syncToiCloud)
+                    } catch {
+                        keychainError = error.localizedDescription
+                    }
+                }
+            } else {
+                failedAttempts += 1
             }
         }
+    }
+
+    private func resetAll() {
+        // Delete encrypted credentials file
+        let encFile = vm.db.appSupportURL.appendingPathComponent("credentials.enc")
+        try? FileManager.default.removeItem(at: encFile)
+        // Clear keychain
+        KeychainService.deleteMasterPassword()
+        // Reset app state — now opens without encryption
+        vm.masterPassword = ""
+        vm.unlockError = nil
+        vm.credentials = []
+        vm.settings.masterPasswordEnabled = false
+        vm.saveSettings()
+        vm.isUnlocked = true
     }
 }

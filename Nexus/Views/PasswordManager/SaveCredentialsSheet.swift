@@ -75,11 +75,13 @@ struct SaveCredentialsSheet: View {
         }
         .frame(width: 380)
         .onAppear {
-            // Pre-fill with password captured from terminal input
+            // Pre-fill with password captured from terminal input.
+            // Don't steal focus when pre-filled — user would accidentally overwrite it.
             if !cs.capturedPassword.isEmpty {
                 password = cs.capturedPassword
+            } else {
+                focused = true
             }
-            focused = true
         }
     }
 

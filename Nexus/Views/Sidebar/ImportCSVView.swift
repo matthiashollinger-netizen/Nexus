@@ -255,6 +255,7 @@ struct ImportCSVView: View {
 
         vm.addImportedData(sessions: newSessions, folders: newFolders, credentials: newCredentials)
         importedCount = newSessions.count
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { dismiss() }
     }
 
     // MARK: - CSV line parser

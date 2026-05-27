@@ -13,22 +13,19 @@ struct KeychainService {
     static func saveMasterPassword(_ password: String, syncToiCloud: Bool = false) throws {
         let data = Data(password.utf8)
 
-        // Delete any existing entry first (both local and iCloud)
+        // Delete any existing entry first (local + iCloud)
         deleteMasterPassword()
 
-        var query: [String: Any] = [
+        let query: [String: Any] = [
             kSecClass as String:              kSecClassGenericPassword,
             kSecAttrService as String:        service,
             kSecAttrAccount as String:        masterAccount,
             kSecValueData as String:          data,
             kSecAttrAccessible as String:     kSecAttrAccessibleWhenUnlocked,
+            kSecAttrSynchronizable as String: syncToiCloud ? kCFBooleanTrue! : kCFBooleanFalse!,
             kSecAttrLabel as String:          "Nexus Master Password",
             kSecAttrComment as String:        "Automatically stored by Nexus"
         ]
-        // Only set Synchronizable when explicitly requested (avoids macOS quirks)
-        if syncToiCloud {
-            query[kSecAttrSynchronizable as String] = kCFBooleanTrue!
-        }
 
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else {
