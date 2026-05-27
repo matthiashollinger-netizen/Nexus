@@ -17,10 +17,11 @@ struct SSHArgumentBuilder {
         args += ["-o", "ConnectTimeout=10"]
 
         if useLegacyAlgorithms {
+            // ssh-dss (DSA) removed in OpenSSH 9+; only add ssh-rsa
             args += [
                 "-o", "KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1,diffie-hellman-group1-sha1",
-                "-o", "HostKeyAlgorithms=+ssh-rsa,ssh-dss",
-                "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa,ssh-dss"
+                "-o", "HostKeyAlgorithms=+ssh-rsa",
+                "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa"
             ]
         }
 
