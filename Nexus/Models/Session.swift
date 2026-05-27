@@ -33,6 +33,7 @@ struct Session: Identifiable, Codable, Hashable {
     var connectionType: ConnectionType = .ssh
     var folderId: UUID? = nil
     var credentialId: UUID? = nil
+    var description: String = ""
     var tags: [String] = []
     var sortOrder: Int = 0
 

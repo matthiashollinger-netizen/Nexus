@@ -3,8 +3,15 @@ import SwiftUI
 struct ContentView: View {
     @Environment(AppViewModel.self) private var vm
 
+    private var shouldShowOnboarding: Bool {
+        // Show once to users who haven't configured encryption yet
+        !vm.settings.hasCompletedOnboarding && !vm.settings.masterPasswordEnabled
+    }
+
     var body: some View {
-        if vm.settings.masterPasswordEnabled && !vm.isUnlocked {
+        if shouldShowOnboarding {
+            OnboardingView()
+        } else if vm.settings.masterPasswordEnabled && !vm.isUnlocked {
             MasterPasswordView()
         } else {
             MainView()

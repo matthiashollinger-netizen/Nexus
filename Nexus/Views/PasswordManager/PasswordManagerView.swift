@@ -11,9 +11,19 @@ struct PasswordManagerView: View {
     @State private var showImport = false
     @State private var exportError: String? = nil
 
-    var filtered: [Credential] {
-        guard !searchText.isEmpty else { return vm.credentials }
-        return vm.credentials.filter {
+    var filteredGroups: [Credential] {
+        let all = vm.credentials.filter { $0.isGroup }
+        guard !searchText.isEmpty else { return all }
+        return all.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText) ||
+            $0.username.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    var filteredSessionCreds: [Credential] {
+        let all = vm.credentials.filter { !$0.isGroup }
+        guard !searchText.isEmpty else { return all }
+        return all.filter {
             $0.name.localizedCaseInsensitiveContains(searchText) ||
             $0.username.localizedCaseInsensitiveContains(searchText)
         }
@@ -21,9 +31,23 @@ struct PasswordManagerView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(filtered, selection: $editingCredential) { cred in
-                CredentialRowView(credential: cred)
-                    .tag(cred)
+            List(selection: $editingCredential) {
+                // Password groups (shared, reusable)
+                if !filteredGroups.isEmpty || searchText.isEmpty {
+                    Section("pwmgr.groups") {
+                        ForEach(filteredGroups) { cred in
+                            CredentialRowView(credential: cred).tag(cred)
+                        }
+                    }
+                }
+                // Session-specific credentials (auto-created, not reusable via picker)
+                if !filteredSessionCreds.isEmpty {
+                    Section("pwmgr.session_creds") {
+                        ForEach(filteredSessionCreds) { cred in
+                            CredentialRowView(credential: cred).tag(cred)
+                        }
+                    }
+                }
             }
             .searchable(text: $searchText)
             .listStyle(.sidebar)

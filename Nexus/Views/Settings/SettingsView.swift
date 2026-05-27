@@ -189,6 +189,10 @@ struct SecuritySettingsView: View {
     }
 
     private func changeMasterPassword() {
+        // Always clear both messages first
+        errorMessage = nil
+        successMessage = nil
+
         guard newPassword == confirmNewPassword else {
             errorMessage = String(localized: "masterpassword.mismatch")
             return
@@ -197,7 +201,10 @@ struct SecuritySettingsView: View {
             let creds = try vm.db.loadCredentials(masterPassword: currentPassword)
             try vm.db.saveCredentials(creds, masterPassword: newPassword)
             vm.masterPassword = newPassword
-            errorMessage = nil
+            // Update keychain if password was stored there
+            if KeychainService.hasMasterPasswordInKeychain {
+                try? KeychainService.saveMasterPassword(newPassword)
+            }
             successMessage = String(localized: "settings.security.password_changed")
             currentPassword = ""
             newPassword = ""

@@ -10,4 +10,5 @@ struct AppSettings: Codable {
     var defaultSSHPort: Int = 22
     var defaultTelnetPort: Int = 23
     var masterPasswordEnabled: Bool = false
+    var hasCompletedOnboarding: Bool = false
 }

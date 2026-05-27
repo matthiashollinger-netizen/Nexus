@@ -132,7 +132,11 @@ struct SessionRow: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(session.name.isEmpty ? session.host : session.name)
                     .font(.body)
-                if !session.host.isEmpty && !session.name.isEmpty {
+                if !session.description.isEmpty {
+                    Text(session.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if !session.host.isEmpty && !session.name.isEmpty {
                     Text(session.host)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -174,7 +178,8 @@ private extension [Session] {
         return filter {
             $0.name.localizedCaseInsensitiveContains(text) ||
             $0.host.localizedCaseInsensitiveContains(text) ||
-            $0.username.localizedCaseInsensitiveContains(text)
+            $0.username.localizedCaseInsensitiveContains(text) ||
+            $0.description.localizedCaseInsensitiveContains(text)
         }
     }
 }

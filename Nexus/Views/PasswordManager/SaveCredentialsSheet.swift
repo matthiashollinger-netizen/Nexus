@@ -74,7 +74,13 @@ struct SaveCredentialsSheet: View {
             .padding()
         }
         .frame(width: 380)
-        .onAppear { focused = true }
+        .onAppear {
+            // Pre-fill with password captured from terminal input
+            if !cs.capturedPassword.isEmpty {
+                password = cs.capturedPassword
+            }
+            focused = true
+        }
     }
 
     private func saveCredential() {
@@ -82,6 +88,7 @@ struct SaveCredentialsSheet: View {
         cred.name = cs.session.name.isEmpty ? cs.session.host : cs.session.name
         cred.username = cs.session.username
         cred.password = password
+        cred.isGroup = false    // session-specific, not shown in group picker
 
         // Deduplicate
         if let existing = vm.credentials.first(where: {

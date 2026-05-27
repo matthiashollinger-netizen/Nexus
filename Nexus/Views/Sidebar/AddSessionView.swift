@@ -38,7 +38,10 @@ struct AddSessionView: View {
             Form {
                 Section("session.general") {
                     LabeledContent("session.name") {
-                        TextField("session.name.placeholder", text: $draft.name)
+                        TextField("", text: $draft.name)
+                    }
+                    LabeledContent("session.description") {
+                        TextField("", text: $draft.description)
                     }
                     LabeledContent("session.type") {
                         Picker("", selection: $draft.connectionType) {
@@ -63,7 +66,7 @@ struct AddSessionView: View {
                     SSHSection(draft: $draft)
                 }
 
-                // ── Zugangsdaten ──────────────────────────────────────
+                // ── Passwortgruppe ────────────────────────────────────
                 Section {
                     // If already linked to a credential
                     if let credName = linkedCredentialName {
@@ -77,15 +80,15 @@ struct AddSessionView: View {
                                 .font(.callout)
                         }
                     } else {
-                        // Choose existing credential
-                        CredentialPicker(selectedId: $draft.credentialId)
+                        // Select a password group
+                        PasswordGroupPicker(selectedId: $draft.credentialId)
                             .onChange(of: draft.credentialId) { _, newVal in
                                 if newVal != nil { useQuickCredential = false }
                             }
 
                         Divider()
 
-                        // OR enter credentials inline
+                        // OR enter a password directly for this session
                         Toggle("session.credential.enter_now", isOn: $useQuickCredential)
                             .onChange(of: useQuickCredential) { _, on in
                                 if on { draft.credentialId = nil }
@@ -98,7 +101,7 @@ struct AddSessionView: View {
                         }
                     }
                 } header: {
-                    Text("session.credential")
+                    Text("session.pwgroup")
                 } footer: {
                     if useQuickCredential && !quickPassword.isEmpty {
                         Label("session.credential.auto_save_hint", systemImage: "info.circle")
@@ -106,8 +109,14 @@ struct AddSessionView: View {
                     }
                 }
 
-                Section("session.tags") {
+                Section {
                     TagEditor(tags: $draft.tags)
+                } header: {
+                    Text("session.tags")
+                } footer: {
+                    Text("session.tags.hint")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .formStyle(.grouped)
@@ -132,6 +141,7 @@ struct AddSessionView: View {
             cred.name = draft.name.isEmpty ? draft.host : draft.name
             cred.username = draft.username
             cred.password = quickPassword
+            cred.isGroup = false    // session-specific, not shown in password group picker
 
             // Check if an identical credential already exists
             if let existing = vm.credentials.first(where: {
@@ -296,16 +306,18 @@ struct FolderPicker: View {
     }
 }
 
-// MARK: - Credential picker
+// MARK: - Password group picker (only shared groups, not session-specific credentials)
 
-struct CredentialPicker: View {
+struct PasswordGroupPicker: View {
     @Binding var selectedId: UUID?
     @Environment(AppViewModel.self) private var vm
 
+    private var groups: [Credential] { vm.credentials.filter { $0.isGroup } }
+
     var body: some View {
-        Picker("session.credential", selection: $selectedId) {
-            Text("session.credential.none").tag(Optional<UUID>.none)
-            ForEach(vm.credentials) { cred in
+        Picker("session.pwgroup", selection: $selectedId) {
+            Text("session.pwgroup.none").tag(Optional<UUID>.none)
+            ForEach(groups) { cred in
                 Text(cred.name.isEmpty ? cred.username : cred.name).tag(Optional(cred.id))
             }
         }

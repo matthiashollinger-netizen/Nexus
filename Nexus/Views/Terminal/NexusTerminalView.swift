@@ -34,6 +34,11 @@ struct NexusTerminalView: NSViewRepresentable {
 final class NexusSSHTerminalView: LocalProcessTerminalView {
     private let cs: ConnectionSession
     private var passwordSent = false
+    /// Whether we are currently buffering keystrokes for the password capture
+    private var capturingPassword = false
+    private var captureBuffer = ""
+    /// NSEvent local monitor — installed to capture password keystrokes
+    private var keyMonitor: Any?
 
     init(cs: ConnectionSession, fontName: String, fontSize: Double) {
         self.cs = cs
@@ -41,14 +46,49 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
         let f = NSFont(name: fontName, size: CGFloat(fontSize)) ?? NSFont.monospacedSystemFont(ofSize: CGFloat(fontSize), weight: .regular)
         self.font = f
         startSSH()
+        installKeyMonitor()
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    deinit {
+        if let m = keyMonitor { NSEvent.removeMonitor(m) }
+    }
 
     private func startSSH() {
         cs.state = .connecting
         startProcess(executable: "/usr/bin/ssh", args: cs.sshArgs)
         cs.state = .connected
+    }
+
+    private func installKeyMonitor() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            self?.handleCaptureKey(event)
+            return event    // always pass through so terminal still receives it
+        }
+    }
+
+    private func handleCaptureKey(_ event: NSEvent) {
+        guard capturingPassword else { return }
+        // Only capture events from our window
+        guard let eventWindow = event.window, eventWindow === self.window else { return }
+
+        switch event.keyCode {
+        case 36, 76:   // Return / numpad Enter — password done
+            let pwd = captureBuffer
+            captureBuffer = ""
+            capturingPassword = false
+            DispatchQueue.main.async { [weak self] in
+                self?.cs.capturedPassword = pwd
+            }
+        case 51, 117:  // Backspace / Delete
+            if !captureBuffer.isEmpty { captureBuffer.removeLast() }
+        default:
+            if let chars = event.characters {
+                // Accept printable characters only
+                captureBuffer += chars.filter { ($0.asciiValue ?? 0) >= 32 }
+            }
+        }
     }
 
     // MARK: - Override LocalProcessTerminalView hooks
@@ -66,6 +106,18 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
                     guard let self, !self.passwordSent else { return }
                     self.send(txt: pwd + "\r")
                     self.passwordSent = true
+                }
+            }
+        }
+
+        // If no credential linked → capture what the user types at the password prompt
+        // so SaveCredentialsSheet can pre-fill it
+        if cs.sshPassword == nil && !cs.credentialSaveOffered {
+            if lower.contains("password:") {
+                capturingPassword = true
+                captureBuffer = ""
+                DispatchQueue.main.async { [weak self] in
+                    self?.cs.capturedPassword = ""
                 }
             }
         }

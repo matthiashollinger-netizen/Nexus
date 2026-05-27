@@ -30,6 +30,7 @@
 "session.network" = "Network";
 "session.name" = "Name";
 "session.name.placeholder" = "My Server";
+"session.description" = "Description";
 "session.type" = "Protocol";
 "session.host" = "Hostname / IP";
 "session.host.placeholder" = "192.168.1.1";
@@ -43,6 +44,9 @@
 "session.credential.enter_now" = "Enter credentials now";
 "session.credential.auto_save_hint" = "Credentials will be saved to the Password Manager and linked to this session.";
 "session.tags" = "Tags";
+"session.tags.hint" = "Tags allow you to filter and group sessions.";
+"session.pwgroup" = "Password Group";
+"session.pwgroup.none" = "None";
 "session.ssh" = "SSH Options";
 "session.ssh.key" = "Private Key";
 "session.ssh.key.placeholder" = "~/.ssh/id_rsa";
@@ -82,6 +86,8 @@
 "pwmgr.title" = "Password Manager";
 "pwmgr.select" = "Select a credential";
 "pwmgr.info" = "Info";
+"pwmgr.groups" = "Password Groups";
+"pwmgr.session_creds" = "Session Credentials";
 "pwmgr.export" = "Export Database";
 "pwmgr.import" = "Import Database";
 
@@ -167,6 +173,14 @@
 // MARK: - Toolbar
 "toolbar.password_manager" = "Password Manager";
 "toolbar.import" = "Import Sessions";
+
+// MARK: - Onboarding
+"onboarding.title" = "Welcome to Nexus";
+"onboarding.subtitle" = "Nexus manages your SSH, Telnet and Serial connections. Would you like to protect your stored credentials with a master password?";
+"onboarding.encryption.title" = "AES-256 Encryption";
+"onboarding.encryption.hint" = "All credentials are encrypted and protected by a master password. Optionally stored in the macOS Keychain for automatic unlock.";
+"onboarding.setup_encryption" = "Set Up Encryption";
+"onboarding.skip" = "Skip";
 
 // MARK: - Menu
 "menu.new_session" = "New Session";

@@ -25,6 +25,8 @@ final class ConnectionSession: Identifiable {
     var shouldOfferCredentialSave: Bool = false
     /// Prevents the save-offer from showing more than once per session
     var credentialSaveOffered: Bool = false
+    /// Password captured from terminal input when no credential is stored
+    var capturedPassword: String = ""
 
     // Telnet
     var telnetService: TelnetService?

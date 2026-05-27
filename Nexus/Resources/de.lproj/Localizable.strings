@@ -30,6 +30,7 @@
 "session.network" = "Netzwerk";
 "session.name" = "Name";
 "session.name.placeholder" = "Mein Server";
+"session.description" = "Beschreibung";
 "session.type" = "Protokoll";
 "session.host" = "Hostname / IP";
 "session.host.placeholder" = "192.168.1.1";
@@ -43,6 +44,9 @@
 "session.credential.enter_now" = "Zugangsdaten jetzt eingeben";
 "session.credential.auto_save_hint" = "Zugangsdaten werden im Passwort-Manager gespeichert und mit dieser Session verknüpft.";
 "session.tags" = "Tags";
+"session.tags.hint" = "Tags ermöglichen das Filtern und Gruppieren von Sessions.";
+"session.pwgroup" = "Passwortgruppe";
+"session.pwgroup.none" = "Keine";
 "session.ssh" = "SSH-Optionen";
 "session.ssh.key" = "Privater Schlüssel";
 "session.ssh.key.placeholder" = "~/.ssh/id_rsa";
@@ -82,6 +86,8 @@
 "pwmgr.title" = "Passwort-Manager";
 "pwmgr.select" = "Anmeldedaten auswählen";
 "pwmgr.info" = "Info";
+"pwmgr.groups" = "Passwortgruppen";
+"pwmgr.session_creds" = "Session-Anmeldedaten";
 "pwmgr.export" = "Datenbank exportieren";
 "pwmgr.import" = "Datenbank importieren";
 
@@ -163,6 +169,14 @@
 "import.field.password" = "Passwort";
 "import.field.folder" = "Ordner";
 "import.field.tags" = "Tags";
+
+// MARK: - Onboarding
+"onboarding.title" = "Willkommen bei Nexus";
+"onboarding.subtitle" = "Nexus verwaltet deine SSH-, Telnet- und Seriell-Verbindungen. Möchtest du deine gespeicherten Zugangsdaten mit einem Master-Passwort schützen?";
+"onboarding.encryption.title" = "AES-256-Verschlüsselung";
+"onboarding.encryption.hint" = "Alle Zugangsdaten werden verschlüsselt und mit einem Master-Passwort gesichert. Optional im macOS-Schlüsselbund hinterlegt für automatisches Entsperren.";
+"onboarding.setup_encryption" = "Verschlüsselung einrichten";
+"onboarding.skip" = "Überspringen";
 
 // MARK: - Werkzeugleiste
 "toolbar.password_manager" = "Passwort-Manager";

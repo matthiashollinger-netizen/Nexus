@@ -42,7 +42,7 @@ struct AddFolderView: View {
                     }
                 }
                 Section("folder.credential") {
-                    CredentialPicker(selectedId: $selectedCredentialId)
+                    PasswordGroupPicker(selectedId: $selectedCredentialId)
                 }
             }
             .formStyle(.grouped)
