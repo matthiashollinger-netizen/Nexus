@@ -197,9 +197,9 @@ struct SessionRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .tag(SidebarItem.session(session))
-        .onTapGesture(count: 2) {
-            vm.connect(to: session)
-        }
+        // simultaneousGesture lets the List selection fire AND the double-tap fire
+        // independently — onTapGesture(count:2) would sometimes eat single clicks
+        .simultaneousGesture(TapGesture(count: 2).onEnded { vm.connect(to: session) })
         .contextMenu {
             Button {
                 vm.connect(to: session)

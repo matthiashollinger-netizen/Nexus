@@ -8,6 +8,15 @@ struct NexusTerminalView: NSViewRepresentable {
     let cs: ConnectionSession
     let fontName: String
     let fontSize: Double
+    /// True when this terminal is the currently visible tab.
+    /// Changing from false → true triggers automatic keyboard focus.
+    let isActive: Bool
+
+    // Coordinator tracks previous isActive value to detect transitions
+    final class Coordinator {
+        var wasActive: Bool = false
+    }
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> NSView {
         switch cs.session.connectionType {
@@ -22,6 +31,12 @@ struct NexusTerminalView: NSViewRepresentable {
         let f = resolvedFont(name: fontName, size: fontSize)
         if let ssh = nsView as? NexusSSHTerminalView { ssh.font = f }
         if let net = nsView as? NexusNetTerminalView { net.font = f }
+
+        // Give keyboard focus when this tab becomes the active one (false → true)
+        if isActive && !context.coordinator.wasActive {
+            DispatchQueue.main.async { nsView.window?.makeFirstResponder(nsView) }
+        }
+        context.coordinator.wasActive = isActive
     }
 
     private func resolvedFont(name: String, size: Double) -> NSFont {
@@ -34,11 +49,10 @@ struct NexusTerminalView: NSViewRepresentable {
 final class NexusSSHTerminalView: LocalProcessTerminalView {
     private let cs: ConnectionSession
     private var passwordSent = false
-    /// Whether we are currently buffering keystrokes for the password capture
     private var capturingPassword = false
     private var captureBuffer = ""
-    /// NSEvent local monitor — installed to capture password keystrokes
     private var keyMonitor: Any?
+    private let highlighter = TerminalHighlighter.shared
 
     init(cs: ConnectionSession, fontName: String, fontSize: Double) {
         self.cs = cs
@@ -53,6 +67,17 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
 
     deinit {
         if let m = keyMonitor { NSEvent.removeMonitor(m) }
+    }
+
+    // Auto-focus when added to a window (initial connection open)
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.window?.makeFirstResponder(self)
+            }
+        }
     }
 
     private func startSSH() {
@@ -74,34 +99,27 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
 
     private func handleCaptureKey(_ event: NSEvent) {
         guard capturingPassword else { return }
-        // Only capture events from our window
         guard let eventWindow = event.window, eventWindow === self.window else { return }
 
-        // Cmd+V — paste from clipboard (replace buffer, don't append)
         if event.modifierFlags.contains(.command) && event.keyCode == 9 {
             if let pasted = NSPasteboard.general.string(forType: .string), !pasted.isEmpty {
-                // Strip newlines from pasted password (common when copying from a doc)
                 captureBuffer = pasted.components(separatedBy: .newlines).joined()
             }
             return
         }
 
         switch event.keyCode {
-        case 36, 76:   // Return / numpad Enter — password done
+        case 36, 76:
             let pwd = captureBuffer
             captureBuffer = ""
             capturingPassword = false
-            DispatchQueue.main.async { [weak self] in
-                self?.cs.capturedPassword = pwd
-            }
-        case 51, 117:  // Backspace / Delete
+            DispatchQueue.main.async { [weak self] in self?.cs.capturedPassword = pwd }
+        case 51, 117:
             if !captureBuffer.isEmpty { captureBuffer.removeLast() }
         default:
-            if let chars = event.characters {
-                // Accept printable characters only, ignore modifier-only events
-                if event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
-                    captureBuffer += chars.filter { ($0.asciiValue ?? 0) >= 32 }
-                }
+            if let chars = event.characters,
+               event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
+                captureBuffer += chars.filter { ($0.asciiValue ?? 0) >= 32 }
             }
         }
     }
@@ -109,10 +127,14 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
     // MARK: - Override LocalProcessTerminalView hooks
 
     override func dataReceived(slice: ArraySlice<UInt8>) {
-        super.dataReceived(slice: slice)
-
-        let text = String(bytes: slice, encoding: .utf8) ?? ""
+        // Detect on original text before highlighting
+        let originalBytes = Array(slice)
+        let text = String(bytes: originalBytes, encoding: .utf8) ?? ""
         let lower = text.lowercased()
+
+        // Feed highlighted bytes to the terminal
+        let highlighted = highlighter.process(originalBytes)
+        super.dataReceived(slice: ArraySlice(highlighted))
 
         // Auto-send stored password on password prompt
         if !passwordSent, let pwd = cs.sshPassword {
@@ -125,28 +147,24 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
             }
         }
 
-        // If no credential linked → capture what the user types at the password prompt
-        // so SaveCredentialsSheet can pre-fill it
+        // Capture typed password for SaveCredentialsSheet
         if cs.sshPassword == nil && !cs.credentialSaveOffered {
             if lower.contains("password:") {
                 capturingPassword = true
                 captureBuffer = ""
-                DispatchQueue.main.async { [weak self] in
-                    self?.cs.capturedPassword = ""
-                }
+                DispatchQueue.main.async { [weak self] in self?.cs.capturedPassword = "" }
             }
         }
 
-        // Detect shell prompt → offer "save credentials?" if no credential linked
+        // Detect shell prompt → offer save credentials
         if !cs.credentialSaveOffered {
-            // Common prompt endings: "$ ", "# ", "% ", "> "
             let lines = text.components(separatedBy: .newlines)
             let hasPrompt = lines.contains { line in
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-                return !trimmed.isEmpty &&
-                    (trimmed.hasSuffix("$ ") || trimmed.hasSuffix("# ") ||
-                     trimmed.hasSuffix("% ") || trimmed.hasSuffix("> ") ||
-                     trimmed.last == "$" || trimmed.last == "#" || trimmed.last == "%")
+                let t = line.trimmingCharacters(in: .whitespaces)
+                return !t.isEmpty &&
+                    (t.hasSuffix("$ ") || t.hasSuffix("# ") ||
+                     t.hasSuffix("% ") || t.hasSuffix("> ") ||
+                     t.last == "$" || t.last == "#" || t.last == "%")
             }
             if hasPrompt {
                 DispatchQueue.main.async { [weak self] in
@@ -159,9 +177,7 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
     }
 
     override func processTerminated(_ source: LocalProcess, exitCode: Int32?) {
-        DispatchQueue.main.async { [weak self] in
-            self?.cs.state = .disconnected
-        }
+        DispatchQueue.main.async { [weak self] in self?.cs.state = .disconnected }
     }
 }
 
@@ -169,6 +185,7 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
 
 final class NexusNetTerminalView: TerminalView, TerminalViewDelegate {
     private let cs: ConnectionSession
+    private let highlighter = TerminalHighlighter.shared
 
     init(cs: ConnectionSession, fontName: String, fontSize: Double) {
         self.cs = cs
@@ -181,9 +198,23 @@ final class NexusNetTerminalView: TerminalView, TerminalViewDelegate {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    // Auto-focus when added to a window
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.window?.makeFirstResponder(self)
+            }
+        }
+    }
+
     private func startConnection() {
         cs.terminalReceiveCallback = { [weak self] bytes in
-            self?.feed(byteArray: ArraySlice(bytes))
+            guard let self else { return }
+            // Apply highlighting before feeding to the terminal
+            let highlighted = self.highlighter.process(bytes)
+            self.feed(byteArray: ArraySlice(highlighted))
         }
         switch cs.session.connectionType {
         case .telnet: cs.connectTelnet()
@@ -192,26 +223,18 @@ final class NexusNetTerminalView: TerminalView, TerminalViewDelegate {
         }
     }
 
-    // MARK: - TerminalViewDelegate (required)
+    // MARK: - TerminalViewDelegate
 
-    func send(source: TerminalView, data: ArraySlice<UInt8>) {
-        cs.terminalSendHandler?(Array(data))
-    }
-
+    func send(source: TerminalView, data: ArraySlice<UInt8>) { cs.terminalSendHandler?(Array(data)) }
     func sizeChanged(source: TerminalView, newCols: Int, newRows: Int) {}
-
     func setTerminalTitle(source: TerminalView, title: String) {
         DispatchQueue.main.async { [weak self] in self?.cs.title = title }
     }
-
     func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
-
     func scrolled(source: TerminalView, position: Double) {}
-
     func clipboardCopy(source: TerminalView, content: Data) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setData(content, forType: .string)
     }
-
     func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
 }

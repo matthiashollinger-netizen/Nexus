@@ -124,7 +124,8 @@ struct TabContentView: View {
                 NexusTerminalView(
                     cs: cs,
                     fontName: vm.settings.terminalFontName,
-                    fontSize: vm.settings.terminalFontSize
+                    fontSize: vm.settings.terminalFontSize,
+                    isActive: cs.id == vm.selectedTabId
                 )
                 // Hidden tabs have zero opacity but their NSViews stay alive
                 .opacity(cs.id == vm.selectedTabId ? 1 : 0)

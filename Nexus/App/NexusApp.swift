@@ -8,11 +8,15 @@ struct NexusApp: App {
         WindowGroup {
             ContentView()
                 .environment(appViewModel)
+                // Explicit minimum prevents the window from shrinking when sheets
+                // open/close as attached panels, which causes the "sliding" position drift.
+                .frame(minWidth: 900, minHeight: 600)
         }
         .commands {
             NexusCommands(vm: appViewModel)
         }
         .defaultSize(width: 1100, height: 720)
+        .windowResizability(.contentMinSize)
 
         Settings {
             SettingsView()
