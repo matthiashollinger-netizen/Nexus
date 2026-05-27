@@ -1,0 +1,149 @@
+// MARK: - Allgemeine Aktionen
+"action.save" = "Speichern";
+"action.cancel" = "Abbrechen";
+"action.delete" = "Löschen";
+"action.edit" = "Bearbeiten";
+"action.add" = "Hinzufügen";
+"action.close" = "Schließen";
+"action.connect" = "Verbinden";
+"action.import" = "Importieren";
+"action.export" = "Exportieren";
+
+// MARK: - Fehler
+"error.wrong_password" = "Falsches Master-Passwort oder beschädigte Datei";
+"error.invalid_format" = "Ungültiges Dateiformat";
+
+// MARK: - Willkommen
+"nexus.welcome.title" = "Willkommen bei Nexus";
+"nexus.welcome.subtitle" = "Wähle eine Session in der Seitenleiste oder doppelklicke, um dich zu verbinden.";
+
+// MARK: - Seitenleiste
+"sidebar.add_session" = "Neue Session";
+"sidebar.add_folder" = "Neuer Ordner";
+"sidebar.add_subfolder" = "Neuer Unterordner";
+
+// MARK: - Session
+"session.new" = "Neue Session";
+"session.edit" = "Session bearbeiten";
+"session.general" = "Allgemein";
+"session.network" = "Netzwerk";
+"session.name" = "Name";
+"session.name.placeholder" = "Mein Server";
+"session.type" = "Protokoll";
+"session.host" = "Hostname / IP";
+"session.host.placeholder" = "192.168.1.1";
+"session.port" = "Port";
+"session.username" = "Benutzername";
+"session.username.placeholder" = "root";
+"session.folder" = "Ordner";
+"session.folder.none" = "Kein Ordner";
+"session.credential" = "Anmeldedaten";
+"session.credential.none" = "Keine";
+"session.tags" = "Tags";
+"session.ssh" = "SSH-Optionen";
+"session.ssh.key" = "Privater Schlüssel";
+"session.ssh.key.placeholder" = "~/.ssh/id_rsa";
+"session.ssh.legacy" = "Legacy-Algorithmen verwenden";
+"session.ssh.strict_host_key" = "Strikter Host-Key-Check";
+
+// MARK: - Seriell
+"session.serial" = "Serielle Einstellungen";
+"session.serial.port" = "Schnittstelle";
+"session.serial.baud" = "Baudrate";
+"session.serial.data_bits" = "Datenbits";
+"session.serial.stop_bits" = "Stoppbits";
+"session.serial.parity" = "Parität";
+"session.serial.flow" = "Flusssteuerung";
+"serial.parity.none" = "Keine";
+"serial.parity.even" = "Gerade";
+"serial.parity.odd" = "Ungerade";
+"serial.flow.none" = "Keine";
+"serial.flow.hardware" = "Hardware (RTS/CTS)";
+"serial.flow.software" = "Software (XON/XOFF)";
+
+// MARK: - Ordner
+"folder.new" = "Neuer Ordner";
+"folder.edit" = "Ordner bearbeiten";
+"folder.general" = "Allgemein";
+"folder.name" = "Name";
+"folder.name.placeholder" = "Meine Server";
+"folder.parent" = "Übergeordneter Ordner";
+"folder.parent.none" = "Oberste Ebene";
+"folder.credential" = "Standard-Anmeldedaten";
+
+// MARK: - Tags
+"tag.new" = "Neuer Tag…";
+
+// MARK: - Passwort-Manager
+"pwmgr.title" = "Passwort-Manager";
+"pwmgr.select" = "Anmeldedaten auswählen";
+"pwmgr.export" = "Datenbank exportieren";
+"pwmgr.import" = "Datenbank importieren";
+
+// MARK: - Anmeldedaten
+"cred.new" = "Neue Anmeldedaten";
+"cred.edit" = "Anmeldedaten bearbeiten";
+"cred.info" = "Info";
+"cred.name" = "Name";
+"cred.name.placeholder" = "Meine Anmeldedaten";
+"cred.username" = "Benutzername";
+"cred.username.placeholder" = "admin";
+"cred.password" = "Passwort";
+"cred.password.placeholder" = "••••••••";
+"cred.private_key" = "Privater Schlüssel";
+"cred.private_key.set" = "Schlüssel gesetzt";
+"cred.passphrase" = "Schlüssel-Passphrase";
+"cred.passphrase.placeholder" = "Optional";
+"cred.notes" = "Notizen";
+"cred.updated" = "Zuletzt geändert";
+
+// MARK: - Master-Passwort
+"masterpassword.title" = "Master-Passwort eingeben";
+"masterpassword.setup_hint" = "Lege ein Master-Passwort fest, um gespeicherte Anmeldedaten zu schützen.";
+"masterpassword.placeholder" = "Master-Passwort";
+"masterpassword.confirm" = "Passwort bestätigen";
+"masterpassword.unlock" = "Entsperren";
+"masterpassword.skip" = "Überspringen";
+"masterpassword.mismatch" = "Passwörter stimmen nicht überein";
+
+// MARK: - Einstellungen
+"settings.general" = "Allgemein";
+"settings.terminal" = "Terminal";
+"settings.ssh" = "SSH";
+"settings.security" = "Sicherheit";
+"settings.language" = "Sprache";
+"settings.terminal.font" = "Schriftart";
+"settings.font_name" = "Schriftart";
+"settings.font_size" = "Größe";
+"settings.terminal.preview" = "Vorschau";
+"settings.ssh.legacy" = "Legacy-Algorithmus-Unterstützung";
+"settings.ssh.legacy_algorithms" = "Legacy-SSH-Algorithmen aktivieren";
+"settings.ssh.legacy_hint" = "Aktiviert diffie-hellman-group14-sha1, diffie-hellman-group-exchange-sha1 und ssh-rsa für die Verbindung zu älteren Geräten.";
+"settings.ssh.defaults" = "Standard-Ports";
+"settings.telnet.port" = "Standard-Telnet-Port";
+"settings.security.master_password" = "Master-Passwort aktivieren";
+"settings.security.master_password_hint" = "Verschlüsselt gespeicherte Anmeldedaten mit AES-256. Wird bei jedem App-Start abgefragt.";
+"settings.security.change_password" = "Master-Passwort ändern";
+"settings.security.current_password" = "Aktuelles Passwort";
+"settings.security.new_password" = "Neues Passwort";
+"settings.security.confirm_password" = "Passwort bestätigen";
+"settings.security.change_password_btn" = "Passwort ändern";
+"settings.security.password_changed" = "Passwort erfolgreich geändert";
+
+// MARK: - Import
+"import.csv.title" = "Sessions importieren";
+"import.csv.header" = "Termius CSV-Format";
+"import.csv.format_hint" = "Format: Groups,Label,Tags,Hostname/IP,Protocol,Port,Username,Password";
+"import.csv.preview" = "CSV-Vorschau";
+"import.choose_file" = "CSV-Datei auswählen…";
+"import.success" = "%d Session(s) importiert";
+
+// MARK: - Werkzeugleiste
+"toolbar.password_manager" = "Passwort-Manager";
+"toolbar.import" = "Sessions importieren";
+
+// MARK: - Menü
+"menu.new_session" = "Neue Session";
+"menu.new_folder" = "Neuer Ordner";
+"menu.import_csv" = "Aus CSV importieren…";
+"menu.password_manager" = "Passwort-Manager";

@@ -1,0 +1,149 @@
+// MARK: - General Actions
+"action.save" = "Save";
+"action.cancel" = "Cancel";
+"action.delete" = "Delete";
+"action.edit" = "Edit";
+"action.add" = "Add";
+"action.close" = "Close";
+"action.connect" = "Connect";
+"action.import" = "Import";
+"action.export" = "Export";
+
+// MARK: - Errors
+"error.wrong_password" = "Wrong master password or corrupt file";
+"error.invalid_format" = "Invalid file format";
+
+// MARK: - Welcome
+"nexus.welcome.title" = "Welcome to Nexus";
+"nexus.welcome.subtitle" = "Select a session from the sidebar or double-click to connect.";
+
+// MARK: - Sidebar
+"sidebar.add_session" = "New Session";
+"sidebar.add_folder" = "New Folder";
+"sidebar.add_subfolder" = "New Subfolder";
+
+// MARK: - Session
+"session.new" = "New Session";
+"session.edit" = "Edit Session";
+"session.general" = "General";
+"session.network" = "Network";
+"session.name" = "Name";
+"session.name.placeholder" = "My Server";
+"session.type" = "Protocol";
+"session.host" = "Hostname / IP";
+"session.host.placeholder" = "192.168.1.1";
+"session.port" = "Port";
+"session.username" = "Username";
+"session.username.placeholder" = "root";
+"session.folder" = "Folder";
+"session.folder.none" = "No Folder";
+"session.credential" = "Credential";
+"session.credential.none" = "None";
+"session.tags" = "Tags";
+"session.ssh" = "SSH Options";
+"session.ssh.key" = "Private Key";
+"session.ssh.key.placeholder" = "~/.ssh/id_rsa";
+"session.ssh.legacy" = "Use Legacy Algorithms";
+"session.ssh.strict_host_key" = "Strict Host Key Checking";
+
+// MARK: - Serial
+"session.serial" = "Serial Settings";
+"session.serial.port" = "Port";
+"session.serial.baud" = "Baud Rate";
+"session.serial.data_bits" = "Data Bits";
+"session.serial.stop_bits" = "Stop Bits";
+"session.serial.parity" = "Parity";
+"session.serial.flow" = "Flow Control";
+"serial.parity.none" = "None";
+"serial.parity.even" = "Even";
+"serial.parity.odd" = "Odd";
+"serial.flow.none" = "None";
+"serial.flow.hardware" = "Hardware (RTS/CTS)";
+"serial.flow.software" = "Software (XON/XOFF)";
+
+// MARK: - Folder
+"folder.new" = "New Folder";
+"folder.edit" = "Edit Folder";
+"folder.general" = "General";
+"folder.name" = "Name";
+"folder.name.placeholder" = "My Servers";
+"folder.parent" = "Parent Folder";
+"folder.parent.none" = "Top Level";
+"folder.credential" = "Default Credential";
+
+// MARK: - Tags
+"tag.new" = "New tag…";
+
+// MARK: - Password Manager
+"pwmgr.title" = "Password Manager";
+"pwmgr.select" = "Select a credential";
+"pwmgr.export" = "Export Database";
+"pwmgr.import" = "Import Database";
+
+// MARK: - Credential
+"cred.new" = "New Credential";
+"cred.edit" = "Edit Credential";
+"cred.info" = "Info";
+"cred.name" = "Name";
+"cred.name.placeholder" = "My Credential";
+"cred.username" = "Username";
+"cred.username.placeholder" = "admin";
+"cred.password" = "Password";
+"cred.password.placeholder" = "••••••••";
+"cred.private_key" = "Private Key";
+"cred.private_key.set" = "Key set";
+"cred.passphrase" = "Passphrase";
+"cred.passphrase.placeholder" = "Optional";
+"cred.notes" = "Notes";
+"cred.updated" = "Last Updated";
+
+// MARK: - Master Password
+"masterpassword.title" = "Enter Master Password";
+"masterpassword.setup_hint" = "Set a master password to protect your stored credentials.";
+"masterpassword.placeholder" = "Master Password";
+"masterpassword.confirm" = "Confirm Password";
+"masterpassword.unlock" = "Unlock";
+"masterpassword.skip" = "Skip";
+"masterpassword.mismatch" = "Passwords do not match";
+
+// MARK: - Settings
+"settings.general" = "General";
+"settings.terminal" = "Terminal";
+"settings.ssh" = "SSH";
+"settings.security" = "Security";
+"settings.language" = "Language";
+"settings.terminal.font" = "Font";
+"settings.font_name" = "Font";
+"settings.font_size" = "Size";
+"settings.terminal.preview" = "Preview";
+"settings.ssh.legacy" = "Legacy Algorithm Support";
+"settings.ssh.legacy_algorithms" = "Enable Legacy SSH Algorithms";
+"settings.ssh.legacy_hint" = "Enables diffie-hellman-group14-sha1, diffie-hellman-group-exchange-sha1 and ssh-rsa for connecting to older devices.";
+"settings.ssh.defaults" = "Default Ports";
+"settings.telnet.port" = "Default Telnet Port";
+"settings.security.master_password" = "Enable Master Password";
+"settings.security.master_password_hint" = "Encrypts stored credentials with AES-256. Required at every app launch.";
+"settings.security.change_password" = "Change Master Password";
+"settings.security.current_password" = "Current Password";
+"settings.security.new_password" = "New Password";
+"settings.security.confirm_password" = "Confirm Password";
+"settings.security.change_password_btn" = "Change Password";
+"settings.security.password_changed" = "Password changed successfully";
+
+// MARK: - Import
+"import.csv.title" = "Import Sessions";
+"import.csv.header" = "Termius CSV Format";
+"import.csv.format_hint" = "Format: Groups,Label,Tags,Hostname/IP,Protocol,Port,Username,Password";
+"import.csv.preview" = "CSV Preview";
+"import.choose_file" = "Choose CSV File…";
+"import.success" = "%d session(s) imported";
+
+// MARK: - Toolbar
+"toolbar.password_manager" = "Password Manager";
+"toolbar.import" = "Import Sessions";
+
+// MARK: - Menu
+"menu.new_session" = "New Session";
+"menu.new_folder" = "New Folder";
+"menu.import_csv" = "Import from CSV…";
+"menu.password_manager" = "Password Manager";
