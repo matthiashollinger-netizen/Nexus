@@ -148,11 +148,21 @@
 
 // MARK: - Import
 "import.csv.title" = "Import Sessions";
-"import.csv.header" = "Termius CSV Format";
-"import.csv.format_hint" = "Format: Groups,Label,Tags,Hostname/IP,Protocol,Port,Username,Password";
-"import.csv.preview" = "CSV Preview";
 "import.choose_file" = "Choose CSV File…";
+"import.choose_file_again" = "Choose Different File…";
+"import.rows_loaded" = "%d rows loaded";
+"import.mapping.title" = "Column Mapping";
+"import.preview.title" = "Preview (first row)";
 "import.success" = "%d session(s) imported";
+"import.field.skip" = "Skip";
+"import.field.name" = "Name";
+"import.field.host" = "Hostname / IP";
+"import.field.proto" = "Protocol";
+"import.field.port" = "Port";
+"import.field.username" = "Username";
+"import.field.password" = "Password";
+"import.field.folder" = "Folder";
+"import.field.tags" = "Tags";
 
 // MARK: - Toolbar
 "toolbar.password_manager" = "Password Manager";

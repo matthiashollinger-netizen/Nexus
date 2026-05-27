@@ -173,7 +173,20 @@ final class AppViewModel {
         return nil
     }
 
-    // MARK: - CSV Import (Termius format)
+    // MARK: - Batch import (from column-mapped CSV)
+
+    func addImportedData(sessions newSessions: [Session], folders newFolders: [Folder], credentials newCreds: [Credential]) {
+        folders.append(contentsOf: newFolders)
+        credentials.append(contentsOf: newCreds)
+        sessions.append(contentsOf: newSessions)
+        db.saveFolders(self.folders)
+        db.saveSessions(self.sessions)
+        if settings.masterPasswordEnabled && !masterPassword.isEmpty {
+            try? db.saveCredentials(self.credentials, masterPassword: masterPassword)
+        }
+    }
+
+    // MARK: - CSV Import (Termius format, legacy)
 
     func importCSV(_ content: String) {
         let lines = content.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }

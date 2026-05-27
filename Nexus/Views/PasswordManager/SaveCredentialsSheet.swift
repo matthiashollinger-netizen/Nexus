@@ -1,23 +1,21 @@
 import SwiftUI
 
-/// Sheet shown after a successful interactive SSH login (no stored credentials).
-/// Gives the user the chance to save their credentials to the password manager.
+/// Compact sheet shown after a successful interactive SSH login (no stored credentials).
+/// Pre-fills username from the session — only the password needs to be entered once.
 struct SaveCredentialsSheet: View {
     @Environment(AppViewModel.self) private var vm
     @Environment(\.dismiss) private var dismiss
 
     let cs: ConnectionSession
 
-    @State private var name: String = ""
-    @State private var username: String = ""
     @State private var password: String = ""
-    @State private var saveEnabled = true
+    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
             // Header
             HStack(spacing: 12) {
-                Image(systemName: "key.badge.plus")
+                Image(systemName: "key.fill")
                     .font(.title2)
                     .foregroundStyle(Color.accentColor)
                 VStack(alignment: .leading, spacing: 2) {
@@ -41,15 +39,14 @@ struct SaveCredentialsSheet: View {
 
             Form {
                 Section {
-                    LabeledContent("cred.name") {
-                        TextField("savecreds.name_placeholder", text: $name)
-                    }
+                    // Username is read-only — taken from session
                     LabeledContent("cred.username") {
-                        TextField("session.username.placeholder", text: $username)
-                            .autocorrectionDisabled()
+                        Text(cs.session.username.isEmpty ? "-" : cs.session.username)
+                            .foregroundStyle(.secondary)
                     }
                     LabeledContent("cred.password") {
-                        SecureField("cred.password.placeholder", text: $password)
+                        SecureField("", text: $password)
+                            .focused($focused)
                     }
                 } footer: {
                     Text("savecreds.hint")
@@ -58,6 +55,7 @@ struct SaveCredentialsSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .frame(height: 150)
 
             Divider()
 
@@ -70,30 +68,34 @@ struct SaveCredentialsSheet: View {
                     saveCredential()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(username.isEmpty || password.isEmpty)
+                .disabled(password.isEmpty)
+                .keyboardShortcut(.return, modifiers: [])
             }
             .padding()
         }
-        .frame(width: 400)
-        .onAppear {
-            username = cs.session.username
-            name = cs.session.name.isEmpty ? cs.session.host : cs.session.name
-        }
+        .frame(width: 380)
+        .onAppear { focused = true }
     }
 
     private func saveCredential() {
         var cred = Credential()
-        cred.name = name.isEmpty ? cs.session.host : name
-        cred.username = username
+        cred.name = cs.session.name.isEmpty ? cs.session.host : cs.session.name
+        cred.username = cs.session.username
         cred.password = password
 
-        vm.addCredential(cred)
-
-        // Link to session
-        var updatedSession = cs.session
-        updatedSession.credentialId = cred.id
-        vm.updateSession(updatedSession)
-
+        // Deduplicate
+        if let existing = vm.credentials.first(where: {
+            $0.username == cred.username && $0.password == cred.password
+        }) {
+            var updatedSession = cs.session
+            updatedSession.credentialId = existing.id
+            vm.updateSession(updatedSession)
+        } else {
+            vm.addCredential(cred)
+            var updatedSession = cs.session
+            updatedSession.credentialId = cred.id
+            vm.updateSession(updatedSession)
+        }
         dismiss()
     }
 }

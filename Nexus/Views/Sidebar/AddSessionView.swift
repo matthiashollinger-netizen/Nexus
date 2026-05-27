@@ -8,8 +8,7 @@ struct AddSessionView: View {
     var parentFolderId: UUID?
 
     @State private var draft: Session
-    // Quick-entry credentials (auto-create Credential on save)
-    @State private var quickUsername: String = ""
+    // Quick-entry credential — username comes from draft.username (Network section)
     @State private var quickPassword: String = ""
     @State private var useQuickCredential: Bool = false
 
@@ -93,10 +92,6 @@ struct AddSessionView: View {
                             }
 
                         if useQuickCredential {
-                            LabeledContent("cred.username") {
-                                TextField("session.username.placeholder", text: $quickUsername)
-                                    .autocorrectionDisabled()
-                            }
                             LabeledContent("cred.password") {
                                 SecureField("cred.password.placeholder", text: $quickPassword)
                             }
@@ -128,19 +123,14 @@ struct AddSessionView: View {
             }
         }
         .frame(minWidth: 480, minHeight: 560)
-        .onAppear {
-            // Pre-fill quick username from session username
-            if !draft.username.isEmpty { quickUsername = draft.username }
-        }
     }
 
     private func save() {
-        // If quick-entry credentials were filled → auto-create Credential
-        if useQuickCredential && (!quickUsername.isEmpty || !quickPassword.isEmpty) {
+        // If quick-entry password was filled → auto-create Credential using draft.username
+        if useQuickCredential && !quickPassword.isEmpty {
             var cred = Credential()
-            let label = draft.name.isEmpty ? draft.host : draft.name
-            cred.name = label
-            cred.username = quickUsername.isEmpty ? draft.username : quickUsername
+            cred.name = draft.name.isEmpty ? draft.host : draft.name
+            cred.username = draft.username
             cred.password = quickPassword
 
             // Check if an identical credential already exists
@@ -152,11 +142,6 @@ struct AddSessionView: View {
                 vm.addCredential(cred)
                 draft.credentialId = cred.id
             }
-        }
-
-        // Sync username from quick-entry back to session
-        if useQuickCredential && !quickUsername.isEmpty {
-            draft.username = quickUsername
         }
 
         if isEditing {
