@@ -12,20 +12,23 @@ struct KeychainService {
     /// - Parameter syncToiCloud: If true, syncs via iCloud Keychain across your Macs.
     static func saveMasterPassword(_ password: String, syncToiCloud: Bool = false) throws {
         let data = Data(password.utf8)
-        let sync: CFBoolean = syncToiCloud ? kCFBooleanTrue! : kCFBooleanFalse!
 
-        // Delete any existing entry first
+        // Delete any existing entry first (both local and iCloud)
         deleteMasterPassword()
 
-        let query: [String: Any] = [
-            kSecClass as String:               kSecClassGenericPassword,
-            kSecAttrService as String:         service,
-            kSecAttrAccount as String:         masterAccount,
-            kSecValueData as String:           data,
-            kSecAttrSynchronizable as String:  sync,
-            kSecAttrLabel as String:           "Nexus Master Password",
-            kSecAttrComment as String:         "Automatically stored by Nexus"
+        var query: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        masterAccount,
+            kSecValueData as String:          data,
+            kSecAttrAccessible as String:     kSecAttrAccessibleWhenUnlocked,
+            kSecAttrLabel as String:          "Nexus Master Password",
+            kSecAttrComment as String:        "Automatically stored by Nexus"
         ]
+        // Only set Synchronizable when explicitly requested (avoids macOS quirks)
+        if syncToiCloud {
+            query[kSecAttrSynchronizable as String] = kCFBooleanTrue!
+        }
 
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else {
@@ -35,36 +38,33 @@ struct KeychainService {
 
     /// Loads the master password from the Keychain (local or iCloud).
     static func loadMasterPassword() -> String? {
-        // Try local first, then iCloud
-        for sync in [kCFBooleanFalse!, kCFBooleanTrue!] as [CFBoolean] {
-            let query: [String: Any] = [
-                kSecClass as String:               kSecClassGenericPassword,
-                kSecAttrService as String:         service,
-                kSecAttrAccount as String:         masterAccount,
-                kSecReturnData as String:          true,
-                kSecMatchLimit as String:          kSecMatchLimitOne,
-                kSecAttrSynchronizable as String:  sync
-            ]
-            var result: AnyObject?
-            let status = SecItemCopyMatching(query as CFDictionary, &result)
-            if status == errSecSuccess, let data = result as? Data {
-                return String(data: data, encoding: .utf8)
-            }
+        // kSecAttrSynchronizableAny matches both local and iCloud items
+        let query: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        masterAccount,
+            kSecReturnData as String:         true,
+            kSecMatchLimit as String:         kSecMatchLimitOne,
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecSuccess, let data = result as? Data {
+            return String(data: data, encoding: .utf8)
         }
         return nil
     }
 
     /// Removes the master password from the Keychain.
     static func deleteMasterPassword() {
-        for sync in [kCFBooleanFalse!, kCFBooleanTrue!] as [CFBoolean] {
-            let query: [String: Any] = [
-                kSecClass as String:              kSecClassGenericPassword,
-                kSecAttrService as String:        service,
-                kSecAttrAccount as String:        masterAccount,
-                kSecAttrSynchronizable as String: sync
-            ]
-            SecItemDelete(query as CFDictionary)
-        }
+        // Delete all variants (local + iCloud)
+        let query: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        masterAccount,
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
+        ]
+        SecItemDelete(query as CFDictionary)
     }
 
     /// Whether a master password is currently stored in the Keychain.
@@ -79,7 +79,8 @@ enum KeychainError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .saveFailed(let status):
-            return "Schlüsselbund-Fehler: \(SecCopyErrorMessageString(status, nil) as String? ?? "\(status)")"
+            let msg = SecCopyErrorMessageString(status, nil) as String? ?? "\(status)"
+            return "Schlüsselbund-Fehler: \(msg)"
         }
     }
 }

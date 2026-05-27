@@ -77,6 +77,15 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
         // Only capture events from our window
         guard let eventWindow = event.window, eventWindow === self.window else { return }
 
+        // Cmd+V — paste from clipboard
+        if event.modifierFlags.contains(.command) && event.keyCode == 9 {
+            if let pasted = NSPasteboard.general.string(forType: .string), !pasted.isEmpty {
+                // Strip newlines from pasted password (common when copying from a doc)
+                captureBuffer += pasted.components(separatedBy: .newlines).joined()
+            }
+            return
+        }
+
         switch event.keyCode {
         case 36, 76:   // Return / numpad Enter — password done
             let pwd = captureBuffer
@@ -89,8 +98,10 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
             if !captureBuffer.isEmpty { captureBuffer.removeLast() }
         default:
             if let chars = event.characters {
-                // Accept printable characters only
-                captureBuffer += chars.filter { ($0.asciiValue ?? 0) >= 32 }
+                // Accept printable characters only, ignore modifier-only events
+                if event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
+                    captureBuffer += chars.filter { ($0.asciiValue ?? 0) >= 32 }
+                }
             }
         }
     }

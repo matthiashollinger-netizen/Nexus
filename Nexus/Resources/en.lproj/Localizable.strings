@@ -169,6 +169,7 @@
 "import.field.password" = "Password";
 "import.field.folder" = "Folder";
 "import.field.tags" = "Tags";
+"import.field.description" = "Description";
 
 // MARK: - Toolbar
 "toolbar.password_manager" = "Password Manager";

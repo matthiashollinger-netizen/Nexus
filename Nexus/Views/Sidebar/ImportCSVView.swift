@@ -4,21 +4,22 @@ import UniformTypeIdentifiers
 // MARK: - Target field for column mapping
 
 enum CSVTargetField: CaseIterable, Identifiable, Hashable {
-    case skip, name, host, proto, port, username, password, folder, tags
+    case skip, name, host, proto, port, username, password, folder, tags, description
 
     var id: Self { self }
 
     var labelKey: LocalizedStringKey {
         switch self {
-        case .skip:     return "import.field.skip"
-        case .name:     return "import.field.name"
-        case .host:     return "import.field.host"
-        case .proto:    return "import.field.proto"
-        case .port:     return "import.field.port"
-        case .username: return "import.field.username"
-        case .password: return "import.field.password"
-        case .folder:   return "import.field.folder"
-        case .tags:     return "import.field.tags"
+        case .skip:        return "import.field.skip"
+        case .name:        return "import.field.name"
+        case .host:        return "import.field.host"
+        case .proto:       return "import.field.proto"
+        case .port:        return "import.field.port"
+        case .username:    return "import.field.username"
+        case .password:    return "import.field.password"
+        case .folder:      return "import.field.folder"
+        case .tags:        return "import.field.tags"
+        case .description: return "import.field.description"
         }
     }
 }
@@ -44,15 +45,16 @@ struct ImportCSVView: View {
             let val = firstRow[safeIdx: i] ?? ""
             guard !val.isEmpty else { continue }
             switch target {
-            case .name:     d.name     = val
-            case .host:     d.host     = val
-            case .proto:    d.proto    = val.lowercased()
-            case .port:     d.port     = val
-            case .username: d.username = val
-            case .password: d.password = val
-            case .folder:   d.folder   = val
-            case .tags:     d.tags     = val
-            case .skip:     break
+            case .name:        d.name        = val
+            case .host:        d.host        = val
+            case .proto:       d.proto       = val.lowercased()
+            case .port:        d.port        = val
+            case .username:    d.username    = val
+            case .password:    d.password    = val
+            case .folder:      d.folder      = val
+            case .tags:        d.tags        = val
+            case .description: d.description = val
+            case .skip:        break
             }
         }
         if d.name.isEmpty { d.name = d.host }
@@ -162,6 +164,7 @@ struct ImportCSVView: View {
             if h.contains("pass") { return .password }
             if h.contains("group") || h.contains("folder") || h.contains("categor") { return .folder }
             if h.contains("tag") { return .tags }
+            if h.contains("desc") || h.contains("note") || h.contains("comment") { return .description }
             return .skip
         }
     }
@@ -218,6 +221,7 @@ struct ImportCSVView: View {
             s.host = host
             s.port = Int(fields[.port] ?? "") ?? connType.defaultPort
             s.username = fields[.username] ?? ""
+            s.description = fields[.description] ?? ""
             s.connectionType = connType
             s.folderId = folderId
             if let tagsStr = fields[.tags] {
@@ -273,7 +277,7 @@ struct ImportCSVView: View {
 
 struct CSVPreviewData {
     var name = "", host = "", proto = "ssh", port = ""
-    var username = "", password = "", folder = "", tags = ""
+    var username = "", password = "", folder = "", tags = "", description = ""
 }
 
 struct CSVPreviewRow: View {
@@ -305,6 +309,9 @@ struct CSVPreviewRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if !data.username.isEmpty {
                         Label(data.username, systemImage: "person")
+                    }
+                    if !data.description.isEmpty {
+                        Label(data.description, systemImage: "text.alignleft")
                     }
                     if !data.folder.isEmpty {
                         Label(data.folder, systemImage: "folder")

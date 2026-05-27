@@ -169,6 +169,7 @@
 "import.field.password" = "Passwort";
 "import.field.folder" = "Ordner";
 "import.field.tags" = "Tags";
+"import.field.description" = "Beschreibung";
 
 // MARK: - Onboarding
 "onboarding.title" = "Willkommen bei Nexus";

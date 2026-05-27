@@ -4,6 +4,21 @@ struct SidebarView: View {
     @Environment(AppViewModel.self) private var vm
     @State private var searchText = ""
 
+    private var canEditSelected: Bool {
+        switch vm.selectedSidebarItem {
+        case .session, .folder: return true
+        case nil: return false
+        }
+    }
+
+    private func editSelected() {
+        switch vm.selectedSidebarItem {
+        case .session(let s): vm.editingSession = s
+        case .folder(let f):  vm.editingFolder  = f
+        case nil: break
+        }
+    }
+
     var body: some View {
         @Bindable var vm = vm
 
@@ -22,6 +37,18 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .searchable(text: $searchText, placement: .sidebar)
         .toolbar {
+            // Edit selected item
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    editSelected()
+                } label: {
+                    Image(systemName: "pencil")
+                }
+                .disabled(!canEditSelected)
+                .help("action.edit")
+                .keyboardShortcut("e", modifiers: .command)
+            }
+            // Add new item
             ToolbarItem(placement: .automatic) {
                 Menu {
                     Button {
