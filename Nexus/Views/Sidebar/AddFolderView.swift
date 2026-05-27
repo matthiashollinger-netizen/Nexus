@@ -30,7 +30,7 @@ struct AddFolderView: View {
             Form {
                 Section("folder.general") {
                     LabeledContent("folder.name") {
-                        TextField("folder.name.placeholder", text: $name)
+                        TextField("", text: $name)
                     }
                     LabeledContent("folder.parent") {
                         Picker("", selection: $selectedParentId) {

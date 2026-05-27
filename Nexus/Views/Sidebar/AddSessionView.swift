@@ -40,6 +40,7 @@ struct AddSessionView: View {
                     LabeledContent("session.name") {
                         TextField("", text: $draft.name)
                     }
+
                     LabeledContent("session.description") {
                         TextField("", text: $draft.description)
                     }
@@ -130,6 +131,14 @@ struct AddSessionView: View {
                         .disabled(draft.host.isEmpty && draft.connectionType != .serial)
                 }
             }
+            // Clear credentialId if the referenced credential no longer exists
+            // (prevents "Picker: selection is invalid" console warning)
+            .onAppear {
+                if let cid = draft.credentialId,
+                   !vm.credentials.contains(where: { $0.id == cid }) {
+                    draft.credentialId = nil
+                }
+            }
         }
         .frame(minWidth: 480, minHeight: 560)
     }
@@ -171,7 +180,7 @@ struct NetworkSection: View {
     var body: some View {
         Section("session.network") {
             LabeledContent("session.host") {
-                TextField("session.host.placeholder", text: $draft.host)
+                TextField("", text: $draft.host)
                     .autocorrectionDisabled()
             }
             LabeledContent("session.port") {
@@ -179,7 +188,7 @@ struct NetworkSection: View {
                     .frame(width: 80)
             }
             LabeledContent("session.username") {
-                TextField("session.username.placeholder", text: $draft.username)
+                TextField("", text: $draft.username)
                     .autocorrectionDisabled()
             }
         }
@@ -193,7 +202,7 @@ struct SSHSection: View {
         Section("session.ssh") {
             LabeledContent("session.ssh.key") {
                 HStack {
-                    TextField("session.ssh.key.placeholder", text: $draft.sshPrivateKeyPath)
+                    TextField("", text: $draft.sshPrivateKeyPath)
                     Button {
                         selectKeyFile()
                     } label: {

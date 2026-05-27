@@ -21,8 +21,6 @@ struct TerminalTabsView: View {
 // MARK: - Welcome
 
 struct WelcomeView: View {
-    @Environment(AppViewModel.self) private var vm
-
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "terminal")
@@ -50,7 +48,6 @@ struct TabBarView: View {
             HStack(spacing: 0) {
                 ForEach(vm.activeSessions) { cs in
                     TabItemView(cs: cs, isSelected: vm.selectedTabId == cs.id)
-                        .onTapGesture { vm.selectedTabId = cs.id }
                 }
             }
             .frame(height: 36)
@@ -65,24 +62,35 @@ struct TabItemView: View {
     @Environment(AppViewModel.self) private var vm
 
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: cs.session.connectionType.systemImage)
-                .font(.caption)
-                .foregroundStyle(stateColor)
-            Text(cs.tabTitle)
-                .font(.system(size: 12))
-                .lineLimit(1)
+        HStack(spacing: 0) {
+            // ── Tab label — tapping switches to this tab ──────────────
+            HStack(spacing: 6) {
+                Image(systemName: cs.session.connectionType.systemImage)
+                    .font(.caption)
+                    .foregroundStyle(stateColor)
+                Text(cs.tabTitle)
+                    .font(.system(size: 12))
+                    .lineLimit(1)
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, 6)
+            .frame(height: 36)
+            .contentShape(Rectangle())
+            .onTapGesture { vm.selectedTabId = cs.id }
+
+            // ── Close button — separate hit area, never competes with tap ─
             Button {
                 vm.closeSession(cs)
             } label: {
                 Image(systemName: "xmark")
                     .font(.caption2)
+                    .padding(6)           // generous touch target
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
+            .padding(.trailing, 4)
         }
-        .padding(.horizontal, 12)
-        .frame(height: 36)
         .background(isSelected ? Color(nsColor: .controlBackgroundColor) : .clear)
         .overlay(alignment: .bottom) {
             if isSelected {
@@ -104,27 +112,39 @@ struct TabItemView: View {
 }
 
 // MARK: - Terminal content
+// All terminals stay in the view hierarchy (ZStack with opacity). This keeps each
+// SSH/Telnet/Serial connection alive when the user switches between tabs.
 
 struct TabContentView: View {
     @Environment(AppViewModel.self) private var vm
 
     var body: some View {
-        if let selected = vm.activeSessions.first(where: { $0.id == vm.selectedTabId }) {
-            NexusTerminalView(
-                cs: selected,
-                fontName: vm.settings.terminalFontName,
-                fontSize: vm.settings.terminalFontSize
-            )
-            .id(selected.id)
-            .sheet(isPresented: Binding(
-                get: { selected.shouldOfferCredentialSave },
-                set: { selected.shouldOfferCredentialSave = $0 }
-            )) {
-                SaveCredentialsSheet(cs: selected)
-                    .environment(vm)
+        ZStack {
+            ForEach(vm.activeSessions) { cs in
+                NexusTerminalView(
+                    cs: cs,
+                    fontName: vm.settings.terminalFontName,
+                    fontSize: vm.settings.terminalFontSize
+                )
+                // Hidden tabs have zero opacity but their NSViews stay alive
+                .opacity(cs.id == vm.selectedTabId ? 1 : 0)
+                .allowsHitTesting(cs.id == vm.selectedTabId)
             }
-        } else {
-            Color.black
+        }
+        .background(Color.black)
+        // Single sheet for whichever session wants credential save
+        .sheet(isPresented: Binding(
+            get: { vm.activeSessions.contains(where: { $0.shouldOfferCredentialSave }) },
+            set: { presented in
+                if !presented {
+                    vm.activeSessions.first(where: { $0.shouldOfferCredentialSave })?
+                        .shouldOfferCredentialSave = false
+                }
+            }
+        )) {
+            if let cs = vm.activeSessions.first(where: { $0.shouldOfferCredentialSave }) {
+                SaveCredentialsSheet(cs: cs).environment(vm)
+            }
         }
     }
 }

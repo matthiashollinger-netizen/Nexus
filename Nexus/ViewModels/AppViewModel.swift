@@ -275,10 +275,30 @@ final class AppViewModel {
 }
 
 // MARK: - Sidebar item
+// Equality and hash are based on ID only so that selection survives session/folder edits.
 
-enum SidebarItem: Hashable {
+enum SidebarItem {
     case folder(Folder)
     case session(Session)
+}
+
+extension SidebarItem: Equatable {
+    static func == (lhs: SidebarItem, rhs: SidebarItem) -> Bool {
+        switch (lhs, rhs) {
+        case (.session(let a), .session(let b)): return a.id == b.id
+        case (.folder(let a),  .folder(let b)):  return a.id == b.id
+        default: return false
+        }
+    }
+}
+
+extension SidebarItem: Hashable {
+    func hash(into hasher: inout Hasher) {
+        switch self {
+        case .session(let s): hasher.combine(0); hasher.combine(s.id)
+        case .folder(let f):  hasher.combine(1); hasher.combine(f.id)
+        }
+    }
 }
 
 private extension Array {

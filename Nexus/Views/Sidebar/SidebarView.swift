@@ -4,9 +4,17 @@ struct SidebarView: View {
     @Environment(AppViewModel.self) private var vm
     @State private var searchText = ""
 
-    // Only allow edit when exactly one item is selected
+    // Edit is only allowed when exactly one item is selected
     private var canEditSelected: Bool { vm.selectedSidebarItems.count == 1 }
     private var canDeleteSelected: Bool { !vm.selectedSidebarItems.isEmpty }
+
+    // The folder currently selected (if any) — used as default for new sessions
+    private var selectedFolder: Folder? {
+        for item in vm.selectedSidebarItems {
+            if case .folder(let f) = item { return f }
+        }
+        return nil
+    }
 
     private func editSelected() {
         guard let item = vm.selectedSidebarItem else { return }
@@ -25,11 +33,9 @@ struct SidebarView: View {
 
         List(selection: $vm.selectedSidebarItems) {
             Section {
-                // Root-level folders
                 ForEach(vm.childFolders(of: nil)) { folder in
                     FolderRow(folder: folder, depth: 0, searchText: searchText)
                 }
-                // Root-level sessions (no folder)
                 ForEach(vm.sessions(in: nil).filtered(by: searchText)) { session in
                     SessionRow(session: session)
                 }
@@ -37,10 +43,29 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .searchable(text: $searchText, placement: .sidebar)
-        // Delete key removes selected items
         .onDeleteCommand { deleteSelected() }
         .toolbar {
-            // Edit selected item (Cmd+E)
+            // ── Add (leftmost, + icon) ──────────────────────────────
+            ToolbarItem(placement: .automatic) {
+                Menu {
+                    Button {
+                        vm.addSessionParentFolderId = selectedFolder?.id
+                        vm.showAddSession = true
+                    } label: {
+                        Label("sidebar.add_session", systemImage: "plus.circle")
+                    }
+                    Button {
+                        vm.addSessionParentFolderId = selectedFolder?.id
+                        vm.showAddFolder = true
+                    } label: {
+                        Label("sidebar.add_folder", systemImage: "folder.badge.plus")
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .help("action.add")
+            }
+            // ── Edit ────────────────────────────────────────────────
             ToolbarItem(placement: .automatic) {
                 Button {
                     editSelected()
@@ -51,7 +76,7 @@ struct SidebarView: View {
                 .help("action.edit")
                 .keyboardShortcut("e", modifiers: .command)
             }
-            // Delete selected (Cmd+Backspace)
+            // ── Delete ──────────────────────────────────────────────
             ToolbarItem(placement: .automatic) {
                 Button {
                     deleteSelected()
@@ -61,25 +86,6 @@ struct SidebarView: View {
                 .disabled(!canDeleteSelected)
                 .help("action.delete")
                 .keyboardShortcut(.delete, modifiers: .command)
-            }
-            // Add new item
-            ToolbarItem(placement: .automatic) {
-                Menu {
-                    Button {
-                        vm.addSessionParentFolderId = nil
-                        vm.showAddSession = true
-                    } label: {
-                        Label("sidebar.add_session", systemImage: "plus.circle")
-                    }
-                    Button {
-                        vm.addSessionParentFolderId = nil
-                        vm.showAddFolder = true
-                    } label: {
-                        Label("sidebar.add_folder", systemImage: "folder.badge.plus")
-                    }
-                } label: {
-                    Image(systemName: "plus")
-                }
             }
         }
         .sheet(isPresented: $vm.showAddSession) {
@@ -129,7 +135,7 @@ struct FolderRow: View {
         } label: {
             Label(folder.name, systemImage: "folder")
                 .tag(SidebarItem.folder(folder))
-                // Context menu on label only — does NOT propagate to child session rows
+                // Context menu on label only — does NOT propagate to child rows
                 .contextMenu {
                     Button {
                         vm.addSessionParentFolderId = folder.id
@@ -188,7 +194,6 @@ struct SessionRow: View {
             }
             Spacer(minLength: 0)
         }
-        // Full-width hit area so click anywhere on the row selects it
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .tag(SidebarItem.session(session))

@@ -199,14 +199,14 @@ struct CredentialEditSheet: View {
             Form {
                 Section("cred.info") {
                     LabeledContent("cred.name") {
-                        TextField("cred.name.placeholder", text: $draft.name)
+                        TextField("", text: $draft.name)
                     }
                     LabeledContent("cred.username") {
-                        TextField("cred.username.placeholder", text: $draft.username)
+                        TextField("", text: $draft.username)
                             .autocorrectionDisabled()
                     }
                     LabeledContent("cred.password") {
-                        SecureField("cred.password.placeholder", text: $draft.password)
+                        SecureField("", text: $draft.password)
                     }
                 }
                 Section("cred.private_key") {
@@ -214,7 +214,7 @@ struct CredentialEditSheet: View {
                         .font(.system(.caption, design: .monospaced))
                         .frame(height: 100)
                     LabeledContent("cred.passphrase") {
-                        SecureField("cred.passphrase.placeholder", text: $draft.privateKeyPassphrase)
+                        SecureField("", text: $draft.privateKeyPassphrase)
                     }
                 }
                 Section("cred.notes") {
