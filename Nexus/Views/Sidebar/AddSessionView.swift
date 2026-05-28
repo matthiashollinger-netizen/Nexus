@@ -97,7 +97,7 @@ struct AddSessionView: View {
 
                         if useQuickCredential {
                             LabeledContent("cred.password") {
-                                SecureField("cred.password.placeholder", text: $quickPassword)
+                                SecureField("", text: $quickPassword)
                             }
                         }
                     }

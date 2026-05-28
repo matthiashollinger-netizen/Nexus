@@ -8,15 +8,6 @@ struct NexusTerminalView: NSViewRepresentable {
     let cs: ConnectionSession
     let fontName: String
     let fontSize: Double
-    /// True when this terminal is the currently visible tab.
-    /// Changing from false → true triggers automatic keyboard focus.
-    let isActive: Bool
-
-    // Coordinator tracks previous isActive value to detect transitions
-    final class Coordinator {
-        var wasActive: Bool = false
-    }
-    func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> NSView {
         switch cs.session.connectionType {
@@ -28,15 +19,11 @@ struct NexusTerminalView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
+        // Font updates only — focus is managed by TabItemView.onTapGesture
+        // and viewDidMoveToWindow on the NSView subclasses.
         let f = resolvedFont(name: fontName, size: fontSize)
         if let ssh = nsView as? NexusSSHTerminalView { ssh.font = f }
         if let net = nsView as? NexusNetTerminalView { net.font = f }
-
-        // Give keyboard focus when this tab becomes the active one (false → true)
-        if isActive && !context.coordinator.wasActive {
-            DispatchQueue.main.async { nsView.window?.makeFirstResponder(nsView) }
-        }
-        context.coordinator.wasActive = isActive
     }
 
     private func resolvedFont(name: String, size: Double) -> NSFont {
@@ -57,6 +44,8 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
     init(cs: ConnectionSession, fontName: String, fontSize: Double) {
         self.cs = cs
         super.init(frame: .zero)
+        // Store weak reference so TabItemView can give us keyboard focus on tab switch
+        cs.terminalNSView = self
         let f = NSFont(name: fontName, size: CGFloat(fontSize)) ?? NSFont.monospacedSystemFont(ofSize: CGFloat(fontSize), weight: .regular)
         self.font = f
         startSSH()
@@ -69,7 +58,7 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
         if let m = keyMonitor { NSEvent.removeMonitor(m) }
     }
 
-    // Auto-focus when added to a window (initial connection open)
+    // Auto-focus when first added to a window (new connection opened)
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if window != nil {
@@ -190,6 +179,8 @@ final class NexusNetTerminalView: TerminalView, TerminalViewDelegate {
     init(cs: ConnectionSession, fontName: String, fontSize: Double) {
         self.cs = cs
         super.init(frame: .zero)
+        // Store weak reference so TabItemView can give us keyboard focus on tab switch
+        cs.terminalNSView = self
         let f = NSFont(name: fontName, size: CGFloat(fontSize)) ?? NSFont.monospacedSystemFont(ofSize: CGFloat(fontSize), weight: .regular)
         self.font = f
         self.terminalDelegate = self
@@ -198,7 +189,7 @@ final class NexusNetTerminalView: TerminalView, TerminalViewDelegate {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    // Auto-focus when added to a window
+    // Auto-focus when first added to a window (new connection opened)
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if window != nil {

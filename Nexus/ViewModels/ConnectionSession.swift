@@ -38,6 +38,10 @@ final class ConnectionSession: Identifiable {
     var terminalSendHandler: (([UInt8]) -> Void)?
     var terminalReceiveCallback: (([UInt8]) -> Void)? = nil
 
+    /// Weak reference to the live NSView — set by the terminal view on init.
+    /// Used to reliably give keyboard focus when switching tabs.
+    weak var terminalNSView: NSView?
+
     init(session: Session, credential: Credential?, settings: AppSettings) {
         self.session = session
         self.title = session.name.isEmpty ? session.host : session.name

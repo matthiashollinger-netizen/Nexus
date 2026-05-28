@@ -195,10 +195,9 @@ struct SessionRow: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
         .tag(SidebarItem.session(session))
-        // simultaneousGesture lets the List selection fire AND the double-tap fire
-        // independently — onTapGesture(count:2) would sometimes eat single clicks
+        // simultaneousGesture: double-click connects, single-click selection is
+        // handled by the List natively (no contentShape needed — it competed with List).
         .simultaneousGesture(TapGesture(count: 2).onEnded { vm.connect(to: session) })
         .contextMenu {
             Button {

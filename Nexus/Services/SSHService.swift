@@ -39,7 +39,9 @@ struct SSHArgumentBuilder {
         }
 
         if !strictHostKeyChecking {
-            args += ["-o", "StrictHostKeyChecking=no"]
+            // Completely bypass known_hosts — required for lab equipment where
+            // multiple devices share the same IP but have different host keys.
+            args += ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
         }
 
         if let keyPath = privateKeyPath, !keyPath.isEmpty {

@@ -76,7 +76,15 @@ struct TabItemView: View {
             .padding(.trailing, 6)
             .frame(height: 36)
             .contentShape(Rectangle())
-            .onTapGesture { vm.selectedTabId = cs.id }
+            .onTapGesture {
+                vm.selectedTabId = cs.id
+                // Give keyboard focus to the now-active terminal.
+                // asyncAfter(0.05) lets SwiftUI finish re-rendering before we set focus.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    guard let view = cs.terminalNSView else { return }
+                    view.window?.makeFirstResponder(view)
+                }
+            }
 
             // ── Close button — separate hit area, never competes with tap ─
             Button {
@@ -124,8 +132,7 @@ struct TabContentView: View {
                 NexusTerminalView(
                     cs: cs,
                     fontName: vm.settings.terminalFontName,
-                    fontSize: vm.settings.terminalFontSize,
-                    isActive: cs.id == vm.selectedTabId
+                    fontSize: vm.settings.terminalFontSize
                 )
                 // Hidden tabs have zero opacity but their NSViews stay alive
                 .opacity(cs.id == vm.selectedTabId ? 1 : 0)
