@@ -14,6 +14,11 @@
 "error.wrong_password" = "Wrong master password or corrupt file";
 "error.invalid_format" = "Invalid file format";
 
+// MARK: - Connection
+"action.reconnect" = "Reconnect";
+"connection.terminated" = "Session ended";
+"connection.reconnect_hint" = "Press R or ↩ to reconnect";
+
 // MARK: - Welcome
 "nexus.welcome.title" = "Welcome to Nexus";
 "nexus.welcome.subtitle" = "Select a session from the sidebar or double-click to connect.";

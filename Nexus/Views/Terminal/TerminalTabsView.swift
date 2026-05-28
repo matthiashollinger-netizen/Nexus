@@ -138,6 +138,16 @@ struct TabContentView: View {
                 .opacity(cs.id == vm.selectedTabId ? 1 : 0)
                 .allowsHitTesting(cs.id == vm.selectedTabId)
             }
+
+            // Reconnect overlay — shown on top of the active terminal when disconnected
+            if let activeCs = vm.activeSessions.first(where: { $0.id == vm.selectedTabId }) {
+                switch activeCs.state {
+                case .disconnected, .failed:
+                    ReconnectOverlayView(cs: activeCs)
+                default:
+                    EmptyView()
+                }
+            }
         }
         .background(Color.black)
         // Single sheet for whichever session wants credential save
@@ -154,5 +164,60 @@ struct TabContentView: View {
                 SaveCredentialsSheet(cs: cs).environment(vm)
             }
         }
+    }
+}
+
+// MARK: - Reconnect overlay
+
+struct ReconnectOverlayView: View {
+    @Environment(AppViewModel.self) private var vm
+    let cs: ConnectionSession
+    @State private var keyMonitor: Any?
+
+    private var statusMessage: String {
+        if case .failed(let msg) = cs.state { return msg }
+        return String(localized: "connection.terminated")
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.65)
+            VStack(spacing: 20) {
+                Image(systemName: "bolt.slash.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(.secondary)
+                Text(statusMessage)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 40)
+                Button("action.reconnect") {
+                    vm.reconnect(cs: cs)
+                }
+                .buttonStyle(.borderedProminent)
+                Text("connection.reconnect_hint")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { installKeyMonitor() }
+        .onDisappear { removeKeyMonitor() }
+    }
+
+    private func installKeyMonitor() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [self] event in
+            // R (keyCode 15), Enter (36), numpad Enter (76) → reconnect
+            if event.keyCode == 15 || event.keyCode == 36 || event.keyCode == 76 {
+                DispatchQueue.main.async { vm.reconnect(cs: cs) }
+                return nil  // consume the event
+            }
+            return event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let m = keyMonitor { NSEvent.removeMonitor(m) }
+        keyMonitor = nil
     }
 }

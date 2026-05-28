@@ -143,6 +143,15 @@ final class AppViewModel {
         activeSessions.removeAll { $0.id == cs.id }
     }
 
+    /// Replaces the disconnected/failed session with a fresh one at the same tab position.
+    func reconnect(cs: ConnectionSession) {
+        guard let idx = activeSessions.firstIndex(where: { $0.id == cs.id }) else { return }
+        cs.disconnect()
+        let newCs = ConnectionSession(session: cs.session, credential: credential(for: cs.session), settings: settings)
+        activeSessions[idx] = newCs
+        selectedTabId = newCs.id
+    }
+
     // MARK: - Credentials
 
     func addCredential(_ credential: Credential) {

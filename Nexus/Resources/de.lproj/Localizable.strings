@@ -14,6 +14,11 @@
 "error.wrong_password" = "Falsches Master-Passwort oder beschädigte Datei";
 "error.invalid_format" = "Ungültiges Dateiformat";
 
+// MARK: - Verbindung
+"action.reconnect" = "Erneut verbinden";
+"connection.terminated" = "Verbindung beendet";
+"connection.reconnect_hint" = "R oder ↩ drücken zum Wiederverbinden";
+
 // MARK: - Willkommen
 "nexus.welcome.title" = "Willkommen bei Nexus";
 "nexus.welcome.subtitle" = "Wähle eine Session in der Seitenleiste oder doppelklicke, um dich zu verbinden.";
