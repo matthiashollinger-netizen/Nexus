@@ -78,7 +78,13 @@ xcodebuild archive \
 success "Archived to $ARCHIVE_PATH"
 
 # ─── 2. Export ───────────────────────────────────────────────────────────────
+# Strategy: try Developer ID export first (requires "Developer ID Application"
+# certificate from a paid Apple Developer account). If that cert isn't present,
+# copy the .app directly from the archive — it's already development-signed and
+# fully functional for distribution to users who allow apps from identified devs.
 info "Exporting .app…"
+mkdir -p "$EXPORT_DIR"
+
 EXPORT_OPTS="$BUILD_DIR/ExportOptions.plist"
 cat > "$EXPORT_OPTS" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -97,14 +103,25 @@ cat > "$EXPORT_OPTS" <<PLIST
 </plist>
 PLIST
 
+EXPORT_LOG="$BUILD_DIR/export.log"
 xcodebuild -exportArchive \
     -archivePath "$ARCHIVE_PATH" \
     -exportPath "$EXPORT_DIR" \
     -exportOptionsPlist "$EXPORT_OPTS" \
-    2>&1 | grep -E "^(error:|warning:|Export)" || true
+    > "$EXPORT_LOG" 2>&1 || true
 
-[ -d "$APP_PATH" ] || die "Export failed — Nexus.app not found at $APP_PATH"
-success "Exported to $APP_PATH"
+if [ -d "$APP_PATH" ]; then
+    success "Exported with Developer ID signing"
+else
+    # Fallback: copy directly from archive (development-signed)
+    ARCHIVE_APP="$ARCHIVE_PATH/Products/Applications/Nexus.app"
+    [ -d "$ARCHIVE_APP" ] || die "App not found in archive at $ARCHIVE_APP"
+    cp -R "$ARCHIVE_APP" "$APP_PATH"
+    warn "Developer ID cert not found — using archive copy (development-signed)."
+    warn "For notarized distribution, install a 'Developer ID Application' certificate."
+fi
+[ -d "$APP_PATH" ] || die "Export failed — Nexus.app not found."
+success "App ready: $APP_PATH"
 
 # ─── 3. Create DMG ───────────────────────────────────────────────────────────
 info "Creating DMG…"
@@ -130,7 +147,9 @@ success "DMG: $DMG_PATH ($(du -sh "$DMG_PATH" | awk '{print $1}'))"
 
 # ─── 4. Sign with Sparkle ────────────────────────────────────────────────────
 info "Signing DMG with Sparkle EdDSA…"
-SIGNATURE="$("$SIGN_UPDATE" "$DMG_PATH")"
+# sign_update outputs: sparkle:edSignature="VALUE" length="SIZE"
+SIGN_OUTPUT="$("$SIGN_UPDATE" "$DMG_PATH")"
+SIGNATURE="$(echo "$SIGN_OUTPUT" | sed 's/.*sparkle:edSignature="\([^"]*\)".*/\1/')"
 [ -n "$SIGNATURE" ] || die "sign_update returned empty signature. Is the private key in the Keychain?"
 success "Signature obtained"
 

@@ -5,6 +5,18 @@
         <link>https://raw.githubusercontent.com/matthiashollinger-netizen/Nexus/main/appcast.xml</link>
         <description>Most recent changes with links to updates.</description>
         <language>en</language>
-        <!-- Items are added automatically by build_release.sh -->
+        <item>
+            <title>Nexus 1.0.0</title>
+            <sparkle:releaseNotesLink>https://github.com/matthiashollinger-netizen/Nexus/releases/tag/v1.0.0</sparkle:releaseNotesLink>
+            <pubDate>Thu, 28 May 2026 11:58:00 +0000</pubDate>
+            <enclosure
+                url="https://github.com/matthiashollinger-netizen/Nexus/releases/download/v1.0.0/Nexus-1.0.0.dmg"
+                sparkle:version="1.0.0"
+                sparkle:shortVersionString="1.0.0"
+                length="2499797"
+                type="application/octet-stream"
+                sparkle:edSignature="aRPRX9auUS54ljt9zlNzLNGpYQcoNme75baD28b3ZYeS3vnOqNj5ojnNwI8HCN2killFoMZFiw5Y+K0kO+W8BQ=="
+            />
+        </item>
     </channel>
 </rss>
