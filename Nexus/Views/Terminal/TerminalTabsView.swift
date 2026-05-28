@@ -60,10 +60,11 @@ struct TabItemView: View {
     let cs: ConnectionSession
     let isSelected: Bool
     @Environment(AppViewModel.self) private var vm
+    @State private var isDragTarget = false
 
     var body: some View {
         HStack(spacing: 0) {
-            // ── Tab label — tapping switches to this tab ──────────────
+            // ── Tab label — draggable, tapping switches to this tab ──────────
             HStack(spacing: 6) {
                 Image(systemName: cs.session.connectionType.systemImage)
                     .font(.caption)
@@ -78,12 +79,26 @@ struct TabItemView: View {
             .contentShape(Rectangle())
             .onTapGesture {
                 vm.selectedTabId = cs.id
-                // Give keyboard focus to the now-active terminal.
-                // asyncAfter(0.05) lets SwiftUI finish re-rendering before we set focus.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                     guard let view = cs.terminalNSView else { return }
                     view.window?.makeFirstResponder(view)
                 }
+            }
+            // Drag the tab label to reorder — close button is excluded intentionally
+            .draggable(cs.id.uuidString) {
+                HStack(spacing: 6) {
+                    Image(systemName: cs.session.connectionType.systemImage)
+                        .font(.caption)
+                    Text(cs.tabTitle)
+                        .font(.system(size: 12))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+                )
             }
 
             // ── Close button — separate hit area, never competes with tap ─
@@ -92,20 +107,32 @@ struct TabItemView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.caption2)
-                    .padding(6)           // generous touch target
+                    .padding(6)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .padding(.trailing, 4)
         }
-        .background(isSelected ? Color(nsColor: .controlBackgroundColor) : .clear)
+        .background(
+            isDragTarget
+                ? Color.accentColor.opacity(0.2)
+                : (isSelected ? Color(nsColor: .controlBackgroundColor) : .clear)
+        )
         .overlay(alignment: .bottom) {
-            if isSelected {
+            if isSelected && !isDragTarget {
                 Rectangle()
                     .frame(height: 2)
                     .foregroundStyle(Color.accentColor)
             }
+        }
+        // Accept drops from other tabs — reorder on drop
+        .dropDestination(for: String.self) { items, _ in
+            guard let id = items.first.flatMap(UUID.init) else { return false }
+            vm.reorderTab(from: id, to: cs.id)
+            return true
+        } isTargeted: { targeted in
+            withAnimation(.easeInOut(duration: 0.15)) { isDragTarget = targeted }
         }
     }
 

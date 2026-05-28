@@ -195,10 +195,11 @@ struct SessionRow: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
+        // No contentShape — the List's NSTableView handles full-row single-click
+        // natively on macOS, which is more reliable than a SwiftUI gesture overlay.
         .tag(SidebarItem.session(session))
-        // onTapGesture(count:2) only fires on double-tap; single taps flow freely
-        // to the List's native selection handler without interference.
+        // onTapGesture(count:2) fires only after 2 taps; single taps pass through
+        // untouched to the List's built-in selection mechanism.
         .onTapGesture(count: 2) { vm.connect(to: session) }
         .contextMenu {
             Button {

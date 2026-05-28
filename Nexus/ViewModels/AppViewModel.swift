@@ -143,6 +143,18 @@ final class AppViewModel {
         activeSessions.removeAll { $0.id == cs.id }
     }
 
+    /// Moves a tab from one position to another (drag-and-drop reorder).
+    func reorderTab(from sourceId: UUID, to targetId: UUID) {
+        guard let fromIdx = activeSessions.firstIndex(where: { $0.id == sourceId }),
+              let toIdx   = activeSessions.firstIndex(where: { $0.id == targetId }),
+              fromIdx != toIdx else { return }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            let item = activeSessions.remove(at: fromIdx)
+            // When dragging forward, adjust insertion index for the removed element
+            activeSessions.insert(item, at: fromIdx < toIdx ? toIdx - 1 : toIdx)
+        }
+    }
+
     /// Replaces the disconnected/failed session with a fresh one at the same tab position.
     func reconnect(cs: ConnectionSession) {
         guard let idx = activeSessions.firstIndex(where: { $0.id == cs.id }) else { return }
