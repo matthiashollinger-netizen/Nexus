@@ -1,5 +1,22 @@
 # Changelog
 
+---
+
+## [1.1.0] - 2026-05-28
+
+### Neu
+- App-Icon: stylisches Nexus-Logo (dunkler Hintergrund, Netzwerkknoten, N-Lettermark)
+- Stylisches DMG-Installationsfenster mit Logo, Pfeil und Drag-Anleitung
+- GitHub-Repository öffentlich — appcast.xml via raw.githubusercontent.com erreichbar
+- MARKETING_VERSION auf 1.0.0 korrigiert für korrekte Sparkle-Versionsprüfung
+- Build-Script: Notarization-Support (NOTARIZE=1), Versionsnummern-Logik verbessert
+
+### Behoben
+- "Fehler beim Aktualisieren": appcast.xml war durch privates Repository nicht erreichbar
+- Version 1.0 vs 1.0.0 Mismatch in Sparkle-Versionsprüfung behoben
+
+---
+
 All notable changes to Nexus are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
