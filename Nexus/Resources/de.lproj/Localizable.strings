@@ -193,6 +193,11 @@
 "toolbar.password_manager" = "Passwort-Manager";
 "toolbar.import" = "Sessions importieren";
 
+// MARK: - Updates
+"settings.updates" = "Updates";
+"settings.updates.check" = "Nach Updates suchen…";
+"menu.check_for_updates" = "Nach Updates suchen…";
+
 // MARK: - Menü
 "menu.new_session" = "Neue Session";
 "menu.new_folder" = "Neuer Ordner";

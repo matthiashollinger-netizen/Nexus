@@ -193,6 +193,11 @@
 "onboarding.setup_encryption" = "Set Up Encryption";
 "onboarding.skip" = "Skip";
 
+// MARK: - Updates
+"settings.updates" = "Updates";
+"settings.updates.check" = "Check for Updates…";
+"menu.check_for_updates" = "Check for Updates…";
+
 // MARK: - Menu
 "menu.new_session" = "New Session";
 "menu.new_folder" = "New Folder";

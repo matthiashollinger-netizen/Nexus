@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		40D171482FC6F93B00E74C32 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = AA00000000000000000000AB /* SwiftTerm */; };
+		BB00000000000000000000BD /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = BB00000000000000000000BC /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +58,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				40D171482FC6F93B00E74C32 /* SwiftTerm in Frameworks */,
+				BB00000000000000000000BD /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +120,7 @@
 			name = Nexus;
 			packageProductDependencies = (
 				AA00000000000000000000AB /* SwiftTerm */,
+				BB00000000000000000000BC /* Sparkle */,
 			);
 			productName = Nexus;
 			productReference = 40D170E62FC6EB8500E74C32 /* Nexus.app */;
@@ -204,6 +207,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				AA00000000000000000000AA /* XCRemoteSwiftPackageReference "SwiftTerm" */,
+				BB00000000000000000000BB /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 40D170E72FC6EB8500E74C32 /* Products */;
@@ -411,8 +415,7 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -442,8 +445,7 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -591,6 +593,14 @@
 				minimumVersion = 1.0.0;
 			};
 		};
+		BB00000000000000000000BB /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -598,6 +608,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA00000000000000000000AA /* XCRemoteSwiftPackageReference "SwiftTerm" */;
 			productName = SwiftTerm;
+		};
+		BB00000000000000000000BC /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BB00000000000000000000BB /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

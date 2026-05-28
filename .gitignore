@@ -61,3 +61,12 @@ fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
 github_token.txt
+sparkle_private_key.txt
+
+# Release artifacts (built by scripts/build_release.sh)
+*.dmg
+build/
+*.xcarchive
+
+# Xcode DerivedData
+DerivedData/

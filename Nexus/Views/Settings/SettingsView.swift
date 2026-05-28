@@ -38,6 +38,7 @@ struct SettingsView: View {
 
 struct GeneralSettingsView: View {
     @Environment(AppViewModel.self) private var vm
+    @Environment(UpdaterViewModel.self) private var updaterVM
 
     var body: some View {
         @Bindable var vm = vm
@@ -50,6 +51,12 @@ struct GeneralSettingsView: View {
                 .pickerStyle(.segmented)
                 .onChange(of: vm.settings.language) { _, _ in
                     vm.saveSettings()
+                }
+            }
+
+            Section("settings.updates") {
+                Button("settings.updates.check") {
+                    updaterVM.checkForUpdates()
                 }
             }
         }

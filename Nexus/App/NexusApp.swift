@@ -3,17 +3,19 @@ import SwiftUI
 @main
 struct NexusApp: App {
     @State private var appViewModel = AppViewModel()
+    @State private var updaterViewModel = UpdaterViewModel()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(appViewModel)
+                .environment(updaterViewModel)
                 // Explicit minimum prevents the window from shrinking when sheets
                 // open/close as attached panels, which causes the "sliding" position drift.
                 .frame(minWidth: 900, minHeight: 600)
         }
         .commands {
-            NexusCommands(vm: appViewModel)
+            NexusCommands(vm: appViewModel, updaterVM: updaterViewModel)
         }
         .defaultSize(width: 1100, height: 720)
         .windowResizability(.contentMinSize)
@@ -21,6 +23,7 @@ struct NexusApp: App {
         Settings {
             SettingsView()
                 .environment(appViewModel)
+                .environment(updaterViewModel)
         }
     }
 }
@@ -29,6 +32,7 @@ struct NexusApp: App {
 
 struct NexusCommands: Commands {
     let vm: AppViewModel
+    let updaterVM: UpdaterViewModel
 
     var body: some Commands {
         CommandGroup(after: .newItem) {
@@ -48,6 +52,12 @@ struct NexusCommands: Commands {
 
             Button("menu.import_csv") {
                 vm.showImportCSV = true
+            }
+        }
+
+        CommandGroup(after: .appInfo) {
+            Button("menu.check_for_updates") {
+                updaterVM.checkForUpdates()
             }
         }
 
