@@ -147,20 +147,24 @@ MOUNT_DIR="$(hdiutil attach "$TMP_DMG" -nobrowse | grep '/Volumes/' | awk '{prin
 cp -R "$APP_PATH"          "$MOUNT_DIR/"
 ln -sf /Applications        "$MOUNT_DIR/Applications"
 
+# Background MUST be in place before AppleScript runs
+mkdir -p "$MOUNT_DIR/.background"
+[ -f "$BG_IMG" ] && cp "$BG_IMG" "$MOUNT_DIR/.background/background.png"
+
 # Set DMG window look via AppleScript
-osascript <<APPLESCRIPT
+osascript <<APPLESCRIPT 2>/dev/null || true
 tell application "Finder"
     tell disk "$VOL_NAME"
         open
         set current view of container window to icon view
         set toolbar visible of container window to false
         set statusbar visible of container window to false
-        set the bounds of container window to {200, 120, ${DMG_WIN_W}+200, ${DMG_WIN_H}+120}
+        set the bounds of container window to {200, 120, $((DMG_WIN_W+200)), $((DMG_WIN_H+120))}
         set viewOptions to the icon view options of container window
         set arrangement of viewOptions to not arranged
         set icon size of viewOptions to 96
         set background picture of viewOptions to file ".background:background.png"
-        set position of item "Nexus.app"   of container window to {${APP_X},  ${APP_Y}}
+        set position of item "Nexus.app"    of container window to {${APP_X},  ${APP_Y}}
         set position of item "Applications" of container window to {${APPS_X}, ${APPS_Y}}
         close
         open
@@ -170,16 +174,6 @@ tell application "Finder"
     end tell
 end tell
 APPLESCRIPT
-
-# Copy background image into hidden .background folder
-mkdir -p "$MOUNT_DIR/.background"
-[ -f "$BG_IMG" ] && cp "$BG_IMG" "$MOUNT_DIR/.background/background.png"
-
-# Copy app icon as volume icon
-if [ -f "$ICON_512" ]; then
-    cp "$ICON_512" "$MOUNT_DIR/.VolumeIcon.icns" 2>/dev/null || true
-    SetFile -a C "$MOUNT_DIR" 2>/dev/null || true
-fi
 
 hdiutil detach "$MOUNT_DIR" -quiet
 hdiutil convert "$TMP_DMG" -format UDBZ -o "$DMG_PATH" -quiet
