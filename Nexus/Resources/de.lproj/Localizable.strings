@@ -203,3 +203,263 @@
 "menu.new_folder" = "Neuer Ordner";
 "menu.import_csv" = "Aus CSV importieren…";
 "menu.password_manager" = "Passwort-Manager";
+"menu.nexus_help" = "Nexus Hilfe";
+"menu.changelog" = "Versionsverlauf";
+
+// MARK: - Hilfe-Fenster
+"help.title" = "Nexus Hilfe";
+"help.topic.start" = "Erste Schritte";
+"help.topic.ssh" = "SSH-Verbindungen";
+"help.topic.telnet" = "Telnet";
+"help.topic.serial" = "Seriell / COM";
+"help.topic.sidebar" = "Seitenleiste";
+"help.topic.tabs" = "Tabs";
+"help.topic.pwmgr" = "Passwort-Manager";
+"help.topic.import" = "CSV-Import";
+"help.topic.settings" = "Einstellungen";
+"help.topic.shortcuts" = "Tastenkürzel";
+
+// Erste Schritte
+"help.start.intro" = "Nexus ist deine zentrale Oberfläche für SSH-, Telnet- und Seriell-Verbindungen. In wenigen Schritten startklar.";
+"help.start.first_steps" = "Erste Schritte";
+"help.start.step1" = "Klicke auf ＋ in der Seitenleiste, um deine erste Session anzulegen.";
+"help.start.step2" = "Wähle ein Protokoll (SSH, Telnet oder Seriell) und trage Host und Zugangsdaten ein.";
+"help.start.step3" = "Doppelklicke die Session in der Seitenleiste, um dich zu verbinden.";
+"help.start.step4" = "Jede Verbindung öffnet einen neuen Tab — wechsle beliebig zwischen ihnen.";
+"help.start.overview" = "Interface-Übersicht";
+"help.start.sidebar_label" = "Seitenleiste";
+"help.start.sidebar_desc" = "Sessions und Ordner verwalten. Einfachklick wählt aus, Doppelklick verbindet.";
+"help.start.tabs_label" = "Tab-Leiste";
+"help.start.tabs_desc" = "Jede aktive Verbindung bekommt einen eigenen Tab. Tabs per Drag neu anordnen.";
+"help.start.terminal_label" = "Terminal";
+"help.start.terminal_desc" = "Vollwertiger Terminal-Emulator. Rechtsklick für Kopieren/Einfügen.";
+"help.start.tip" = "Mit ⌘N schnell eine neue Session anlegen, mit ⇧⌘N einen Ordner erstellen.";
+
+// SSH
+"help.ssh.intro" = "SSH (Secure Shell) ist das gängigste Protokoll für die sichere Remote-Verwaltung von Servern und Netzwerkgeräten.";
+"help.ssh.connect" = "Via SSH verbinden";
+"help.ssh.step1" = "Neue Session anlegen und Protokoll auf SSH setzen.";
+"help.ssh.step2" = "Hostname/IP, Port (Standard 22) und Benutzernamen eintragen.";
+"help.ssh.step3" = "Passwort eingeben oder einen privaten Schlüssel aus dem Passwort-Manager verknüpfen.";
+"help.ssh.auth" = "Authentifizierungsmethoden";
+"help.ssh.auth_pw" = "Passwort";
+"help.ssh.auth_pw_desc" = "Passwort direkt im Session-Formular eingeben oder im Passwort-Manager hinterlegen.";
+"help.ssh.auth_key" = "Privater Schlüssel";
+"help.ssh.auth_key_desc" = "Pfad zur Private-Key-Datei angeben (z. B. ~/.ssh/id_rsa). Die Passphrase kann ebenfalls gespeichert werden.";
+"help.ssh.options" = "Erweiterte Optionen";
+"help.ssh.legacy_label" = "Legacy-Algorithmen";
+"help.ssh.legacy_desc" = "Für ältere Geräte aktivieren, die nur diffie-hellman-group14-sha1 oder ssh-rsa unterstützen.";
+"help.ssh.strictkey_label" = "Strikter Host-Key";
+"help.ssh.strictkey_desc" = "Wenn deaktiviert, akzeptiert Nexus alle Host-Keys automatisch — praktisch in Lab-Umgebungen.";
+"help.ssh.knownhosts" = "Known Hosts";
+"help.ssh.knownhosts_desc" = "Nexus leitet Verbindungen über einen In-Process-SSH-Stack und umgeht die systemweite known_hosts-Datei.";
+"help.ssh.tip" = "Legacy-Algorithmen können global in Einstellungen → SSH oder pro Session aktiviert werden.";
+
+// Telnet
+"help.telnet.intro" = "Telnet ist ein unverschlüsseltes Protokoll, hauptsächlich für den Konsolenzugang zu Switches, Routern und älteren Geräten.";
+"help.telnet.connect" = "Via Telnet verbinden";
+"help.telnet.step1" = "Neue Session anlegen und Protokoll auf Telnet setzen.";
+"help.telnet.step2" = "Hostname/IP und Port (Standard 23) eintragen, dann verbinden.";
+"help.telnet.settings" = "Einstellungen";
+"help.telnet.port_label" = "Standard-Port";
+"help.telnet.port_desc" = "Der globale Standard-Telnet-Port kann unter Einstellungen → SSH geändert werden.";
+"help.telnet.tip" = "Telnet überträgt alle Daten unverschlüsselt. Wenn möglich, lieber SSH verwenden.";
+
+// Seriell
+"help.serial.intro" = "Seriell-/COM-Verbindungen ermöglichen die direkte Kommunikation mit Embedded-Systemen, Routern, Switches und Mikrocontrollern über einen USB-Seriell-Adapter.";
+"help.serial.connect" = "Via Seriell verbinden";
+"help.serial.step1" = "USB-Seriell-Adapter am Mac anschließen.";
+"help.serial.step2" = "Neue Session anlegen, Protokoll auf Seriell setzen und den Port aus dem Dropdown wählen.";
+"help.serial.step3" = "Baudrate und Serielle Parameter auf das Gerät abstimmen, dann verbinden.";
+"help.serial.params" = "Serielle Parameter";
+"help.serial.baud" = "Baudrate";
+"help.serial.baud_desc" = "Datenübertragungsgeschwindigkeit. Die meisten Netzwerkgeräte verwenden 9600 oder 115200.";
+"help.serial.databits" = "Datenbits";
+"help.serial.databits_desc" = "Anzahl der Datenbits pro Frame. In der Regel 8.";
+"help.serial.parity" = "Parität";
+"help.serial.parity_desc" = "Fehlererkennungsbit. In der Regel Keine.";
+"help.serial.stopbits" = "Stoppbits";
+"help.serial.stopbits_desc" = "Anzahl der Stoppbits. In der Regel 1.";
+"help.serial.flow" = "Flusssteuerung";
+"help.serial.flow_desc" = "Hardware (RTS/CTS), Software (XON/XOFF) oder Keine.";
+"help.serial.tip" = "Standard-Konfiguration für Cisco- und Juniper-Geräte: 9600 8N1 ohne Flusssteuerung.";
+
+// Seitenleiste
+"help.sidebar.intro" = "Die Seitenleiste ist die zentrale Stelle, um alle Sessions und Ordner zu verwalten.";
+"help.sidebar.sessions" = "Sessions";
+"help.sidebar.new" = "Neue Session";
+"help.sidebar.new_desc" = "Auf ＋ in der Werkzeugleiste klicken oder ⌘N drücken.";
+"help.sidebar.connect" = "Verbinden";
+"help.sidebar.connect_desc" = "Session doppelklicken, um sie in einem neuen Tab zu öffnen.";
+"help.sidebar.edit" = "Bearbeiten";
+"help.sidebar.edit_desc" = "Rechtsklick → Bearbeiten, oder Session wählen und ⌘E drücken.";
+"help.sidebar.delete" = "Löschen";
+"help.sidebar.delete_desc" = "Rechtsklick → Löschen, oder wählen und ⌦ drücken.";
+"help.sidebar.search" = "Suche";
+"help.sidebar.search_desc" = "Das Suchfeld oben in der Seitenleiste filtert Sessions nach Name.";
+"help.sidebar.folders" = "Ordner";
+"help.sidebar.folder_new" = "Neuer Ordner";
+"help.sidebar.folder_new_desc" = "Mit ⇧⌘N oder dem ＋-Menü einen Ordner anlegen. Ordner sind beliebig tief verschachtelbar.";
+"help.sidebar.folder_cred" = "Standard-Anmeldedaten";
+"help.sidebar.folder_cred_desc" = "Einem Ordner Anmeldedaten zuweisen — alle Sessions darin erben sie, sofern nicht überschrieben.";
+"help.sidebar.folder_expand" = "Auf-/Zuklappen";
+"help.sidebar.folder_expand_desc" = "Auf das Aufklapp-Dreieck klicken, um einen Ordner zu öffnen oder zu schließen.";
+"help.sidebar.tip" = "Sessions und Ordner per Drag & Drop umsortieren oder in Unterordner verschieben.";
+
+// Tabs
+"help.tabs.intro" = "Jede Session öffnet in einem eigenen Tab. Beliebig viele parallele Verbindungen sind möglich.";
+"help.tabs.usage" = "Mit Tabs arbeiten";
+"help.tabs.open" = "Tab öffnen";
+"help.tabs.open_desc" = "Session in der Seitenleiste doppelklicken, um sie in einem neuen Tab zu öffnen.";
+"help.tabs.switch" = "Tab wechseln";
+"help.tabs.switch_desc" = "Auf einen Tab in der Tab-Leiste klicken, um ihn in den Vordergrund zu bringen.";
+"help.tabs.reorder" = "Umsortieren";
+"help.tabs.reorder_desc" = "Tabs per Drag & Drop neu anordnen.";
+"help.tabs.close" = "Tab schließen";
+"help.tabs.close_desc" = "Auf das × im Tab klicken oder ⌘W drücken.";
+"help.tabs.reconnect" = "Wiederverbinden";
+"help.tabs.reconnect_auto" = "Overlay";
+"help.tabs.reconnect_auto_desc" = "Bricht die Verbindung ab, erscheint ein Reconnect-Overlay im Terminal.";
+"help.tabs.reconnect_manual" = "Manuell verbinden";
+"help.tabs.reconnect_manual_desc" = "Auf den Verbinden-Button im Overlay klicken.";
+"help.tabs.reconnect_key" = "Tastenkürzel";
+"help.tabs.reconnect_key_desc" = "R oder ↩ drücken, um sofort neu zu verbinden.";
+"help.tabs.tip" = "Tabs bleiben nach einer Trennung geöffnet, damit der Terminal-Verlauf weiter einsehbar ist.";
+
+// Passwort-Manager
+"help.pwmgr.intro" = "Der Passwort-Manager speichert Zugangsdaten für SSH-, Telnet- und Seriell-Sessions sicher mit AES-256-GCM-Verschlüsselung.";
+"help.pwmgr.features" = "Funktionen";
+"help.pwmgr.encrypt" = "Verschlüsselung";
+"help.pwmgr.encrypt_desc" = "Alle Zugangsdaten werden mit AES-256-GCM und einem Master-Passwort verschlüsselt.";
+"help.pwmgr.link" = "Session verknüpfen";
+"help.pwmgr.link_desc" = "Zugangsdaten können direkt mit einer Session verknüpft und beim Verbinden automatisch genutzt werden.";
+"help.pwmgr.inherit" = "Ordner-Vererbung";
+"help.pwmgr.inherit_desc" = "Einem Ordner Zugangsdaten zuweisen — alle Sessions darin erben sie.";
+"help.pwmgr.export" = "Export / Import";
+"help.pwmgr.export_desc" = "Die verschlüsselte Datenbank exportieren und auf einem anderen Mac importieren.";
+"help.pwmgr.setup" = "Einrichtung";
+"help.pwmgr.step1" = "Einstellungen → Sicherheit öffnen und Master-Passwort aktivieren.";
+"help.pwmgr.step2" = "Passwort-Manager über das Werkzeugleisten-Symbol oder ⇧⌘K öffnen.";
+"help.pwmgr.step3" = "Passwortgruppen und Zugangsdaten anlegen, dann mit Sessions verknüpfen.";
+"help.pwmgr.tip" = "'Im Schlüsselbund speichern' aktivieren, damit Nexus bei jedem Start automatisch entsperrt wird.";
+
+// CSV-Import
+"help.import.intro" = "Sessions aus einer CSV-Datei importieren — z. B. aus Termius oder einem anderen SSH-Client exportiert.";
+"help.import.steps" = "Import-Schritte";
+"help.import.step1" = "Datei → Aus CSV importieren… aufrufen oder das Werkzeugleisten-Symbol klicken.";
+"help.import.step2" = "CSV-Datei auswählen. Nexus zeigt eine Vorschau der ersten Zeile.";
+"help.import.step3" = "Jede CSV-Spalte dem passenden Session-Feld zuordnen (Name, Host, Protokoll usw.).";
+"help.import.step4" = "Importieren klicken. Alle zugeordneten Sessions werden der Seitenleiste hinzugefügt.";
+"help.import.fields" = "Unterstützte Felder";
+"help.import.field_name" = "Name";
+"help.import.field_name_desc" = "Anzeigename der Session.";
+"help.import.field_host" = "Host";
+"help.import.field_host_desc" = "Hostname oder IP-Adresse.";
+"help.import.field_proto" = "Protokoll";
+"help.import.field_proto_desc" = "ssh, telnet oder serial.";
+"help.import.field_port" = "Port";
+"help.import.field_port_desc" = "Verbindungs-Port. Verwendet den Protokoll-Standard, wenn leer.";
+"help.import.field_user" = "Benutzername";
+"help.import.field_user_desc" = "Login-Benutzername für die Session.";
+"help.import.field_folder" = "Ordner";
+"help.import.field_folder_desc" = "Ordnername. Wird automatisch angelegt, wenn er noch nicht existiert.";
+"help.import.tip" = "Spalten ohne Zuordnung werden einfach übersprungen — nur zugeordnete Felder werden importiert.";
+
+// Einstellungen
+"help.settings.intro" = "Die Nexus-Einstellungen erreichst du über ⌘, oder das Nexus-Menü.";
+"help.settings.general_sec" = "Allgemein";
+"help.settings.language" = "Sprache";
+"help.settings.language_desc" = "Zwischen Deutsch und Englisch wechseln. Wirkt sofort ohne Neustart.";
+"help.settings.updates" = "Updates";
+"help.settings.updates_desc" = "Nexus prüft über Sparkle automatisch auf Updates. Eine manuelle Prüfung ist hier ebenfalls möglich.";
+"help.settings.terminal_sec" = "Terminal";
+"help.settings.font" = "Schriftart";
+"help.settings.font_desc" = "Schriftart im Terminal wählen. Monospace-Schriften werden empfohlen.";
+"help.settings.fontsize" = "Schriftgröße";
+"help.settings.fontsize_desc" = "Schriftgröße im Terminal anpassen. Änderungen greifen sofort.";
+"help.settings.ssh_sec" = "SSH";
+"help.settings.legacy" = "Legacy-Algorithmen";
+"help.settings.legacy_desc" = "SHA1-basierte Algorithmen für die Kompatibilität mit älteren Netzwerkgeräten aktivieren.";
+"help.settings.ports" = "Standard-Ports";
+"help.settings.ports_desc" = "Den Standard-Telnet-Port für neue Sessions konfigurieren.";
+"help.settings.security_sec" = "Sicherheit";
+"help.settings.master_pw" = "Master-Passwort";
+"help.settings.master_pw_desc" = "Gespeicherte Zugangsdaten mit AES-256-Verschlüsselung schützen.";
+"help.settings.change_pw" = "Passwort ändern";
+"help.settings.change_pw_desc" = "Das Master-Passwort ändern. Alle Daten werden mit dem neuen Passwort neu verschlüsselt.";
+
+// Tastenkürzel
+"help.shortcuts.intro" = "Nexus unterstützt folgende Tastenkürzel.";
+"help.shortcuts.general_sec" = "Allgemein";
+"help.sc.new_session" = "Neue Session";
+"help.sc.new_folder" = "Neuer Ordner";
+"help.sc.edit" = "Auswahl bearbeiten";
+"help.sc.delete" = "Auswahl löschen";
+"help.sc.pwmgr" = "Passwort-Manager öffnen";
+"help.sc.settings" = "Einstellungen öffnen";
+"help.shortcuts.terminal_sec" = "Terminal";
+"help.sc.reconnect" = "Wiederverbinden";
+"help.sc.connect" = "Session verbinden";
+"help.sc.dblclick_label" = "Doppelklick";
+
+// MARK: - Versionsverlauf-Fenster
+"changelog.title" = "Versionsverlauf";
+"changelog.select" = "Version auswählen";
+
+// MARK: - Menü Bug / Feature
+"menu.report_bug" = "Bug melden…";
+"menu.feature_request" = "Feature wünschen…";
+
+// MARK: - Bug Reporter
+"bug.title" = "Bug melden";
+"bug.subtitle" = "Hilf dabei, Nexus zu verbessern – beschreibe was schiefgelaufen ist.";
+"bug.section.what" = "Was ist passiert?";
+"bug.title.placeholder" = "Kurze Zusammenfassung (max. 100 Zeichen)";
+"bug.severity.label" = "Schweregrad";
+"bug.severity.crash" = "Crash";
+"bug.severity.crash.desc" = "App abgestürzt";
+"bug.severity.severe" = "Schwerwiegend";
+"bug.severity.severe.desc" = "Funktion nicht nutzbar";
+"bug.severity.medium" = "Mittel";
+"bug.severity.medium.desc" = "Funktion eingeschränkt";
+"bug.severity.cosmetic" = "Kosmetisch";
+"bug.severity.cosmetic.desc" = "Optisches Problem";
+"bug.section.repro" = "Wie reproduzieren?";
+"bug.repro.placeholder" = "1. Ich habe…\n2. Dann…\n3. Erwartet…\n4. Passiert…";
+"bug.section.auto" = "Automatisch erfasste Infos";
+"bug.section.auto.toggle" = "Systeminformationen & Logs";
+"bug.info.version" = "App-Version";
+"bug.info.macos" = "macOS";
+"bug.info.arch" = "Architektur";
+"bug.info.sessions" = "Aktive Sessions";
+"bug.info.ram" = "Freier RAM";
+"bug.info.timestamp" = "Zeitstempel";
+"bug.info.logs_note" = "Die letzten 5 Minuten App-Logs werden dem Report angehängt.";
+"bug.screenshot.include" = "Screenshot des aktuellen Fensters beifügen";
+"bug.screenshot.captured" = "Screenshot erfasst";
+"bug.section.contact" = "Kontakt (optional)";
+"bug.contact.placeholder" = "deine@email.de";
+"bug.optional" = "(optional)";
+"bug.privacy_note" = "Deine Daten werden nur zur Fehlerbehebung verwendet.";
+"bug.submit" = "Bug melden";
+"bug.submitting" = "Wird gesendet…";
+"bug.success.title" = "Bug gemeldet!";
+"bug.success.subtitle" = "Danke. Ein GitHub-Issue wurde erstellt und der Entwickler wurde benachrichtigt.";
+"bug.success.open_issue" = "Auf GitHub ansehen →";
+"bug.error.no_token" = "Bug Reporter nicht konfiguriert. Token fehlt.";
+"bug.error.network" = "Netzwerkfehler";
+
+// MARK: - Feature Request
+"feature.title" = "Feature wünschen";
+"feature.subtitle" = "Was soll Nexus zukünftig können?";
+"feature.section.title" = "Feature-Titel";
+"feature.title.placeholder" = "Kurze Beschreibung des Features…";
+"feature.section.what" = "Was soll die Funktion machen?";
+"feature.what.placeholder" = "Beschreibe was die Funktion tun soll…";
+"feature.section.why" = "Warum ist das nützlich für dich?";
+"feature.why.placeholder" = "Welches Problem würde das für dich lösen?";
+"feature.section.priority" = "Priorität";
+"feature.priority.nice" = "Nice to have";
+"feature.priority.important" = "Wichtig";
+"feature.priority.critical" = "Kritisch für meinen Workflow";
+"feature.submit" = "Anfrage senden";

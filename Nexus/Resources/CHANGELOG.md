@@ -2,6 +2,26 @@
 
 ---
 
+## [1.3.0] - 2026-05-28
+
+### Neu
+- In-App Bug Reporter: Bug melden direkt aus Nexus (Hilfe → Bug melden… / ⌘⇧B)
+  - Schweregrad-Picker (Crash / Schwerwiegend / Mittel / Kosmetisch)
+  - Automatische Erfassung: App-Version, macOS, Architektur, aktive Sessions, freier RAM, App-Logs
+  - Optionaler Screenshot (kein Screen-Recording-Permission erforderlich)
+  - Erstellt GitHub Issue direkt mit Label `bug-open`
+- In-App Feature Request: Feature wünschen (Hilfe → Feature wünschen…)
+  - Titel, Beschreibung, Warum-Begründung, Priorität-Picker
+  - Erstellt GitHub Issue mit Label `feature-request`
+- GitHub Project Board: Kanban-Board für Bug-Tracking (5 Spalten)
+- GitHub Labels: bug-open, fix-pending, test-ready, verified, wont-fix, feature-request
+- GitHub Actions Workflow: Auto-Kommentar und Label-Management bei neuen Issues
+- Beta-Release Pipeline: build_beta.sh für Pre-Releases ohne Stable-Kanal-Update
+- Promote-Pipeline: promote_beta.sh zum Promoten von Beta → Stable
+- BUGFIX_WORKFLOW.md: vollständiger autonomer Fix-Workflow für Claude Code
+
+---
+
 ## [1.2.0] - 2026-05-28
 
 ### Neu

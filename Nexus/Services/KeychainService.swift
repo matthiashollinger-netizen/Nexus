@@ -3,7 +3,7 @@ import Security
 
 /// Manages the master password in the macOS Keychain.
 struct KeychainService {
-    private static let service = "com.hollinger.Nexus"
+    nonisolated private static let service = "com.hollinger.Nexus"
     private static let masterAccount = "NexusMasterPassword"
 
     // MARK: - Master Password
@@ -67,6 +67,44 @@ struct KeychainService {
     /// Whether a master password is currently stored in the Keychain.
     static var hasMasterPasswordInKeychain: Bool {
         loadMasterPassword() != nil
+    }
+
+    // MARK: - Generic Key/Value Store
+
+    /// Saves any string value under the given key.
+    nonisolated static func save(key: String, value: String) {
+        let data = Data(value.utf8)
+        let deleteQuery: [String: Any] = [
+            kSecClass as String:       kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+        let addQuery: [String: Any] = [
+            kSecClass as String:              kSecClassGenericPassword,
+            kSecAttrService as String:        service,
+            kSecAttrAccount as String:        key,
+            kSecValueData as String:          data,
+            kSecAttrAccessible as String:     kSecAttrAccessibleWhenUnlocked
+        ]
+        SecItemAdd(addQuery as CFDictionary, nil)
+    }
+
+    /// Loads a string value for the given key.
+    nonisolated static func load(key: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String:       kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecReturnData as String:  true,
+            kSecMatchLimit as String:  kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecSuccess, let data = result as? Data {
+            return String(data: data, encoding: .utf8)
+        }
+        return nil
     }
 }
 

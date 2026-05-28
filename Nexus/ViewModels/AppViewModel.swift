@@ -22,6 +22,8 @@ final class AppViewModel {
     var showImportCSV: Bool = false
     var showAddSession: Bool = false
     var showAddFolder: Bool = false
+    var showBugReporter: Bool = false
+    var showFeatureRequest: Bool = false
     var editingSession: Session? = nil
     var editingFolder: Folder? = nil
     var addSessionParentFolderId: UUID? = nil

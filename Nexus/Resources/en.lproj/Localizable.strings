@@ -203,3 +203,263 @@
 "menu.new_folder" = "New Folder";
 "menu.import_csv" = "Import from CSV…";
 "menu.password_manager" = "Password Manager";
+"menu.nexus_help" = "Nexus Help";
+"menu.changelog" = "Version History";
+
+// MARK: - Help Window
+"help.title" = "Nexus Help";
+"help.topic.start" = "Getting Started";
+"help.topic.ssh" = "SSH Connections";
+"help.topic.telnet" = "Telnet";
+"help.topic.serial" = "Serial / COM";
+"help.topic.sidebar" = "Sidebar";
+"help.topic.tabs" = "Tabs";
+"help.topic.pwmgr" = "Password Manager";
+"help.topic.import" = "CSV Import";
+"help.topic.settings" = "Settings";
+"help.topic.shortcuts" = "Shortcuts";
+
+// Getting Started
+"help.start.intro" = "Nexus is your central hub for SSH, Telnet, and Serial connections. Get started in just a few steps.";
+"help.start.first_steps" = "First Steps";
+"help.start.step1" = "Click the ＋ button in the sidebar to create your first session.";
+"help.start.step2" = "Choose a protocol (SSH, Telnet, or Serial) and fill in host and credentials.";
+"help.start.step3" = "Double-click the session in the sidebar to connect.";
+"help.start.step4" = "Each connection opens in a new tab — switch between them freely.";
+"help.start.overview" = "Interface Overview";
+"help.start.sidebar_label" = "Sidebar";
+"help.start.sidebar_desc" = "Organise sessions and folders. Single-click selects, double-click connects.";
+"help.start.tabs_label" = "Tab Bar";
+"help.start.tabs_desc" = "Every active connection gets its own tab. Drag tabs to reorder them.";
+"help.start.terminal_label" = "Terminal";
+"help.start.terminal_desc" = "Full-featured terminal emulator. Right-click for copy/paste.";
+"help.start.tip" = "Use ⌘N to quickly add a new session and ⇧⌘N to create a folder.";
+
+// SSH
+"help.ssh.intro" = "SSH (Secure Shell) is the most common protocol for remotely managing servers and network devices securely.";
+"help.ssh.connect" = "Connecting via SSH";
+"help.ssh.step1" = "Create a new session and set the protocol to SSH.";
+"help.ssh.step2" = "Enter hostname/IP, port (default 22), and your username.";
+"help.ssh.step3" = "Enter a password or link a private key from the Password Manager.";
+"help.ssh.auth" = "Authentication Methods";
+"help.ssh.auth_pw" = "Password";
+"help.ssh.auth_pw_desc" = "Enter your password directly in the session form or store it in the Password Manager.";
+"help.ssh.auth_key" = "Private Key";
+"help.ssh.auth_key_desc" = "Specify the path to your private key file (e.g. ~/.ssh/id_rsa). The passphrase can also be saved.";
+"help.ssh.options" = "Advanced Options";
+"help.ssh.legacy_label" = "Legacy Algorithms";
+"help.ssh.legacy_desc" = "Enable for older devices that only support diffie-hellman-group14-sha1 or ssh-rsa.";
+"help.ssh.strictkey_label" = "Strict Host Key";
+"help.ssh.strictkey_desc" = "When disabled, Nexus accepts all host keys automatically — convenient for lab environments.";
+"help.ssh.knownhosts" = "Known Hosts";
+"help.ssh.knownhosts_desc" = "Nexus routes connections through an in-process SSH stack and bypasses the system known_hosts file.";
+"help.ssh.tip" = "Legacy algorithms can be enabled globally in Settings → SSH or individually per session.";
+
+// Telnet
+"help.telnet.intro" = "Telnet is an unencrypted protocol, mainly used for console access to switches, routers, and older devices.";
+"help.telnet.connect" = "Connecting via Telnet";
+"help.telnet.step1" = "Create a new session and set the protocol to Telnet.";
+"help.telnet.step2" = "Enter the hostname/IP and port (default 23). Click Connect.";
+"help.telnet.settings" = "Settings";
+"help.telnet.port_label" = "Default Port";
+"help.telnet.port_desc" = "The global default Telnet port can be changed under Settings → SSH.";
+"help.telnet.tip" = "Telnet transmits all data unencrypted. Use SSH whenever possible.";
+
+// Serial
+"help.serial.intro" = "Serial/COM connections allow direct communication with embedded systems, routers, switches, and microcontrollers via a USB-to-serial adapter.";
+"help.serial.connect" = "Connecting via Serial";
+"help.serial.step1" = "Connect your USB-to-serial adapter to the Mac.";
+"help.serial.step2" = "Create a new session, set the protocol to Serial, and select the port from the dropdown.";
+"help.serial.step3" = "Configure baud rate and serial parameters to match your device, then connect.";
+"help.serial.params" = "Serial Parameters";
+"help.serial.baud" = "Baud Rate";
+"help.serial.baud_desc" = "Data transmission speed. Most network devices use 9600 or 115200.";
+"help.serial.databits" = "Data Bits";
+"help.serial.databits_desc" = "Number of data bits per frame. Usually 8.";
+"help.serial.parity" = "Parity";
+"help.serial.parity_desc" = "Error detection bit. Usually None.";
+"help.serial.stopbits" = "Stop Bits";
+"help.serial.stopbits_desc" = "Number of stop bits. Usually 1.";
+"help.serial.flow" = "Flow Control";
+"help.serial.flow_desc" = "Hardware (RTS/CTS), software (XON/XOFF), or None.";
+"help.serial.tip" = "The standard configuration for Cisco and Juniper devices is 9600 8N1 with no flow control.";
+
+// Sidebar
+"help.sidebar.intro" = "The sidebar is the central place to manage all your sessions and folders.";
+"help.sidebar.sessions" = "Sessions";
+"help.sidebar.new" = "New Session";
+"help.sidebar.new_desc" = "Click ＋ in the toolbar or use ⌘N.";
+"help.sidebar.connect" = "Connect";
+"help.sidebar.connect_desc" = "Double-click a session to open it in a new tab.";
+"help.sidebar.edit" = "Edit";
+"help.sidebar.edit_desc" = "Right-click a session and choose Edit, or select it and press ⌘E.";
+"help.sidebar.delete" = "Delete";
+"help.sidebar.delete_desc" = "Right-click and choose Delete, or select and press ⌦.";
+"help.sidebar.search" = "Search";
+"help.sidebar.search_desc" = "Use the search field at the top of the sidebar to filter sessions by name.";
+"help.sidebar.folders" = "Folders";
+"help.sidebar.folder_new" = "New Folder";
+"help.sidebar.folder_new_desc" = "Use ⇧⌘N or the ＋ menu to create a folder. Folders can be nested indefinitely.";
+"help.sidebar.folder_cred" = "Default Credential";
+"help.sidebar.folder_cred_desc" = "Assign a credential to a folder — all sessions inside inherit it unless overridden.";
+"help.sidebar.folder_expand" = "Expand / Collapse";
+"help.sidebar.folder_expand_desc" = "Click the disclosure triangle to expand or collapse a folder.";
+"help.sidebar.tip" = "Drag sessions and folders to reorder or move them into subfolders.";
+
+// Tabs
+"help.tabs.intro" = "Every session opens in its own tab. You can have as many parallel connections as you like.";
+"help.tabs.usage" = "Working with Tabs";
+"help.tabs.open" = "Open Tab";
+"help.tabs.open_desc" = "Double-click a session in the sidebar to open it in a new tab.";
+"help.tabs.switch" = "Switch Tab";
+"help.tabs.switch_desc" = "Click a tab in the tab bar to bring it to the front.";
+"help.tabs.reorder" = "Reorder";
+"help.tabs.reorder_desc" = "Drag and drop tabs to rearrange them.";
+"help.tabs.close" = "Close Tab";
+"help.tabs.close_desc" = "Click the × on a tab or press ⌘W.";
+"help.tabs.reconnect" = "Reconnect";
+"help.tabs.reconnect_auto" = "Overlay";
+"help.tabs.reconnect_auto_desc" = "When a connection drops, a reconnect overlay appears in the terminal.";
+"help.tabs.reconnect_manual" = "Manual Reconnect";
+"help.tabs.reconnect_manual_desc" = "Click the Reconnect button in the overlay.";
+"help.tabs.reconnect_key" = "Keyboard Shortcut";
+"help.tabs.reconnect_key_desc" = "Press R or ↩ to reconnect immediately.";
+"help.tabs.tip" = "Tabs stay open after disconnection so you can review the terminal output.";
+
+// Password Manager
+"help.pwmgr.intro" = "The Password Manager securely stores credentials for SSH, Telnet, and Serial sessions using AES-256-GCM encryption.";
+"help.pwmgr.features" = "Features";
+"help.pwmgr.encrypt" = "Encryption";
+"help.pwmgr.encrypt_desc" = "All credentials are encrypted with AES-256-GCM and protected by a master password.";
+"help.pwmgr.link" = "Link to Session";
+"help.pwmgr.link_desc" = "Credentials can be linked to a session and used automatically when connecting.";
+"help.pwmgr.inherit" = "Folder Inheritance";
+"help.pwmgr.inherit_desc" = "Assign a credential to a folder to apply it to all sessions inside.";
+"help.pwmgr.export" = "Export / Import";
+"help.pwmgr.export_desc" = "Export the encrypted database and import it on another Mac.";
+"help.pwmgr.setup" = "Setup";
+"help.pwmgr.step1" = "Open Settings → Security and enable the master password.";
+"help.pwmgr.step2" = "Open the Password Manager via the toolbar icon or ⇧⌘K.";
+"help.pwmgr.step3" = "Create credential groups and add credentials. Then link them to sessions.";
+"help.pwmgr.tip" = "Enable 'Save in Keychain' so Nexus unlocks automatically on each launch.";
+
+// CSV Import
+"help.import.intro" = "Import sessions from a CSV file — for example exported from Termius or another SSH client.";
+"help.import.steps" = "Import Steps";
+"help.import.step1" = "Go to File → Import from CSV… or click the toolbar icon.";
+"help.import.step2" = "Select a CSV file. Nexus shows a preview of the first row.";
+"help.import.step3" = "Map each CSV column to the corresponding session field (Name, Host, Protocol, etc.).";
+"help.import.step4" = "Click Import. All mapped sessions are added to the sidebar.";
+"help.import.fields" = "Supported Fields";
+"help.import.field_name" = "Name";
+"help.import.field_name_desc" = "Display name for the session.";
+"help.import.field_host" = "Host";
+"help.import.field_host_desc" = "Hostname or IP address.";
+"help.import.field_proto" = "Protocol";
+"help.import.field_proto_desc" = "ssh, telnet, or serial.";
+"help.import.field_port" = "Port";
+"help.import.field_port_desc" = "Connection port. Uses the protocol default if left empty.";
+"help.import.field_user" = "Username";
+"help.import.field_user_desc" = "Login username for the session.";
+"help.import.field_folder" = "Folder";
+"help.import.field_folder_desc" = "Folder name. Created automatically if it does not exist.";
+"help.import.tip" = "Columns not assigned to any field are simply skipped — only mapped fields are imported.";
+
+// Settings
+"help.settings.intro" = "Nexus settings are accessible via ⌘, or the Nexus menu.";
+"help.settings.general_sec" = "General";
+"help.settings.language" = "Language";
+"help.settings.language_desc" = "Switch between German and English. Takes effect immediately without a restart.";
+"help.settings.updates" = "Updates";
+"help.settings.updates_desc" = "Nexus checks for updates automatically via Sparkle. You can also trigger a manual check here.";
+"help.settings.terminal_sec" = "Terminal";
+"help.settings.font" = "Font";
+"help.settings.font_desc" = "Choose the font for the terminal. Monospaced fonts are recommended.";
+"help.settings.fontsize" = "Font Size";
+"help.settings.fontsize_desc" = "Adjust the terminal font size. Changes apply immediately.";
+"help.settings.ssh_sec" = "SSH";
+"help.settings.legacy" = "Legacy Algorithms";
+"help.settings.legacy_desc" = "Enable SHA1-based algorithms for compatibility with older network devices.";
+"help.settings.ports" = "Default Ports";
+"help.settings.ports_desc" = "Configure the default Telnet port used for new sessions.";
+"help.settings.security_sec" = "Security";
+"help.settings.master_pw" = "Master Password";
+"help.settings.master_pw_desc" = "Protect stored credentials with AES-256 encryption.";
+"help.settings.change_pw" = "Change Password";
+"help.settings.change_pw_desc" = "Change the master password. All data is re-encrypted with the new password.";
+
+// Shortcuts
+"help.shortcuts.intro" = "Nexus supports the following keyboard shortcuts.";
+"help.shortcuts.general_sec" = "General";
+"help.sc.new_session" = "New Session";
+"help.sc.new_folder" = "New Folder";
+"help.sc.edit" = "Edit Selection";
+"help.sc.delete" = "Delete Selection";
+"help.sc.pwmgr" = "Open Password Manager";
+"help.sc.settings" = "Open Settings";
+"help.shortcuts.terminal_sec" = "Terminal";
+"help.sc.reconnect" = "Reconnect";
+"help.sc.connect" = "Connect Session";
+"help.sc.dblclick_label" = "Double-click";
+
+// MARK: - Changelog Window
+"changelog.title" = "Version History";
+"changelog.select" = "Select a version";
+
+// MARK: - Menu Bug / Feature
+"menu.report_bug" = "Report a Bug…";
+"menu.feature_request" = "Request a Feature…";
+
+// MARK: - Bug Reporter
+"bug.title" = "Report a Bug";
+"bug.subtitle" = "Help improve Nexus by describing what went wrong.";
+"bug.section.what" = "What happened?";
+"bug.title.placeholder" = "Short summary (max 100 characters)";
+"bug.severity.label" = "Severity";
+"bug.severity.crash" = "Crash";
+"bug.severity.crash.desc" = "App crashed";
+"bug.severity.severe" = "Severe";
+"bug.severity.severe.desc" = "Feature unusable";
+"bug.severity.medium" = "Medium";
+"bug.severity.medium.desc" = "Feature limited";
+"bug.severity.cosmetic" = "Cosmetic";
+"bug.severity.cosmetic.desc" = "Visual issue";
+"bug.section.repro" = "How to reproduce?";
+"bug.repro.placeholder" = "1. I opened…\n2. Then I…\n3. Expected…\n4. What happened…";
+"bug.section.auto" = "Automatically collected info";
+"bug.section.auto.toggle" = "System info & logs";
+"bug.info.version" = "App version";
+"bug.info.macos" = "macOS";
+"bug.info.arch" = "Architecture";
+"bug.info.sessions" = "Active sessions";
+"bug.info.ram" = "Free RAM";
+"bug.info.timestamp" = "Timestamp";
+"bug.info.logs_note" = "Last 5 minutes of app logs will be attached to the report.";
+"bug.screenshot.include" = "Include screenshot of current window";
+"bug.screenshot.captured" = "Screenshot captured";
+"bug.section.contact" = "Contact (optional)";
+"bug.contact.placeholder" = "your@email.com";
+"bug.optional" = "(optional)";
+"bug.privacy_note" = "Your data is used for bug fixing only.";
+"bug.submit" = "Submit Bug Report";
+"bug.submitting" = "Submitting…";
+"bug.success.title" = "Bug reported!";
+"bug.success.subtitle" = "Thank you. A GitHub issue has been created and the developer has been notified.";
+"bug.success.open_issue" = "View on GitHub →";
+"bug.error.no_token" = "Bug reporter not configured. Token missing.";
+"bug.error.network" = "Network error";
+
+// MARK: - Feature Request
+"feature.title" = "Request a Feature";
+"feature.subtitle" = "What should Nexus be able to do?";
+"feature.section.title" = "Feature title";
+"feature.title.placeholder" = "Short description of the feature…";
+"feature.section.what" = "What should the feature do?";
+"feature.what.placeholder" = "Describe what the feature should do…";
+"feature.section.why" = "Why is this useful for you?";
+"feature.why.placeholder" = "Which problem would this solve for you?";
+"feature.section.priority" = "Priority";
+"feature.priority.nice" = "Nice to have";
+"feature.priority.important" = "Important";
+"feature.priority.critical" = "Critical for my workflow";
+"feature.submit" = "Submit Request";

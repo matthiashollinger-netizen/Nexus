@@ -25,6 +25,18 @@ struct NexusApp: App {
                 .environment(appViewModel)
                 .environment(updaterViewModel)
         }
+
+        Window("help.title", id: "help") {
+            HelpView()
+        }
+        .defaultSize(width: 860, height: 580)
+        .windowResizability(.contentMinSize)
+
+        Window("changelog.title", id: "changelog") {
+            ChangelogView()
+        }
+        .defaultSize(width: 720, height: 500)
+        .windowResizability(.contentMinSize)
     }
 }
 
@@ -62,10 +74,38 @@ struct NexusCommands: Commands {
         }
 
         CommandGroup(replacing: .help) {
+            HelpMenuItems()
+            Divider()
+            Button("menu.report_bug") {
+                vm.showBugReporter = true
+            }
+            .keyboardShortcut("b", modifiers: [.command, .shift])
+
+            Button("menu.feature_request") {
+                vm.showFeatureRequest = true
+            }
+            Divider()
             Button("menu.password_manager") {
                 vm.showPasswordManager = true
             }
             .keyboardShortcut("k", modifiers: [.command, .shift])
+        }
+    }
+}
+
+// MARK: - Help menu items (View wrapper required for @Environment openWindow)
+
+private struct HelpMenuItems: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("menu.nexus_help") {
+            openWindow(id: "help")
+        }
+        .keyboardShortcut("?", modifiers: .command)
+
+        Button("menu.changelog") {
+            openWindow(id: "changelog")
         }
     }
 }

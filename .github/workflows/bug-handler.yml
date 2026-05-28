@@ -1,0 +1,86 @@
+name: Bug Handler
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  handle-bug-open:
+    if: github.event.label.name == 'bug-open'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Post acknowledgement comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                "🔍 **Bug wird analysiert...**",
+                "",
+                "Danke für den Bug Report! Der Entwickler wurde benachrichtigt und wird den Fix zeitnah angehen.",
+                "",
+                "**Nächste Schritte:**",
+                "1. Bug wird analysiert und reproduziert",
+                "2. Fix wird implementiert → Label wechselt zu `fix-pending`",
+                "3. Beta-Build wird erstellt → Label wechselt zu `test-ready`",
+                "4. Nach deiner Bestätigung → `verified` und Release",
+                "",
+                "---",
+                "_Automatische Nachricht von Nexus Bug Handler_"
+              ].join("\n")
+            });
+
+      - name: Replace label bug-open → fix-pending
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              name: 'bug-open'
+            }).catch(() => {});
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['fix-pending']
+            });
+
+  handle-feature-request:
+    if: github.event.label.name == 'feature-request'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Post feature-request acknowledgement
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                "💡 **Feature Request erhalten.**",
+                "",
+                "Der Entwickler wird diesen prüfen und sich melden.",
+                "",
+                "Feature Requests werden nach Priorität und Aufwand bewertet.",
+                "Wenn du dieses Feature priorisieren möchtest, hinterlasse gerne ein 👍 unter dem Issue.",
+                "",
+                "---",
+                "_Automatische Nachricht von Nexus Bug Handler_"
+              ].join("\n")
+            });

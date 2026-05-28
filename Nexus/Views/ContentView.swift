@@ -52,6 +52,13 @@ struct MainView: View {
             PasswordManagerView()
                 .environment(vm)
         }
+        .sheet(isPresented: $vm.showBugReporter) {
+            BugReportView()
+                .environment(vm)
+        }
+        .sheet(isPresented: $vm.showFeatureRequest) {
+            FeatureRequestView()
+        }
         .onAppear {
             setupMenu()
         }
