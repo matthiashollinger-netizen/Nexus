@@ -143,16 +143,16 @@ final class AppViewModel {
         activeSessions.removeAll { $0.id == cs.id }
     }
 
-    /// Moves a tab from one position to another (drag-and-drop reorder).
-    func reorderTab(from sourceId: UUID, to targetId: UUID) {
-        guard let fromIdx = activeSessions.firstIndex(where: { $0.id == sourceId }),
-              let toIdx   = activeSessions.firstIndex(where: { $0.id == targetId }),
-              fromIdx != toIdx else { return }
-        withAnimation(.easeInOut(duration: 0.2)) {
-            let item = activeSessions.remove(at: fromIdx)
-            // When dragging forward, adjust insertion index for the removed element
-            activeSessions.insert(item, at: fromIdx < toIdx ? toIdx - 1 : toIdx)
-        }
+    /// Moves a tab to the given insertion index (used by DragGesture tab reorder).
+    /// `toIndex` is the "insert before" position in the ORIGINAL array.
+    func moveTabToIndex(id: UUID, toIndex: Int) {
+        guard let fromIdx = activeSessions.firstIndex(where: { $0.id == id }) else { return }
+        let clampedTo = max(0, min(activeSessions.count - 1, toIndex))
+        guard clampedTo != fromIdx else { return }
+        let item = activeSessions.remove(at: fromIdx)
+        // After removal, indices shift: if target was after source, subtract 1
+        let insertIdx = fromIdx < clampedTo ? clampedTo - 1 : clampedTo
+        activeSessions.insert(item, at: insertIdx)
     }
 
     /// Replaces the disconnected/failed session with a fresh one at the same tab position.

@@ -44,6 +44,12 @@ struct SidebarView: View {
         .listStyle(.sidebar)
         .searchable(text: $searchText, placement: .sidebar)
         .onDeleteCommand { deleteSelected() }
+        // Double-click detection via NSEvent monitor (no SwiftUI gesture = no selection conflict)
+        .background(SidebarDoubleClickMonitor {
+            if let item = vm.selectedSidebarItem, case .session(let s) = item {
+                vm.connect(to: s)
+            }
+        })
         .toolbar {
             // ── Add (leftmost, + icon) ──────────────────────────────
             ToolbarItem(placement: .automatic) {
@@ -195,12 +201,9 @@ struct SessionRow: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // No contentShape — the List's NSTableView handles full-row single-click
-        // natively on macOS, which is more reliable than a SwiftUI gesture overlay.
+        // No SwiftUI gesture at all — double-click is handled by SidebarDoubleClickMonitor
+        // at the NSEvent level so it never competes with List's native row selection.
         .tag(SidebarItem.session(session))
-        // onTapGesture(count:2) fires only after 2 taps; single taps pass through
-        // untouched to the List's built-in selection mechanism.
-        .onTapGesture(count: 2) { vm.connect(to: session) }
         .contextMenu {
             Button {
                 vm.connect(to: session)
@@ -219,6 +222,47 @@ struct SessionRow: View {
                 Label("action.delete", systemImage: "trash")
             }
         }
+    }
+}
+
+// MARK: - Double-click detector (NSEvent level — no SwiftUI gesture interference)
+// Placed as .background on the List so its NSView frame covers the sidebar area.
+// Only fires the action when the click happened within the sidebar's own bounds.
+
+import AppKit
+
+private struct SidebarDoubleClickMonitor: NSViewRepresentable {
+    let onDoubleClick: () -> Void
+
+    func makeNSView(context: Context) -> NSView { context.coordinator.placeholder }
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.onDoubleClick = onDoubleClick
+    }
+    func makeCoordinator() -> Coordinator { Coordinator(onDoubleClick: onDoubleClick) }
+
+    final class Coordinator {
+        let placeholder = NSView()
+        var onDoubleClick: (() -> Void)?
+        private var monitor: Any?
+
+        init(onDoubleClick: @escaping () -> Void) {
+            self.onDoubleClick = onDoubleClick
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                guard event.clickCount == 2,
+                      let host = self?.placeholder,
+                      let win  = host.window,
+                      event.window === win else { return event }
+                // Check click is within the sidebar list frame (window coordinates)
+                let click = event.locationInWindow
+                let frame = host.convert(host.bounds, to: nil)
+                if frame.contains(click) {
+                    DispatchQueue.main.async { self?.onDoubleClick?() }
+                }
+                return event
+            }
+        }
+
+        deinit { if let m = monitor { NSEvent.removeMonitor(m) } }
     }
 }
 
