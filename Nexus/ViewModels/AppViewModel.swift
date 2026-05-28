@@ -147,7 +147,7 @@ final class AppViewModel {
     /// `toIndex` is the "insert before" position in the ORIGINAL array.
     func moveTabToIndex(id: UUID, toIndex: Int) {
         guard let fromIdx = activeSessions.firstIndex(where: { $0.id == id }) else { return }
-        let clampedTo = max(0, min(activeSessions.count - 1, toIndex))
+        let clampedTo = max(0, min(activeSessions.count, toIndex))
         guard clampedTo != fromIdx else { return }
         let item = activeSessions.remove(at: fromIdx)
         // After removal, indices shift: if target was after source, subtract 1
