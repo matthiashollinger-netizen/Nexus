@@ -1,10 +1,135 @@
-name: Bug Handler
+name: Bug & Feature Handler
 
+# Feuert bei jedem Label-Wechsel auf Issues
 on:
   issues:
     types: [labeled]
 
+# ─── Project-Board-Konstanten ──────────────────────────────────────────────────
+# Projekt:  Nexus Bug Tracker (PVT_kwHOEM0l984BZDea)
+# Feld:     Status  (PVTSSF_lAHOEM0l984BZDeazhUE5Bg)
+# Spalten:
+#   d8586949  🔴 Offen          ← bug-open, feature-request
+#   3627e435  🟡 Fix in Arbeit  ← fix-pending
+#   3d802b2e  🔵 Test Ready     ← test-ready
+#   5f127b7e  🟢 Verifiziert    ← verified
+#   5f1690d8  ⚫ Geschlossen    ← wont-fix
+
+env:
+  PROJECT_ID:      PVT_kwHOEM0l984BZDea
+  STATUS_FIELD_ID: PVTSSF_lAHOEM0l984BZDeazhUE5Bg
+  OPT_OFFEN:          d8586949
+  OPT_FIX_IN_ARBEIT:  3627e435
+  OPT_TEST_READY:     3d802b2e
+  OPT_VERIFIZIERT:    5f127b7e
+  OPT_GESCHLOSSEN:    5f1690d8
+
 jobs:
+
+  # ─── 1. Project Board: Issue eintragen + Status setzen ─────────────────────
+  #
+  # Läuft für JEDES Label. Nicht gemappte Labels werden still übersprungen.
+  # addProjectV2ItemById ist idempotent — doppelte Einträge sind ausgeschlossen.
+  # Nutzt PROJECT_PAT (classic PAT mit project-Scope) weil GITHUB_TOKEN keinen
+  # Zugriff auf user-level Projects V2 hat.
+
+  update-project-board:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+
+    steps:
+      - name: Add to board and set status column
+        uses: actions/github-script@v7
+        env:
+          PROJECT_ID:      ${{ env.PROJECT_ID }}
+          STATUS_FIELD_ID: ${{ env.STATUS_FIELD_ID }}
+          OPT_OFFEN:          ${{ env.OPT_OFFEN }}
+          OPT_FIX_IN_ARBEIT:  ${{ env.OPT_FIX_IN_ARBEIT }}
+          OPT_TEST_READY:     ${{ env.OPT_TEST_READY }}
+          OPT_VERIFIZIERT:    ${{ env.OPT_VERIFIZIERT }}
+          OPT_GESCHLOSSEN:    ${{ env.OPT_GESCHLOSSEN }}
+        with:
+          github-token: ${{ secrets.PROJECT_PAT }}
+          script: |
+            const label        = context.payload.label?.name;
+            const issueNodeId  = context.payload.issue.node_id;
+            const issueNumber  = context.payload.issue.number;
+
+            // Label → Spalten-Option
+            const labelToOption = {
+              'bug-open':        process.env.OPT_OFFEN,
+              'feature-request': process.env.OPT_OFFEN,
+              'fix-pending':     process.env.OPT_FIX_IN_ARBEIT,
+              'test-ready':      process.env.OPT_TEST_READY,
+              'verified':        process.env.OPT_VERIFIZIERT,
+              'wont-fix':        process.env.OPT_GESCHLOSSEN,
+            };
+
+            const optionId = labelToOption[label];
+            if (!optionId) {
+              core.info(`Label "${label}" hat keine Board-Zuordnung — übersprungen.`);
+              return;
+            }
+
+            const projectId = process.env.PROJECT_ID;
+            const fieldId   = process.env.STATUS_FIELD_ID;
+
+            core.info(`Issue #${issueNumber} | Label: "${label}" → Option: ${optionId}`);
+
+            // 1. Issue zum Board hinzufügen (idempotent)
+            let itemId;
+            try {
+              const addResult = await github.graphql(`
+                mutation AddItem($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: {
+                    projectId: $projectId
+                    contentId: $contentId
+                  }) {
+                    item { id }
+                  }
+                }
+              `, { projectId, contentId: issueNodeId });
+
+              itemId = addResult.addProjectV2ItemById.item.id;
+              core.info(`Board-Item ID: ${itemId}`);
+            } catch (err) {
+              core.setFailed(`addProjectV2ItemById fehlgeschlagen: ${err.message}`);
+              return;
+            }
+
+            // 2. Status-Spalte setzen
+            try {
+              await github.graphql(`
+                mutation SetStatus(
+                  $projectId: ID!
+                  $itemId: ID!
+                  $fieldId: ID!
+                  $optionId: String!
+                ) {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: $projectId
+                    itemId:    $itemId
+                    fieldId:   $fieldId
+                    value:     { singleSelectOptionId: $optionId }
+                  }) {
+                    projectV2Item { id }
+                  }
+                }
+              `, { projectId, itemId, fieldId, optionId });
+
+              core.info(`Status gesetzt auf Option "${optionId}" (Label: "${label}")`);
+            } catch (err) {
+              core.setFailed(`updateProjectV2ItemFieldValue fehlgeschlagen: ${err.message}`);
+            }
+
+
+  # ─── 2. Bug: Bestätigungs-Kommentar + Label-Wechsel ────────────────────────
+  #
+  # Feuert nur bei Label "bug-open". Postet Kommentar und tauscht das Label
+  # gegen "fix-pending" — was wiederum update-project-board triggert und das
+  # Issue in die Spalte "Fix in Arbeit" schiebt.
+
   handle-bug-open:
     if: github.event.label.name == 'bug-open'
     runs-on: ubuntu-latest
@@ -19,7 +144,7 @@ jobs:
           script: |
             await github.rest.issues.createComment({
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo:  context.repo.repo,
               issue_number: context.issue.number,
               body: [
                 "🔍 **Bug wird analysiert...**",
@@ -30,7 +155,7 @@ jobs:
                 "1. Bug wird analysiert und reproduziert",
                 "2. Fix wird implementiert → Label wechselt zu `fix-pending`",
                 "3. Beta-Build wird erstellt → Label wechselt zu `test-ready`",
-                "4. Nach deiner Bestätigung → `verified` und Release",
+                "4. Nach deiner Bestätigung (👍) → `verified` und Release",
                 "",
                 "---",
                 "_Automatische Nachricht von Nexus Bug Handler_"
@@ -44,17 +169,23 @@ jobs:
           script: |
             await github.rest.issues.removeLabel({
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo:  context.repo.repo,
               issue_number: context.issue.number,
               name: 'bug-open'
             }).catch(() => {});
 
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo:  context.repo.repo,
               issue_number: context.issue.number,
               labels: ['fix-pending']
             });
+
+
+  # ─── 3. Feature Request: Bestätigungs-Kommentar ────────────────────────────
+  #
+  # Feuert nur bei Label "feature-request". Kein Label-Wechsel — Feature
+  # Requests bleiben in "Offen" bis der Entwickler manuell entscheidet.
 
   handle-feature-request:
     if: github.event.label.name == 'feature-request'
@@ -70,7 +201,7 @@ jobs:
           script: |
             await github.rest.issues.createComment({
               owner: context.repo.owner,
-              repo: context.repo.repo,
+              repo:  context.repo.repo,
               issue_number: context.issue.number,
               body: [
                 "💡 **Feature Request erhalten.**",

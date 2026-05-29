@@ -1,12 +1,19 @@
 #!/bin/bash
 # build_beta.sh — Nexus beta release pipeline
 #
-# Usage:  ./scripts/build_beta.sh <VERSION> [BETA_NUM]
-#   e.g.  ./scripts/build_beta.sh 1.3.0 1
-#         ./scripts/build_beta.sh 1.3.0        ← auto-increments beta number
+# Usage:
+#   ./scripts/build_beta.sh [ISSUE_NUMBER]       ← auto-version aus Issue-Labels
+#   ./scripts/build_beta.sh [ISSUE_NUMBER] [N]   ← auto-version + Beta-Nummer erzwingen
+#   ./scripts/build_beta.sh [VERSION]            ← explizite Version (backward compat)
+#   ./scripts/build_beta.sh [VERSION] [N]        ← explizite Version + Beta-Nummer
+#   ./scripts/build_beta.sh                      ← PATCH-Bump aus aktuellem Stable
 #
-# Produces a signed beta DMG, GitHub pre-release, and a separate beta-appcast.xml.
-# Does NOT update the main appcast.xml — stable users won't see this release.
+# Version-Automatik (Basis = letzter Stable-Release auf GitHub):
+#   Issue-Label "feature-request" → MINOR  (z.B. 1.3.0 → 1.4.0)
+#   Issue-Label "bug-open" oder kein Label → PATCH  (z.B. 1.3.0 → 1.3.1)
+#
+# Schreibt beta-appcast.xml direkt via GitHub API auf main.
+# Berührt appcast.xml (Stable-Kanal) NICHT.
 
 set -euo pipefail
 
@@ -33,15 +40,102 @@ command -v python3    > /dev/null || die "python3 not found"
 
 GITHUB_TOKEN="$(cat "$TOKEN_FILE")"
 
-# ─── Version ─────────────────────────────────────────────────────────────────
-[ "${1:-}" != "" ] || die "Usage: ./scripts/build_beta.sh <VERSION> [BETA_NUM]"
-BASE_VERSION="${1#v}"
+# ─── Versionshilfsfunktionen ─────────────────────────────────────────────────
 
-# Auto-increment beta number if not provided
-if [ "${2:-}" != "" ]; then
-    BETA_NUM="${2}"
+# Letzten stabilen Release-Tag von GitHub holen (kein pre-release)
+get_latest_stable_version() {
+    curl -sf \
+        -H "Authorization: token ${GITHUB_TOKEN}" \
+        "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" 2>/dev/null | \
+    python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    tag = d.get('tag_name', '')
+    v = tag.lstrip('v')
+    # Nur echte Stable-Tags (kein '-beta.' o.ä.)
+    if v and '-' not in v:
+        print(v)
+    else:
+        print('')
+except:
+    print('')
+" 2>/dev/null
+}
+
+# SemVer um PATCH oder MINOR erhöhen
+bump_version() {
+    local version="$1"   # z.B. 1.3.0
+    local bump_type="$2" # "minor" oder "patch"
+    python3 -c "
+parts = '${version}'.split('.')
+major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
+if '${bump_type}' == 'minor':
+    minor += 1; patch = 0
+else:
+    patch += 1
+print(f'{major}.{minor}.{patch}')
+" 2>/dev/null
+}
+
+# Bump-Typ aus Issue-Labels bestimmen
+get_bump_type_from_issue() {
+    local issue_num="$1"
+    curl -sf \
+        -H "Authorization: token ${GITHUB_TOKEN}" \
+        "https://api.github.com/repos/${GITHUB_REPO}/issues/${issue_num}" 2>/dev/null | \
+    python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    labels = [l['name'] for l in d.get('labels', [])]
+    print('minor' if 'feature-request' in labels else 'patch')
+except:
+    print('patch')
+" 2>/dev/null
+}
+
+# ─── Versions-Erkennung ──────────────────────────────────────────────────────
+
+FIRST_ARG="${1:-}"
+SECOND_ARG="${2:-}"
+ISSUE_NUMBER=""
+
+if [[ "$FIRST_ARG" =~ ^[0-9]+$ ]]; then
+    # Reine Zahl → Issue-Nummer
+    ISSUE_NUMBER="$FIRST_ARG"
+    BETA_NUM_ARG="$SECOND_ARG"
+
+    info "Issue #${ISSUE_NUMBER}: Lese Labels und bestimme Version…"
+    BUMP_TYPE="$(get_bump_type_from_issue "$ISSUE_NUMBER")"
+    LATEST_STABLE="$(get_latest_stable_version)"
+    [ -n "$LATEST_STABLE" ] || die "Kein stabiler Release auf GitHub gefunden. Bitte explizite Version angeben."
+    BASE_VERSION="$(bump_version "$LATEST_STABLE" "$BUMP_TYPE")"
+    [ -n "$BASE_VERSION" ] || die "Versions-Berechnung fehlgeschlagen."
+
+    BUMP_LABEL="$([ "$BUMP_TYPE" = "minor" ] && echo "MINOR (Feature)" || echo "PATCH (Bugfix)")"
+    info "Aktuell stabil: ${LATEST_STABLE} → ${BUMP_LABEL} → ${BASE_VERSION}"
+
+elif [[ "$FIRST_ARG" == *"."* ]]; then
+    # Enthält Punkt → explizite Versionsnummer (backward compat)
+    BASE_VERSION="${FIRST_ARG#v}"
+    BETA_NUM_ARG="$SECOND_ARG"
+
 else
-    # Find highest existing beta tag for this version
+    # Kein Argument → PATCH-Bump aus letztem Stable
+    BETA_NUM_ARG="$FIRST_ARG"
+    info "Kein Issue angegeben — automatischer PATCH-Bump…"
+    LATEST_STABLE="$(get_latest_stable_version)"
+    [ -n "$LATEST_STABLE" ] || die "Kein stabiler Release auf GitHub gefunden. Bitte explizite Version angeben."
+    BASE_VERSION="$(bump_version "$LATEST_STABLE" "patch")"
+    [ -n "$BASE_VERSION" ] || die "Versions-Berechnung fehlgeschlagen."
+    info "Aktuell stabil: ${LATEST_STABLE} → PATCH → ${BASE_VERSION}"
+fi
+
+# Beta-Nummer: aus Argument oder auto-increment
+if [ -n "$BETA_NUM_ARG" ]; then
+    BETA_NUM="$BETA_NUM_ARG"
+else
     EXISTING=$(git -C "$REPO_ROOT" tag -l "v${BASE_VERSION}-beta.*" 2>/dev/null | \
         sed "s/v${BASE_VERSION}-beta\.//" | sort -n | tail -1)
     BETA_NUM=$(( ${EXISTING:-0} + 1 ))
@@ -160,7 +254,7 @@ SIGNATURE="$(echo "$SIGN_OUTPUT" | sed 's/.*sparkle:edSignature="\([^"]*\)".*/\1
 [ -n "$SIGNATURE" ] || die "sign_update failed."
 success "EdDSA signature obtained"
 
-# ─── 5. Beta appcast.xml (separate, does NOT replace main appcast.xml) ────────
+# ─── 5. Beta appcast.xml generieren ──────────────────────────────────────────
 info "Writing beta-appcast.xml…"
 DMG_SIZE="$(stat -f%z "$DMG_PATH")"
 RELEASE_DATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
@@ -197,7 +291,6 @@ success "beta-appcast.xml written"
 info "Creating GitHub Pre-Release ${TAG}…"
 NOTES="🧪 **Beta ${VERSION}** — zum Testen\n\nDieser Build ist ein Pre-Release und wird nur an Beta-Tester verteilt."
 
-# Delete existing pre-release if present
 EXISTING_ID="$(curl -sf -H "Authorization: token ${GITHUB_TOKEN}" \
     "https://api.github.com/repos/${GITHUB_REPO}/releases/tags/${TAG}" \
     | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || echo '')"
@@ -206,7 +299,6 @@ if [ -n "$EXISTING_ID" ]; then
         "https://api.github.com/repos/${GITHUB_REPO}/releases/${EXISTING_ID}" || true
 fi
 
-# Create tag
 git -C "$REPO_ROOT" tag -f "$TAG" 2>/dev/null || true
 git -C "$REPO_ROOT" push "https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git" "$TAG" --force 2>/dev/null || true
 
@@ -231,13 +323,31 @@ ASSET_URL="$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d['brows
 [ -n "$ASSET_URL" ] || die "Upload failed: $ASSET_JSON"
 success "Asset: $ASSET_URL"
 
-# ─── 8. Commit beta-appcast.xml ──────────────────────────────────────────────
-info "Committing beta-appcast.xml…"
-cd "$REPO_ROOT"
-git add beta-appcast.xml
-git diff --staged --quiet || git commit -m "Beta ${VERSION}: update beta-appcast.xml"
-git push "https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git" main
-success "Pushed"
+# ─── 8. beta-appcast.xml via GitHub API direkt auf main pushen ────────────────
+# (funktioniert unabhängig vom aktuellen Branch)
+info "Pushing beta-appcast.xml to main via GitHub API…"
+FILE_INFO="$(curl -sf \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    "https://api.github.com/repos/${GITHUB_REPO}/contents/beta-appcast.xml?ref=main" 2>/dev/null || echo '{}')"
+FILE_SHA="$(echo "$FILE_INFO" | python3 -c "import json,sys; print(json.load(sys.stdin).get('sha',''))" 2>/dev/null || echo '')"
+
+CONTENT_B64="$(base64 "$REPO_ROOT/beta-appcast.xml" | tr -d '\n')"
+
+if [ -n "$FILE_SHA" ]; then
+    SHA_FIELD=",\"sha\":\"${FILE_SHA}\""
+else
+    SHA_FIELD=""
+fi
+
+API_RESULT="$(curl -sf -X PUT \
+    "https://api.github.com/repos/${GITHUB_REPO}/contents/beta-appcast.xml" \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"message\":\"Beta ${VERSION}: update beta-appcast.xml\",\"content\":\"${CONTENT_B64}\",\"branch\":\"main\"${SHA_FIELD}}")"
+
+echo "$API_RESULT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('content',{}).get('name',''))" 2>/dev/null | \
+    grep -q "beta-appcast.xml" || die "Failed to push beta-appcast.xml to main via API: $API_RESULT"
+success "beta-appcast.xml → main (via GitHub API)"
 
 # ─── Done ────────────────────────────────────────────────────────────────────
 echo ""
@@ -247,4 +357,8 @@ echo -e "  ${BOLD}Download:${NC} ${ASSET_URL}"
 echo -e "  ${BOLD}GitHub:${NC}   https://github.com/${GITHUB_REPO}/releases/tag/${TAG}"
 echo ""
 echo -e "${YELLOW}Zum Promoten auf Stable:${NC}"
-echo "  ./scripts/promote_beta.sh ${TAG} [issue_nummer]"
+if [ -n "$ISSUE_NUMBER" ]; then
+    echo "  ./scripts/promote_beta.sh ${TAG} ${ISSUE_NUMBER}"
+else
+    echo "  ./scripts/promote_beta.sh ${TAG} [issue_nummer]"
+fi

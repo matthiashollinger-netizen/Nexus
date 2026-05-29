@@ -2,6 +2,22 @@
 
 ---
 
+## [1.3.1] - 2026-05-29
+
+### Verbessert
+- Release-Workflow: `build_beta.sh` berechnet Version automatisch aus Issue-Labels
+  - Bug-Issues (Label `bug-open`): PATCH-Bump (1.3.0 → 1.3.1)
+  - Feature-Issues (Label `feature-request`): MINOR-Bump (1.3.0 → 1.4.0)
+  - Basis: letzter stabiler Release via GitHub API — kein manuelles Eingeben der Version
+- Release-Workflow: `promote_beta.sh` prüft Owner-Freigabe vor dem Promote
+  - Nur der Repo-Owner (`matthiashollinger-netizen`) kann mit 👍 freigeben
+  - Fremde Reaktionen werden ignoriert + Hinweis-Kommentar auf dem Issue
+- `beta-appcast.xml` und `appcast.xml` werden via GitHub Contents API direkt auf `main` gepusht
+  — funktioniert unabhängig vom aktuellen Git-Branch (z.B. während `fix/issue-*`)
+- BUGFIX_WORKFLOW.md aktualisiert mit neuen Befehlen und Versions-Automatik-Tabelle
+
+---
+
 ## [1.3.0] - 2026-05-28
 
 ### Neu
