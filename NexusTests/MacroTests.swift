@@ -2,6 +2,7 @@ import Testing
 @testable import Nexus
 import Foundation
 
+@MainActor
 struct MacroTests {
 
     // MARK: - Save and Reload
