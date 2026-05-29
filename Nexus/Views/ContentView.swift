@@ -23,16 +23,42 @@ struct MainView: View {
     @Environment(AppViewModel.self) private var vm
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
+    private var activeSSHSession: ConnectionSession? {
+        vm.activeSessions.first {
+            $0.session.connectionType == .ssh
+        }
+    }
+
+    private var showSFTP: Bool {
+        vm.showSFTPBrowser && activeSSHSession != nil
+    }
+
     var body: some View {
         @Bindable var vm = vm
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView()
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
         } detail: {
-            TerminalTabsView()
+            HSplitView {
+                if showSFTP, let cs = activeSSHSession {
+                    SFTPBrowserView(cs: cs)
+                        .frame(minWidth: 240, maxWidth: 320)
+                }
+                TerminalTabsView()
+                    .frame(minWidth: 400, maxWidth: .infinity)
+            }
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    vm.showSFTPBrowser.toggle()
+                } label: {
+                    Label("toolbar.sftp_browser", systemImage: "folder.fill.badge.person.crop")
+                }
+                .disabled(activeSSHSession == nil)
+                .help("toolbar.sftp_browser")
+            }
             ToolbarItem(placement: .automatic) {
                 Button {
                     vm.showPasswordManager = true

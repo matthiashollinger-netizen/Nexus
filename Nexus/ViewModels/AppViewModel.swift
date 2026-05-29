@@ -28,6 +28,19 @@ final class AppViewModel {
     var editingFolder: Folder? = nil
     var addSessionParentFolderId: UUID? = nil
 
+    // SFTP Browser
+    var showSFTPBrowser: Bool = false
+    var sftpCurrentPath: String = "/"
+
+    // Macro Manager
+    var showMacroManager: Bool = false
+
+    // Embedded Servers
+    var showEmbeddedServers: Bool = false
+
+    // Theme Editor
+    var showThemeEditor: Bool = false
+
     // Unlock state
     var isUnlocked: Bool = false
     var masterPassword: String = ""

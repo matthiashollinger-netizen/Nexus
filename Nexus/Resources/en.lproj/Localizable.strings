@@ -493,3 +493,95 @@
 "rdp.fullscreen" = "Start Fullscreen";
 "rdp.clipboard" = "Share Clipboard";
 "rdp.drives" = "Share Local Drives";
+
+// MARK: - SFTP Browser
+"toolbar.sftp_browser" = "SFTP Browser";
+"sftp.retry" = "Retry";
+"sftp.refresh" = "Refresh";
+"sftp.upload" = "Upload File";
+"sftp.new_folder" = "New Folder";
+"sftp.toggle_hidden" = "Show/Hide Hidden Files";
+"sftp.download" = "Download";
+"sftp.rename" = "Rename";
+"sftp.delete" = "Delete";
+"sftp.uploading" = "Uploading…";
+"sftp.downloading" = "Downloading…";
+"sftp.new_name" = "New name";
+"sftp.folder_name" = "Folder name";
+
+// MARK: - Macros
+"menu.macros" = "Macros";
+"menu.macros.manager" = "Macro Manager…";
+"macro.name" = "Name";
+"macro.description" = "Description";
+"macro.commands" = "Commands";
+"macro.delay" = "Delay between commands";
+"macro.hotkey" = "Hotkey";
+"macro.hotkey.record" = "Record Hotkey";
+"macro.hotkey.clear" = "Clear Hotkey";
+"macro.schedule" = "Schedule";
+"macro.schedule.enabled" = "Enable Schedule";
+"macro.schedule.interval" = "Interval (minutes)";
+"macro.schedule.on_connect" = "Run on Connect";
+"macro.new" = "New Macro";
+"macro.execute" = "Execute";
+"macro.apply_to" = "Apply To";
+"macro.apply_to.all" = "All Sessions";
+
+// MARK: - Embedded Servers
+"servers.title" = "Embedded Servers";
+"server.http" = "HTTP Server";
+"server.ftp" = "FTP Server";
+"server.tftp" = "TFTP Server";
+"server.port" = "Port";
+"server.root" = "Root Directory";
+"server.autostart" = "Start on Launch";
+"server.start" = "Start";
+"server.stop" = "Stop";
+"server.configure" = "Configure";
+"server.logs" = "Logs";
+"server.status.running" = "Running";
+"server.status.stopped" = "Stopped";
+"server.missing_binary" = "Required binary not found";
+"server.install_hint" = "Install via Homebrew:";
+
+// MARK: - RDP Full
+"rdp.install_hint" = "Install FreeRDP to use RDP connections:";
+"rdp.install_brew" = "brew install freerdp";
+"rdp.copy_command" = "Copy Install Command";
+"rdp.connecting" = "Connecting…";
+"rdp.reconnect" = "Reconnect";
+"rdp.status" = "Connection Status";
+
+// MARK: - Syntax Highlighting
+"settings.syntax" = "Syntax";
+"syntax.rulesets" = "Highlighting Rulesets";
+"syntax.ruleset.default" = "Default (MAC, IP, Keywords)";
+"syntax.ruleset.cisco" = "Cisco IOS";
+"syntax.ruleset.log" = "Log Levels";
+"syntax.ruleset.network" = "Network (URLs, Ports)";
+"syntax.session.ruleset" = "Highlighting Ruleset";
+"syntax.session.default" = "Default";
+
+// MARK: - Themes
+"themes.title" = "Theme Editor";
+"theme.new" = "New Theme";
+"theme.import" = "Import Theme…";
+"theme.export" = "Export Theme";
+"theme.terminal" = "Terminal";
+"theme.ui" = "UI";
+"theme.typography" = "Typography";
+"theme.behavior" = "Behavior";
+"theme.background" = "Background";
+"theme.foreground" = "Foreground";
+"theme.cursor" = "Cursor";
+"theme.cursor.style" = "Cursor Style";
+"theme.cursor.blink" = "Blink";
+"theme.scrollback" = "Scrollback Lines";
+"theme.sidebar_bg" = "Sidebar Background";
+"theme.accent" = "Accent Color";
+"theme.font" = "Terminal Font";
+"theme.font_size" = "Font Size";
+"theme.ansi_colors" = "ANSI Colors";
+"theme.preview" = "Preview";
+"theme.active" = "Active Theme";
