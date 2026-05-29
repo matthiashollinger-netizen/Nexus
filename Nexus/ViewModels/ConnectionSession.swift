@@ -142,6 +142,8 @@ final class ConnectionSession: Identifiable {
         if let path = tempKeyPath {
             try? FileManager.default.removeItem(atPath: path)
         }
+        // Clean up SSH_ASKPASS keychain slot
+        NexusAskPassService.cleanup(token: id.uuidString)
         state = .disconnected
     }
 

@@ -75,7 +75,23 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
             return
         }
         cs.state = .connecting
-        startProcess(executable: "/usr/bin/ssh", args: cs.sshArgs)
+
+        // Build environment: start with current process env, then inject SSH_ASKPASS
+        var envDict = ProcessInfo.processInfo.environment
+        let token = cs.id.uuidString
+
+        if let pwd = cs.sshPassword, !pwd.isEmpty {
+            // Store password in temp keychain slot for the askpass helper
+            NexusAskPassService.storePassword(pwd, token: token)
+            if let askpassEnv = NexusAskPassService.environment(token: token) {
+                envDict.merge(askpassEnv) { _, new in new }
+            }
+        }
+
+        // Convert to "KEY=VALUE" array expected by SwiftTerm
+        let envArray = envDict.map { "\($0.key)=\($0.value)" }
+
+        startProcess(executable: "/usr/bin/ssh", args: cs.sshArgs, environment: envArray)
         cs.state = .connected
     }
 

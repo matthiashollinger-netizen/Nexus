@@ -1,0 +1,29 @@
+#!/bin/bash
+# nexus-askpass — Nexus SSH_ASKPASS Helper
+#
+# SSH ruft dieses Script auf wenn ein Passwort benötigt wird.
+# Das Passwort wird aus dem macOS Keychain gelesen (temporärer Slot).
+# Slot: com.hollinger.Nexus.askpass / Account: NEXUS_ASKPASS_TOKEN env var
+#
+# Umgebungsvariablen (werden von NexusAskPassService gesetzt):
+#   SSH_ASKPASS          = Pfad zu diesem Script
+#   SSH_ASKPASS_REQUIRE  = force
+#   NEXUS_ASKPASS_TOKEN  = UUID der Session (Keychain-Account-Key)
+
+TOKEN="${NEXUS_ASKPASS_TOKEN:-}"
+
+if [ -z "$TOKEN" ]; then
+    exit 1
+fi
+
+PASSWORD=$(/usr/bin/security find-generic-password \
+    -s "com.hollinger.Nexus.askpass" \
+    -a "$TOKEN" \
+    -w 2>/dev/null)
+
+if [ -n "$PASSWORD" ]; then
+    printf '%s\n' "$PASSWORD"
+    exit 0
+else
+    exit 1
+fi
