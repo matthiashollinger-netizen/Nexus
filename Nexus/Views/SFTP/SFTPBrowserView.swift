@@ -131,6 +131,13 @@ struct SFTPBrowserView: View {
         .onAppear {
             Task { await loadDirectory(path: currentPath) }
         }
+        // Reset path + reload when the connected session changes
+        // (e.g. user switches to a different SSH tab while SFTP panel is open)
+        .onChange(of: cs.id) { _, _ in
+            vm.sftpCurrentPath = "/"
+            items = []
+            Task { await loadDirectory(path: "/") }
+        }
         // Transfer progress overlay
         .overlay {
             if let progress = transferProgress {
@@ -300,10 +307,21 @@ struct SFTPBrowserView: View {
     private func sshConnectionInfo() -> SSHInfo? {
         guard cs.session.connectionType == .ssh else { return nil }
         let session = cs.session
+
+        // Parse "user@host" format in session.host — same logic as SSHArgumentBuilder
+        var effectiveUser = session.username
+        var effectiveHost = session.host
+        if session.host.contains("@"), let atRange = session.host.range(of: "@", options: .backwards) {
+            let parsedUser = String(session.host[..<atRange.lowerBound])
+            let parsedHost = String(session.host[atRange.upperBound...])
+            if effectiveUser.isEmpty { effectiveUser = parsedUser }
+            effectiveHost = parsedHost
+        }
+
         return SSHInfo(
-            host: session.host,
+            host: effectiveHost,
             port: session.port,
-            username: session.username,
+            username: effectiveUser,
             password: cs.sshPassword,
             keyPath: cs.tempKeyPath ?? (session.sshPrivateKeyPath.isEmpty ? nil : session.sshPrivateKeyPath)
         )

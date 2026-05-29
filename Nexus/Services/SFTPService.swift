@@ -23,14 +23,16 @@ enum SFTPError: LocalizedError {
     case connectionFailed(String)
     case operationFailed(String)
     case parseError
+    case directoryNotEmpty
 
     var errorDescription: String? {
         switch self {
-        case .sftpNotFound:         return "sftp binary not found at /usr/bin/sftp"
-        case .authenticationFailed: return "Authentication failed"
+        case .sftpNotFound:            return "sftp binary not found at /usr/bin/sftp"
+        case .authenticationFailed:    return "Authentication failed — check credentials"
         case .connectionFailed(let m): return "Connection failed: \(m)"
         case .operationFailed(let m):  return "Operation failed: \(m)"
-        case .parseError:           return "Could not parse SFTP output"
+        case .parseError:              return "Could not parse SFTP output"
+        case .directoryNotEmpty:       return "Directory is not empty — delete contents first"
         }
     }
 }
@@ -59,7 +61,8 @@ actor SFTPService {
         let output = try await runBatch(host: host, port: port, username: username,
                                         password: password, keyPath: keyPath,
                                         commands: commands)
-        if output.lowercased().contains("no such file") || output.lowercased().contains("permission denied") {
+        let low = output.lowercased()
+        if low.contains("no such file") || low.contains("permission denied") || low.contains("failure") {
             throw SFTPError.operationFailed(output)
         }
     }
@@ -70,7 +73,8 @@ actor SFTPService {
         let output = try await runBatch(host: host, port: port, username: username,
                                         password: password, keyPath: keyPath,
                                         commands: commands)
-        if output.lowercased().contains("permission denied") || output.lowercased().contains("failure") {
+        let low = output.lowercased()
+        if low.contains("permission denied") || low.contains("failure") {
             throw SFTPError.operationFailed(output)
         }
     }
@@ -81,19 +85,26 @@ actor SFTPService {
         let output = try await runBatch(host: host, port: port, username: username,
                                         password: password, keyPath: keyPath,
                                         commands: commands)
-        if output.lowercased().contains("failure") || output.lowercased().contains("permission denied") {
+        let low = output.lowercased()
+        if low.contains("failure") || low.contains("permission denied") || low.contains("no such file") {
             throw SFTPError.operationFailed(output)
         }
     }
 
     func delete(host: String, port: Int, username: String, password: String?,
                 keyPath: String?, path: String, isDirectory: Bool) async throws {
+        // rmdir only works on empty directories — SFTP protocol limitation.
+        // For non-empty dirs the server returns a "failure" message.
         let cmd = isDirectory ? "rmdir \"\(path)\"" : "rm \"\(path)\""
         let commands = "\(cmd)\nquit\n"
         let output = try await runBatch(host: host, port: port, username: username,
                                         password: password, keyPath: keyPath,
                                         commands: commands)
-        if output.lowercased().contains("failure") || output.lowercased().contains("permission denied") {
+        let low = output.lowercased()
+        if isDirectory && (low.contains("failure") || low.contains("not empty")) {
+            throw SFTPError.directoryNotEmpty
+        }
+        if low.contains("permission denied") || low.contains("no such file") {
             throw SFTPError.operationFailed(output)
         }
     }
@@ -104,7 +115,8 @@ actor SFTPService {
         let output = try await runBatch(host: host, port: port, username: username,
                                         password: password, keyPath: keyPath,
                                         commands: commands)
-        if output.lowercased().contains("failure") || output.lowercased().contains("permission denied") {
+        let low = output.lowercased()
+        if low.contains("failure") || low.contains("permission denied") {
             throw SFTPError.operationFailed(output)
         }
     }
@@ -118,6 +130,19 @@ actor SFTPService {
             throw SFTPError.sftpNotFound
         }
 
+        // Parse "user@host" format — same logic as SSHArgumentBuilder
+        var effectiveUser = username
+        var effectiveHost = host
+        if host.contains("@"), let atRange = host.range(of: "@", options: .backwards) {
+            let parsedUser = String(host[..<atRange.lowerBound])
+            let parsedHost = String(host[atRange.upperBound...])
+            if effectiveUser.isEmpty { effectiveUser = parsedUser }
+            effectiveHost = parsedHost
+        }
+
+        // Temp askpass script path — declared here so we can clean up in terminationHandler
+        var askpassScriptPath: String? = nil
+
         return try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: sftp)
@@ -125,70 +150,84 @@ actor SFTPService {
             var args = ["-b", "-",
                         "-o", "ConnectTimeout=10",
                         "-o", "StrictHostKeyChecking=no",
-                        "-o", "UserKnownHostsFile=/dev/null",
-                        "-P", "\(port)"]
+                        "-o", "UserKnownHostsFile=/dev/null"]
+
+            // Explicit port flag for sftp is -P (uppercase)
+            args += ["-P", "\(port)"]
 
             if let kp = keyPath, !kp.isEmpty {
                 args += ["-i", kp]
             }
 
-            if let user = username.isEmpty ? nil : username {
-                args += ["\(user)@\(host)"]
+            if effectiveUser.isEmpty {
+                args += [effectiveHost]
             } else {
-                args += [host]
+                args += ["\(effectiveUser)@\(effectiveHost)"]
             }
 
             process.arguments = args
 
-            // Environment: suppress SSH_ASKPASS interference
+            // Build environment
             var env = ProcessInfo.processInfo.environment
-            env["SSH_ASKPASS"] = nil
-            env["DISPLAY"] = nil
-            // BatchMode disables password prompts cleanly
-            // We inject password via SSH_ASKPASS when needed
+            // Clear any inherited SSH_ASKPASS that might interfere
+            env.removeValue(forKey: "SSH_ASKPASS")
+            env.removeValue(forKey: "SSH_ASKPASS_REQUIRE")
+            env.removeValue(forKey: "DISPLAY")
+
             if let pwd = password, !pwd.isEmpty {
-                // Write a temporary askpass script
+                // Write temp askpass script. SSH_ASKPASS_REQUIRE=force ensures SSH
+                // always calls the helper instead of trying interactive input.
+                // DISPLAY=: is required on macOS — empty string or ":0" both work
+                // but bare ":" is most reliable across SSH versions.
                 let scriptPath = createAskPassScript(password: pwd)
-                env["SSH_ASKPASS"] = scriptPath
-                env["SSH_ASKPASS_REQUIRE"] = "prefer"
-                env["DISPLAY"] = ":0"
+                askpassScriptPath = scriptPath
+                env["SSH_ASKPASS"]         = scriptPath
+                env["SSH_ASKPASS_REQUIRE"] = "force"
+                env["DISPLAY"]             = ":"
             }
             process.environment = env
 
-            let stdin = Pipe()
+            let stdin  = Pipe()
             let stdout = Pipe()
             let stderr = Pipe()
-            process.standardInput = stdin
+            process.standardInput  = stdin
             process.standardOutput = stdout
-            process.standardError = stderr
+            process.standardError  = stderr
 
             do {
                 try process.run()
             } catch {
+                // Clean up askpass script if process never launched
+                if let p = askpassScriptPath { try? FileManager.default.removeItem(atPath: p) }
                 continuation.resume(throwing: SFTPError.connectionFailed(error.localizedDescription))
                 return
             }
 
-            // Write commands to stdin
+            // Write commands to stdin, then close to signal EOF
             if let data = commands.data(using: .utf8) {
                 stdin.fileHandleForWriting.write(data)
                 try? stdin.fileHandleForWriting.close()
             }
 
             process.terminationHandler = { _ in
-                let outData = stdout.fileHandleForReading.readDataToEndOfFile()
-                let errData = stderr.fileHandleForReading.readDataToEndOfFile()
-                let output = String(data: outData, encoding: .utf8) ?? ""
-                let errOutput = String(data: errData, encoding: .utf8) ?? ""
+                // Clean up temp askpass script — always, regardless of success/failure
+                if let p = askpassScriptPath {
+                    try? FileManager.default.removeItem(atPath: p)
+                }
 
-                let combined = output + errOutput
-                if errOutput.lowercased().contains("permission denied") ||
-                   errOutput.lowercased().contains("authentication failed") {
+                let outData  = stdout.fileHandleForReading.readDataToEndOfFile()
+                let errData  = stderr.fileHandleForReading.readDataToEndOfFile()
+                let output   = String(data: outData, encoding: .utf8) ?? ""
+                let errStr   = String(data: errData, encoding: .utf8) ?? ""
+                let combined = output + errStr
+                let low      = errStr.lowercased()
+
+                if low.contains("permission denied") || low.contains("authentication failed") ||
+                   low.contains("publickey") && low.contains("failed") {
                     continuation.resume(throwing: SFTPError.authenticationFailed)
-                } else if errOutput.lowercased().contains("connection refused") ||
-                          errOutput.lowercased().contains("no route to host") ||
-                          errOutput.lowercased().contains("could not resolve") {
-                    continuation.resume(throwing: SFTPError.connectionFailed(errOutput))
+                } else if low.contains("connection refused") || low.contains("no route to host") ||
+                          low.contains("could not resolve") || low.contains("timed out") {
+                    continuation.resume(throwing: SFTPError.connectionFailed(errStr))
                 } else {
                     continuation.resume(returning: combined)
                 }
@@ -198,14 +237,17 @@ actor SFTPService {
 
     // MARK: - Askpass script helper
 
+    /// Creates a temporary shell script that outputs `password` to stdout.
+    /// The caller is responsible for deleting the file after use.
     private func createAskPassScript(password: String) -> String {
+        // Escape characters that are special inside double-quoted shell strings
         let escaped = password
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "$", with: "\\$")
-            .replacingOccurrences(of: "`", with: "\\`")
+            .replacingOccurrences(of: "$",  with: "\\$")
+            .replacingOccurrences(of: "`",  with: "\\`")
         let script = "#!/bin/sh\necho \"\(escaped)\"\n"
-        let path = NSTemporaryDirectory() + "nexus_sftp_askpass_\(UUID().uuidString).sh"
+        let path = NSTemporaryDirectory() + "nexus_sftp_\(UUID().uuidString).sh"
         try? script.write(toFile: path, atomically: true, encoding: .utf8)
         try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: path)
         return path
@@ -215,20 +257,24 @@ actor SFTPService {
 
     func parseLsOutput(_ output: String, basePath: String) -> [SFTPItem] {
         var items: [SFTPItem] = []
-        let normalizedBase = basePath.hasSuffix("/") ? basePath : basePath + "/"
-        let lines = output.components(separatedBy: .newlines)
+        // Normalize base path: always end with exactly one "/"
+        let normalizedBase: String = {
+            var b = basePath
+            while b.hasSuffix("//") { b = String(b.dropLast()) }
+            return b.hasSuffix("/") ? b : b + "/"
+        }()
 
+        let lines = output.components(separatedBy: .newlines)
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else { continue }
-            // Skip "total N" lines, prompt lines, and header
             guard !trimmed.hasPrefix("total "),
                   !trimmed.hasPrefix("sftp>"),
                   !trimmed.hasPrefix("Connected to"),
-                  !trimmed.hasPrefix("sftp: ") else { continue }
+                  !trimmed.hasPrefix("sftp: "),
+                  !trimmed.hasPrefix("Changing to:") else { continue }
 
             if let item = parseLsLine(trimmed, basePath: normalizedBase) {
-                // Skip . and ..
                 if item.name == "." || item.name == ".." { continue }
                 items.append(item)
             }
@@ -240,21 +286,20 @@ actor SFTPService {
     // drwxr-xr-x  2 user group  4096 May 29 10:00 dirname
     // lrwxrwxrwx  1 user group    12 May 29 10:00 link -> target
     func parseLsLine(_ line: String, basePath: String) -> SFTPItem? {
-        // Split by whitespace, max 9 parts (last part = name, possibly with -> for symlinks)
         let parts = line.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
         guard parts.count >= 9 else { return nil }
 
         let permStr = parts[0]
-        // let linkCount = parts[1]  // not used
-        let owner = parts[2]
-        let group = parts[3]
+        // Skip lines that don't look like permission strings
+        guard permStr.count >= 10,
+              permStr.first.map({ "-dlcbps".contains($0) }) == true else { return nil }
+
+        let owner   = parts[2]
+        let group   = parts[3]
         let sizeStr = parts[4]
-        // Date: parts[5] (month), parts[6] (day), parts[7] (time/year)
-        // Name: parts[8] onwards
-        let nameParts = parts.dropFirst(8)
+        let nameParts = Array(parts.dropFirst(8))
         var name = nameParts.joined(separator: " ")
 
-        // Handle symlinks: "name -> target"
         var isSymlink = false
         if permStr.hasPrefix("l") {
             isSymlink = true
@@ -264,13 +309,13 @@ actor SFTPService {
         }
 
         let isDirectory = permStr.hasPrefix("d")
-        let size = Int64(sizeStr) ?? 0
-        let permissions = String(permStr.dropFirst()) // Remove type char
+        let size        = Int64(sizeStr) ?? 0
+        let permissions = String(permStr.dropFirst())
 
-        // Parse date: "May 29 10:00" or "May 29 2024"
-        let dateStr = "\(parts[5]) \(parts[6]) \(parts[7])"
+        let dateStr     = "\(parts[5]) \(parts[6]) \(parts[7])"
         let modifiedDate = parseDate(dateStr) ?? Date()
 
+        // Normalised path: basePath already ends with "/", name has no leading "/"
         let itemPath = basePath + name
 
         return SFTPItem(
@@ -288,14 +333,14 @@ actor SFTPService {
     }
 
     private func parseDate(_ str: String) -> Date? {
-        let formatWithTime = DateFormatter()
-        formatWithTime.locale = Locale(identifier: "en_US_POSIX")
-        formatWithTime.dateFormat = "MMM d HH:mm"
+        let withTime = DateFormatter()
+        withTime.locale = Locale(identifier: "en_US_POSIX")
+        withTime.dateFormat = "MMM d HH:mm"
 
-        let formatWithYear = DateFormatter()
-        formatWithYear.locale = Locale(identifier: "en_US_POSIX")
-        formatWithYear.dateFormat = "MMM d yyyy"
+        let withYear = DateFormatter()
+        withYear.locale = Locale(identifier: "en_US_POSIX")
+        withYear.dateFormat = "MMM d yyyy"
 
-        return formatWithTime.date(from: str) ?? formatWithYear.date(from: str)
+        return withTime.date(from: str) ?? withYear.date(from: str)
     }
 }
