@@ -10,6 +10,11 @@ struct SSHArgumentBuilder {
     let useLegacyAlgorithms: Bool
     let strictHostKeyChecking: Bool
 
+    // Optional gateway features
+    var jumpHost: JumpHost? = nil
+    var portForwardings: [PortForwarding] = []
+    var socks5Proxy: SOCKS5Config? = nil
+
     func build() -> [String] {
         // If the user entered "user@host" in the host field, split it out
         var effectiveUser = username
@@ -28,9 +33,6 @@ struct SSHArgumentBuilder {
         args += ["-o", "ServerAliveInterval=60"]
 
         if useLegacyAlgorithms {
-            // Note: diffie-hellman-group1-sha1 was completely removed in OpenSSH 9
-            // and cannot be re-enabled even with +. Only include algorithms that still
-            // exist in the binary.
             args += [
                 "-o", "KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1",
                 "-o", "HostKeyAlgorithms=+ssh-rsa",
@@ -39,8 +41,6 @@ struct SSHArgumentBuilder {
         }
 
         if !strictHostKeyChecking {
-            // Completely bypass known_hosts — required for lab equipment where
-            // multiple devices share the same IP but have different host keys.
             args += ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
         }
 
@@ -48,7 +48,44 @@ struct SSHArgumentBuilder {
             args += ["-i", keyPath]
         }
 
-        // Build destination: prefer "user@host", fall back to host-only if no user
+        // ── Jump Host (ProxyJump) ─────────────────────────────────────────────
+        if let j = jumpHost, !j.host.isEmpty {
+            let jumpSpec: String
+            if j.username.isEmpty {
+                jumpSpec = "\(j.host):\(j.port)"
+            } else {
+                jumpSpec = "\(j.username)@\(j.host):\(j.port)"
+            }
+            args += ["-J", jumpSpec]
+        }
+
+        // ── Port Forwardings ──────────────────────────────────────────────────
+        for fwd in portForwardings {
+            switch fwd.type {
+            case .local:
+                // -L localPort:remoteHost:remotePort
+                if fwd.localPort > 0 && !fwd.remoteHost.isEmpty && fwd.remotePort > 0 {
+                    args += ["-L", "\(fwd.localPort):\(fwd.remoteHost):\(fwd.remotePort)"]
+                }
+            case .remote:
+                // -R remotePort:localHost:localPort
+                if fwd.localPort > 0 && !fwd.remoteHost.isEmpty && fwd.remotePort > 0 {
+                    args += ["-R", "\(fwd.remotePort):\(fwd.remoteHost):\(fwd.localPort)"]
+                }
+            case .dynamic:
+                // -D localPort (SOCKS5 proxy)
+                if fwd.localPort > 0 {
+                    args += ["-D", "\(fwd.localPort)"]
+                }
+            }
+        }
+
+        // ── SOCKS5 shortcut ───────────────────────────────────────────────────
+        if let socks = socks5Proxy, socks.enabled, socks.localPort > 0 {
+            args += ["-D", "\(socks.localPort)"]
+        }
+
+        // ── Destination ───────────────────────────────────────────────────────
         if effectiveUser.isEmpty {
             args += [effectiveHost]
         } else {

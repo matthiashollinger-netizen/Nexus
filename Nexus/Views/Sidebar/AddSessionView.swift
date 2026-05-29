@@ -65,6 +65,11 @@ struct AddSessionView: View {
 
                 if draft.connectionType == .ssh {
                     SSHSection(draft: $draft)
+                    GatewaySection(draft: $draft)
+                }
+
+                if draft.connectionType == .rdp {
+                    RDPSection(draft: $draft)
                 }
 
                 // ── Passwortgruppe ────────────────────────────────────

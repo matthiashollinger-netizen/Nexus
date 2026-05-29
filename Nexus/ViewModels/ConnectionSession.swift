@@ -49,9 +49,7 @@ final class ConnectionSession: Identifiable {
         switch session.connectionType {
         case .ssh:
             setupSSH(credential: credential, settings: settings)
-        case .telnet:
-            break
-        case .serial:
+        case .telnet, .serial, .rdp:
             break
         }
     }
@@ -69,7 +67,7 @@ final class ConnectionSession: Identifiable {
             keyPath = session.sshPrivateKeyPath
         }
 
-        let builder = SSHArgumentBuilder(
+        var builder = SSHArgumentBuilder(
             host: session.host,
             port: session.port,
             username: session.username,
@@ -77,6 +75,9 @@ final class ConnectionSession: Identifiable {
             useLegacyAlgorithms: useLegacy,
             strictHostKeyChecking: session.sshStrictHostKeyChecking
         )
+        builder.jumpHost        = session.jumpHost
+        builder.portForwardings = session.portForwardings
+        builder.socks5Proxy     = session.socks5Proxy
         sshArgs = builder.build()
         sshPassword = credential?.password
         // No credential linked → offer to save after successful login

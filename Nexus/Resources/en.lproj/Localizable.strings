@@ -466,3 +466,30 @@
 
 // MARK: - Drag & Drop
 "action.undo_move" = "Undo Move";
+
+// MARK: - SSH Gateway
+"gateway.section.jump_host" = "Jump Host (ProxyJump)";
+"gateway.jump_host.enabled" = "Use Jump Host";
+"gateway.jump_host.host" = "Jump Host";
+"gateway.section.forwardings" = "Port Forwardings";
+"gateway.fwd.add" = "Add Port Forwarding";
+"gateway.fwd.hint" = "Forwardings are active while the SSH session is connected.";
+"gateway.fwd.local_port" = "Local Port";
+"gateway.fwd.remote_host" = "Remote Host";
+"gateway.fwd.remote_port" = "Remote Port";
+"gateway.fwd.description" = "Description (optional)";
+"gateway.section.socks5" = "SOCKS5 Proxy";
+"gateway.socks5.enabled" = "Enable SOCKS5 Proxy";
+"gateway.socks5.port" = "Local SOCKS5 Port";
+"gateway.socks5.hint" = "Configure your browser/app to use SOCKS5 proxy on localhost at this port.";
+"gateway.status.title" = "Active Tunnels";
+"gateway.status.none" = "No tunnels configured for this session.";
+
+// MARK: - RDP
+"session.rdp" = "Remote Desktop (RDP)";
+"rdp.domain" = "Domain";
+"rdp.resolution" = "Resolution";
+"rdp.color_depth" = "Color Depth";
+"rdp.fullscreen" = "Start Fullscreen";
+"rdp.clipboard" = "Share Clipboard";
+"rdp.drives" = "Share Local Drives";

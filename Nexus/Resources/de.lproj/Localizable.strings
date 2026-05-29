@@ -466,3 +466,30 @@
 
 // MARK: - Drag & Drop
 "action.undo_move" = "Verschieben rückgängig";
+
+// MARK: - SSH Gateway
+"gateway.section.jump_host" = "Jump Host (ProxyJump)";
+"gateway.jump_host.enabled" = "Jump Host verwenden";
+"gateway.jump_host.host" = "Jump Host";
+"gateway.section.forwardings" = "Port-Weiterleitungen";
+"gateway.fwd.add" = "Port-Weiterleitung hinzufügen";
+"gateway.fwd.hint" = "Weiterleitungen sind aktiv solange die SSH-Session verbunden ist.";
+"gateway.fwd.local_port" = "Lokaler Port";
+"gateway.fwd.remote_host" = "Remote-Host";
+"gateway.fwd.remote_port" = "Remote-Port";
+"gateway.fwd.description" = "Beschreibung (optional)";
+"gateway.section.socks5" = "SOCKS5-Proxy";
+"gateway.socks5.enabled" = "SOCKS5-Proxy aktivieren";
+"gateway.socks5.port" = "Lokaler SOCKS5-Port";
+"gateway.socks5.hint" = "Browser/App auf SOCKS5-Proxy localhost:Port konfigurieren.";
+"gateway.status.title" = "Aktive Tunnel";
+"gateway.status.none" = "Keine Tunnel für diese Session konfiguriert.";
+
+// MARK: - RDP
+"session.rdp" = "Remote Desktop (RDP)";
+"rdp.domain" = "Domäne";
+"rdp.resolution" = "Auflösung";
+"rdp.color_depth" = "Farbtiefe";
+"rdp.fullscreen" = "Vollbild beim Start";
+"rdp.clipboard" = "Zwischenablage teilen";
+"rdp.drives" = "Lokale Laufwerke teilen";

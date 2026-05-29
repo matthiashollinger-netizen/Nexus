@@ -15,6 +15,8 @@ struct NexusTerminalView: NSViewRepresentable {
             return NexusSSHTerminalView(cs: cs, fontName: fontName, fontSize: fontSize)
         case .telnet, .serial:
             return NexusNetTerminalView(cs: cs, fontName: fontName, fontSize: fontSize)
+        case .rdp:
+            return NexusRDPPlaceholderView(cs: cs)
         }
     }
 
@@ -244,4 +246,19 @@ final class NexusNetTerminalView: TerminalView, TerminalViewDelegate {
         NSPasteboard.general.setData(content, forType: .string)
     }
     func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
+}
+
+// MARK: - RDP placeholder (fully implemented in Feature 8)
+
+final class NexusRDPPlaceholderView: NSView {
+    private let cs: ConnectionSession
+
+    init(cs: ConnectionSession) {
+        self.cs = cs
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.black.cgColor
+        cs.terminalNSView = self
+    }
+    required init?(coder: NSCoder) { fatalError() }
 }
