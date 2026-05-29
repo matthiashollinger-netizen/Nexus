@@ -2,6 +2,37 @@
 
 ---
 
+## [2.0.0] - 2026-05-29
+
+### Neu
+
+- **SFTP-Browser**: Integrierter SFTP-Dateimanager (280pt Seitenleiste)
+  - Toggle-Button in der Toolbar — sichtbar wenn SSH-Session aktiv
+  - Breadcrumb-Navigation, Upload/Download, Umbenennen, Löschen, Neuer Ordner
+  - Progress-Overlay bei Transfers, Hidden-Files-Toggle
+
+- **Eingebauter Texteditor**:
+  - Syntax-Highlighting für Swift, Python, Bash, JSON, YAML, XML/HTML
+  - Zeilennummern, ⌘F/⌘H Suchen & Ersetzen, Encoding-Wahl
+
+- **Makros + Hotkeys + Zeitplanung**:
+  - Makro-Manager mit Hotkey-Recorder und Zeitplanung
+  - Globale Tastenkürzel, "Bei Verbindung ausführen"-Option
+
+- **Eingebettete Server**: HTTP, FTP, TFTP — direkt aus Nexus starten
+
+- **RDP via FreeRDP**: Vollständige RDP-Integration (benötigt brew install freerdp)
+
+- **Erweitertes Syntax-Highlighting**:
+  - Cisco IOS, Log-Level, Netzwerk-URLs/Ports
+  - Regelset-Verwaltung in Einstellungen
+
+- **Themes / Professional Customizer**:
+  - 7 eingebaute Themes: Nexus Dark, Nexus Light, Solarized Dark, Monokai, Nord, Dracula, Cisco Green
+  - Eigener Theme-Editor mit ColorPickern und Live-Vorschau
+
+---
+
 ## [1.3.1] - 2026-05-29
 
 ### Verbessert
