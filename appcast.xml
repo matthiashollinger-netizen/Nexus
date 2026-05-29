@@ -6,16 +6,16 @@
         <description>Most recent changes with links to updates.</description>
         <language>en</language>
         <item>
-            <title>Nexus 2.0.0</title>
-            <sparkle:releaseNotesLink>https://github.com/matthiashollinger-netizen/Nexus/releases/tag/v2.0.0</sparkle:releaseNotesLink>
-            <pubDate>Fri, 29 May 2026 10:04:01 +0000</pubDate>
+            <title>Nexus 2.0.1</title>
+            <sparkle:releaseNotesLink>https://github.com/matthiashollinger-netizen/Nexus/releases/tag/v2.0.1</sparkle:releaseNotesLink>
+            <pubDate>Fri, 29 May 2026 10:24:45 +0000</pubDate>
             <enclosure
-                url="https://github.com/matthiashollinger-netizen/Nexus/releases/download/v2.0.0/Nexus-2.0.0.dmg"
-                sparkle:version="2.0.0"
-                sparkle:shortVersionString="2.0.0"
-                length="3456158"
+                url="https://github.com/matthiashollinger-netizen/Nexus/releases/download/v2.0.1/Nexus-2.0.1.dmg"
+                sparkle:version="2.0.1"
+                sparkle:shortVersionString="2.0.1"
+                length="3457405"
                 type="application/octet-stream"
-                sparkle:edSignature="W5v+1KbFnWhGmzxdPx7LUa7H7G4Mk0M7Wrmh8/FLsXM+qy9pcJnvGTOW2nrZ1FNnCsq0tn0H8Sw07ekg4kTaDA=="
+                sparkle:edSignature="ma9ADtbgv6NihUUwQZFQafsO4ZIOc5/pcK0x5ckoVJPDqOQCnXYCkNqdYEuKJBTII2yIYGBzvk/zOu9J8UM4Dg=="
             />
         </item>
     </channel>
