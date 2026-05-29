@@ -236,12 +236,18 @@ struct TabContentView: View {
     @Environment(AppViewModel.self) private var vm
 
     var body: some View {
+        // Reading ThemeService.shared.activeTheme here makes SwiftUI subscribe to
+        // theme changes — any theme switch triggers updateNSView on all terminals.
+        let activeTheme = ThemeService.shared.activeTheme
+        let bgColor = Color(activeTheme.terminalBackground.nsColor)
+
         ZStack {
             ForEach(vm.activeSessions) { cs in
                 NexusTerminalView(
                     cs: cs,
                     fontName: vm.settings.terminalFontName,
-                    fontSize: vm.settings.terminalFontSize
+                    fontSize: vm.settings.terminalFontSize,
+                    theme: activeTheme
                 )
                 .opacity(cs.id == vm.selectedTabId ? 1 : 0)
                 .allowsHitTesting(cs.id == vm.selectedTabId)
@@ -257,7 +263,7 @@ struct TabContentView: View {
                 }
             }
         }
-        .background(Color.black)
+        .background(bgColor)
         .sheet(isPresented: Binding(
             get: { vm.activeSessions.contains(where: { $0.shouldOfferCredentialSave }) },
             set: { presented in

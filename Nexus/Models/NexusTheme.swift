@@ -43,7 +43,7 @@ struct CodableColor: Codable, Equatable {
 
 // MARK: - Nexus Theme
 
-struct NexusTheme: Identifiable, Codable {
+struct NexusTheme: Identifiable, Codable, Equatable {
     var id: UUID
     var name: String
     var isBuiltIn: Bool = false

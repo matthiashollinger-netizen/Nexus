@@ -67,6 +67,17 @@ final class AppViewModel {
         if !settings.masterPasswordEnabled {
             isUnlocked = true
         }
+        // ── Service lifecycle ─────────────────────────────────────────────
+        // All singletons are lazy — boot them here so persisted data loads
+        // and hotkey monitors are active before the first view renders.
+        ThemeService.shared.loadThemes()
+        MacroService.shared.loadMacros()
+        EmbeddedServerService.shared.loadServers()
+        // Hotkey monitor needs a live reference to activeSessions.
+        // The closure is retained weakly to avoid a retain cycle.
+        MacroService.shared.installHotkeyMonitor { [weak self] in
+            self?.activeSessions ?? []
+        }
     }
 
     // MARK: - Load
@@ -161,6 +172,9 @@ final class AppViewModel {
         let cs = ConnectionSession(session: session, credential: cred, settings: settings)
         activeSessions.append(cs)
         selectedTabId = cs.id
+        // Run on-connect macros and refresh schedules for new session count
+        MacroService.shared.runOnConnectMacros(for: cs)
+        MacroService.shared.scheduleAllMacros(activeSessions: activeSessions)
     }
 
     func closeSession(_ cs: ConnectionSession) {
@@ -169,6 +183,8 @@ final class AppViewModel {
             selectedTabId = activeSessions.last(where: { $0.id != cs.id })?.id
         }
         activeSessions.removeAll { $0.id == cs.id }
+        // Refresh schedules — removed session should no longer receive macros
+        MacroService.shared.scheduleAllMacros(activeSessions: activeSessions)
     }
 
     /// Moves a tab to the given insertion index (used by DragGesture tab reorder).

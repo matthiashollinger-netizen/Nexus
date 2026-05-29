@@ -8,6 +8,8 @@ struct NexusTerminalView: NSViewRepresentable {
     let cs: ConnectionSession
     let fontName: String
     let fontSize: Double
+    /// Active theme — passed as a value type so SwiftUI detects changes and calls updateNSView.
+    let theme: NexusTheme
 
     func makeNSView(context: Context) -> NSView {
         switch cs.session.connectionType {
@@ -21,11 +23,17 @@ struct NexusTerminalView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        // Font updates only — focus is managed by TabItemView.onTapGesture
-        // and viewDidMoveToWindow on the NSView subclasses.
         let f = resolvedFont(name: fontName, size: fontSize)
-        if let ssh = nsView as? NexusSSHTerminalView { ssh.font = f }
-        if let net = nsView as? NexusNetTerminalView { net.font = f }
+        // Apply font + theme to SSH terminal
+        if let ssh = nsView as? NexusSSHTerminalView {
+            ssh.font = f
+            ThemeService.shared.applyToTerminalView(ssh, theme: theme)
+        }
+        // Apply font + theme to Telnet/Serial terminal
+        if let net = nsView as? NexusNetTerminalView {
+            net.font = f
+            ThemeService.shared.applyToTerminalView(net, theme: theme)
+        }
     }
 
     private func resolvedFont(name: String, size: Double) -> NSFont {
