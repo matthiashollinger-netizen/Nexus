@@ -16,7 +16,7 @@ struct NexusTerminalView: NSViewRepresentable {
         case .telnet, .serial:
             return NexusNetTerminalView(cs: cs, fontName: fontName, fontSize: fontSize)
         case .rdp:
-            return NexusRDPPlaceholderView(cs: cs)
+            return NexusRDPTerminalView(cs: cs)
         }
     }
 
@@ -248,17 +248,178 @@ final class NexusNetTerminalView: TerminalView, TerminalViewDelegate {
     func rangeChanged(source: TerminalView, startY: Int, endY: Int) {}
 }
 
-// MARK: - RDP placeholder (fully implemented in Feature 8)
+// MARK: - RDP View (Feature 8)
 
-final class NexusRDPPlaceholderView: NSView {
-    private let cs: ConnectionSession
+final class NexusRDPTerminalView: NSView {
+    let cs: ConnectionSession
+    var rdpProcess: Process?
+
+    private let statusLabel = NSTextField(labelWithString: "")
+    private let reconnectButton = NSButton(title: "", target: nil, action: nil)
 
     init(cs: ConnectionSession) {
         self.cs = cs
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.backgroundColor = NSColor.black.cgColor
+        layer?.backgroundColor = NSColor(red: 0.06, green: 0.06, blue: 0.06, alpha: 1).cgColor
         cs.terminalNSView = self
+        setupUI()
+        startRDP()
     }
+
     required init?(coder: NSCoder) { fatalError() }
+
+    deinit { stopRDP() }
+
+    private func setupUI() {
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
+        statusLabel.font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
+        statusLabel.textColor = NSColor.secondaryLabelColor
+        statusLabel.alignment = .center
+        addSubview(statusLabel)
+
+        reconnectButton.translatesAutoresizingMaskIntoConstraints = false
+        reconnectButton.title = String(localized: "rdp.reconnect")
+        reconnectButton.bezelStyle = .rounded
+        reconnectButton.isHidden = true
+        reconnectButton.target = self
+        reconnectButton.action = #selector(reconnectTapped)
+        addSubview(reconnectButton)
+
+        NSLayoutConstraint.activate([
+            statusLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            statusLabel.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -20),
+            reconnectButton.centerXAnchor.constraint(equalTo: centerXAnchor),
+            reconnectButton.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 16)
+        ])
+    }
+
+    func startRDP() {
+        guard let xfreerdp = findXFreeRDP() else {
+            showInstallInstructions()
+            return
+        }
+
+        let session = cs.session
+        var args: [String] = []
+        args += ["/v:\(session.host)"]
+
+        let user = session.rdpUsername.isEmpty ? session.username : session.rdpUsername
+        if !user.isEmpty { args += ["/u:\(user)"] }
+
+        if !session.rdpDomain.isEmpty { args += ["/d:\(session.rdpDomain)"] }
+
+        // Password from credential
+        if let pwd = cs.sshPassword, !pwd.isEmpty {
+            args += ["/p:\(pwd)"]
+        }
+
+        args += ["/w:\(session.rdpWidth)", "/h:\(session.rdpHeight)"]
+        args += ["/bpp:\(session.rdpColorDepth)"]
+
+        if session.rdpClipboardSharing { args += ["+clipboard"] }
+        if session.rdpDriveRedirection { args += ["+drives"] }
+        if session.rdpFullscreen       { args += ["/f"] }
+
+        args += ["/dynamic-resolution", "/cert:ignore"]
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: xfreerdp)
+        process.arguments = args
+        process.terminationHandler = { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.cs.state = .disconnected
+                self?.statusLabel.stringValue = String(localized: "connection.terminated")
+                self?.reconnectButton.isHidden = false
+            }
+        }
+
+        do {
+            try process.run()
+            rdpProcess = process
+            cs.state = .connected
+            statusLabel.stringValue = String(localized: "rdp.connecting")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                if self?.cs.state == .connected {
+                    self?.statusLabel.stringValue = String(localized: "rdp.status")
+                    + ": " + String(localized: "server.status.running")
+                }
+            }
+        } catch {
+            cs.state = .failed(error.localizedDescription)
+            statusLabel.stringValue = error.localizedDescription
+        }
+    }
+
+    func stopRDP() {
+        rdpProcess?.terminate()
+        rdpProcess = nil
+    }
+
+    private func findXFreeRDP() -> String? {
+        let candidates = [
+            "/opt/homebrew/bin/xfreerdp3",
+            "/opt/homebrew/bin/xfreerdp",
+            "/usr/local/bin/xfreerdp3",
+            "/usr/local/bin/xfreerdp"
+        ]
+        return candidates.first { FileManager.default.fileExists(atPath: $0) }
+    }
+
+    private func showInstallInstructions() {
+        cs.state = .failed("FreeRDP not installed")
+        subviews.forEach { $0.removeFromSuperview() }
+
+        let container = NSStackView()
+        container.orientation = .vertical
+        container.alignment = .centerX
+        container.spacing = 12
+        container.translatesAutoresizingMaskIntoConstraints = false
+
+        let icon = NSImageView(image: NSImage(systemSymbolName: "desktopcomputer.trianglebadge.exclamationmark",
+                                              accessibilityDescription: nil) ?? NSImage())
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.contentTintColor = .systemOrange
+        icon.setContentHuggingPriority(.defaultHigh, for: .vertical)
+        let iconSize = NSLayoutConstraint(item: icon, attribute: .width, relatedBy: .equal,
+                                          toItem: nil, attribute: .notAnAttribute, multiplier: 1, constant: 48)
+        let iconH = NSLayoutConstraint(item: icon, attribute: .height, relatedBy: .equal,
+                                        toItem: nil, attribute: .notAnAttribute, multiplier: 1, constant: 48)
+        icon.addConstraints([iconSize, iconH])
+
+        let label = NSTextField(labelWithString: String(localized: "rdp.install_hint"))
+        label.font = NSFont.systemFont(ofSize: 14)
+        label.textColor = .secondaryLabelColor
+        label.alignment = .center
+
+        let brewLabel = NSTextField(labelWithString: String(localized: "rdp.install_brew"))
+        brewLabel.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        brewLabel.textColor = .systemGreen
+        brewLabel.alignment = .center
+
+        let copyBtn = NSButton(title: String(localized: "rdp.copy_command"), target: self, action: #selector(copyBrewCommand))
+        copyBtn.bezelStyle = .rounded
+
+        container.addArrangedSubview(icon)
+        container.addArrangedSubview(label)
+        container.addArrangedSubview(brewLabel)
+        container.addArrangedSubview(copyBtn)
+
+        addSubview(container)
+        NSLayoutConstraint.activate([
+            container.centerXAnchor.constraint(equalTo: centerXAnchor),
+            container.centerYAnchor.constraint(equalTo: centerYAnchor)
+        ])
+    }
+
+    @objc private func copyBrewCommand() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString("brew install freerdp", forType: .string)
+    }
+
+    @objc private func reconnectTapped() {
+        reconnectButton.isHidden = true
+        stopRDP()
+        startRDP()
+    }
 }

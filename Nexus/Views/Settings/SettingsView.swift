@@ -5,10 +5,11 @@ struct SettingsView: View {
     @State private var selectedTab: SettingsTab = .general
 
     enum SettingsTab: String, CaseIterable, Identifiable {
-        case general = "settings.general"
+        case general  = "settings.general"
         case terminal = "settings.terminal"
-        case ssh = "settings.ssh"
+        case ssh      = "settings.ssh"
         case security = "settings.security"
+        case syntax   = "settings.syntax"
         var id: String { rawValue }
     }
 
@@ -29,8 +30,12 @@ struct SettingsView: View {
             SecuritySettingsView()
                 .tabItem { Label("settings.security", systemImage: "shield") }
                 .tag(SettingsTab.security)
+
+            SyntaxRulesEditorView()
+                .tabItem { Label("settings.syntax", systemImage: "text.badge.checkmark") }
+                .tag(SettingsTab.syntax)
         }
-        .frame(width: 520, height: 400)
+        .frame(width: 520, height: 420)
     }
 }
 
@@ -218,6 +223,59 @@ struct SecuritySettingsView: View {
             confirmNewPassword = ""
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Syntax Rules Editor
+
+struct SyntaxRulesEditorView: View {
+    @Environment(AppViewModel.self) private var vm
+    @State private var highlighter = TerminalHighlighter.shared
+
+    private struct RulesetInfo: Identifiable {
+        let id: HighlightRuleset
+        let nameKey: LocalizedStringKey
+        let descKey: LocalizedStringKey
+    }
+
+    private let rulesets: [RulesetInfo] = [
+        .init(id: .default, nameKey: "syntax.ruleset.default",
+              descKey: "syntax.ruleset.default"),
+        .init(id: .logLevel, nameKey: "syntax.ruleset.log",
+              descKey: "syntax.ruleset.log"),
+        .init(id: .ciscoIOS, nameKey: "syntax.ruleset.cisco",
+              descKey: "syntax.ruleset.cisco"),
+        .init(id: .network,  nameKey: "syntax.ruleset.network",
+              descKey: "syntax.ruleset.network"),
+    ]
+
+    var body: some View {
+        @Bindable var vm = vm
+        Form {
+            Section("syntax.rulesets") {
+                ForEach(rulesets) { info in
+                    Toggle(info.nameKey, isOn: Binding(
+                        get: { vm.settings.enabledHighlightRulesets.contains(info.id.rawValue) },
+                        set: { enabled in
+                            if enabled {
+                                if !vm.settings.enabledHighlightRulesets.contains(info.id.rawValue) {
+                                    vm.settings.enabledHighlightRulesets.append(info.id.rawValue)
+                                }
+                            } else {
+                                vm.settings.enabledHighlightRulesets.removeAll { $0 == info.id.rawValue }
+                            }
+                            vm.saveSettings()
+                            TerminalHighlighter.shared.updateEnabledRulesets(vm.settings.enabledHighlightRulesets)
+                        }
+                    ))
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+        .onAppear {
+            TerminalHighlighter.shared.updateEnabledRulesets(vm.settings.enabledHighlightRulesets)
         }
     }
 }

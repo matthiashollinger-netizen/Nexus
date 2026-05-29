@@ -509,6 +509,15 @@
 "sftp.new_name" = "Neuer Name";
 "sftp.folder_name" = "Ordnername";
 
+// MARK: - Editor
+"editor.title" = "Texteditor";
+"editor.no_file" = "Keine Datei geöffnet";
+"editor.error" = "Editor-Fehler";
+"editor.modified" = "Geändert";
+
+// MARK: - Macro Manager
+"macro.manager.title" = "Makro-Verwaltung";
+
 // MARK: - Macros
 "menu.macros" = "Makros";
 "menu.macros.manager" = "Makro-Verwaltung…";
@@ -527,6 +536,7 @@
 "macro.execute" = "Ausführen";
 "macro.apply_to" = "Anwenden auf";
 "macro.apply_to.all" = "Alle Sessions";
+"macro.select_hint" = "Wähle ein Makro aus der Liste";
 
 // MARK: - Embedded Servers
 "servers.title" = "Eingebettete Server";
@@ -544,6 +554,7 @@
 "server.status.stopped" = "Gestoppt";
 "server.missing_binary" = "Erforderliches Binary nicht gefunden";
 "server.install_hint" = "Installation über Homebrew:";
+"servers.empty" = "Keine Server konfiguriert. Klicke + um einen hinzuzufügen.";
 
 // MARK: - RDP Full
 "rdp.install_hint" = "Installiere FreeRDP für RDP-Verbindungen:";
@@ -584,4 +595,5 @@
 "theme.font_size" = "Schriftgröße";
 "theme.ansi_colors" = "ANSI-Farben";
 "theme.preview" = "Vorschau";
-"theme.active" = "Aktives Theme";
+"theme.active" = "Aktivieren";
+"theme.select_hint" = "Wähle ein Theme aus der Liste";

@@ -11,4 +11,13 @@ struct AppSettings: Codable {
     var defaultTelnetPort: Int = 23
     var masterPasswordEnabled: Bool = false
     var hasCompletedOnboarding: Bool = false
+
+    // Editor
+    var preferredEditorApp: String = "builtin"   // builtin/vscode/bbedit/custom
+
+    // Syntax Highlighting
+    var enabledHighlightRulesets: [String] = ["default"]
+
+    // Theme
+    var activeThemeId: String = "nexusDark"
 }

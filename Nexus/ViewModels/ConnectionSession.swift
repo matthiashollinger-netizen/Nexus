@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 import Network
 
-enum ConnectionState {
+enum ConnectionState: Equatable {
     case idle
     case connecting
     case connected

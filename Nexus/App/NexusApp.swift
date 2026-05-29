@@ -37,6 +37,32 @@ struct NexusApp: App {
         }
         .defaultSize(width: 720, height: 500)
         .windowResizability(.contentMinSize)
+
+        Window("editor.title", id: "editor") {
+            NexusTextEditorView()
+        }
+        .defaultSize(width: 860, height: 600)
+        .windowResizability(.contentMinSize)
+
+        Window("macro.manager.title", id: "macros") {
+            MacroManagerView()
+                .environment(appViewModel)
+        }
+        .defaultSize(width: 700, height: 500)
+        .windowResizability(.contentMinSize)
+
+        Window("servers.title", id: "servers") {
+            EmbeddedServersView()
+        }
+        .defaultSize(width: 720, height: 540)
+        .windowResizability(.contentMinSize)
+
+        Window("themes.title", id: "themes") {
+            ThemeEditorView()
+                .environment(appViewModel)
+        }
+        .defaultSize(width: 860, height: 600)
+        .windowResizability(.contentMinSize)
     }
 }
 
@@ -49,6 +75,10 @@ struct NexusCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .undoRedo) {
             SidebarUndoButton()
+        }
+
+        CommandMenu("menu.macros") {
+            MacroMenuItems()
         }
 
         CommandGroup(after: .newItem) {
