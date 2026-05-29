@@ -463,3 +463,6 @@
 "feature.priority.important" = "Important";
 "feature.priority.critical" = "Critical for my workflow";
 "feature.submit" = "Submit Request";
+
+// MARK: - Drag & Drop
+"action.undo_move" = "Undo Move";

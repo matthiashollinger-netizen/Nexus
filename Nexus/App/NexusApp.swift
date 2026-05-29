@@ -47,6 +47,10 @@ struct NexusCommands: Commands {
     let updaterVM: UpdaterViewModel
 
     var body: some Commands {
+        CommandGroup(replacing: .undoRedo) {
+            SidebarUndoButton()
+        }
+
         CommandGroup(after: .newItem) {
             Button("menu.new_session") {
                 vm.addSessionParentFolderId = nil
@@ -90,6 +94,20 @@ struct NexusCommands: Commands {
             }
             .keyboardShortcut("k", modifiers: [.command, .shift])
         }
+    }
+}
+
+// MARK: - Undo sidebar move (View wrapper required for @FocusedValue)
+
+private struct SidebarUndoButton: View {
+    @FocusedValue(\.sidebarUndoVM) private var undoVM
+
+    var body: some View {
+        Button("action.undo_move") {
+            undoVM?.undoLastMove()
+        }
+        .keyboardShortcut("z", modifiers: .command)
+        .disabled(undoVM == nil)
     }
 }
 

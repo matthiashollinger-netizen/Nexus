@@ -217,6 +217,86 @@ final class AppViewModel {
         return nil
     }
 
+    // MARK: - Drag & Drop — Move / Reorder
+
+    /// Move history for ⌘Z undo (each entry = one drag operation)
+    private struct MoveSnapshot {
+        let sessionsBefore: [Session]
+        let foldersBefore:  [Folder]
+    }
+    private var moveHistory: [MoveSnapshot] = []
+
+    /// Moves a session or folder to a new parent folder (or root if `nil`).
+    func moveSidebarItem(id: UUID, isFolder: Bool, toFolderId: UUID?) {
+        let snapshot = MoveSnapshot(sessionsBefore: sessions, foldersBefore: folders)
+
+        if isFolder {
+            guard let idx = folders.firstIndex(where: { $0.id == id }) else { return }
+            // Guard against circular nesting (can't move folder into itself or its descendant)
+            guard !isFolderDescendant(potentialChild: toFolderId, of: id) else { return }
+            folders[idx].parentId = toFolderId
+            // Append at end of target level
+            let maxOrder = folders.filter { $0.parentId == toFolderId }.map(\.sortOrder).max() ?? -1
+            folders[idx].sortOrder = maxOrder + 1
+        } else {
+            guard let idx = sessions.firstIndex(where: { $0.id == id }) else { return }
+            sessions[idx].folderId = toFolderId
+            let maxOrder = sessions.filter { $0.folderId == toFolderId }.map(\.sortOrder).max() ?? -1
+            sessions[idx].sortOrder = maxOrder + 1
+        }
+
+        db.saveSessions(sessions)
+        db.saveFolders(folders)
+        moveHistory.append(snapshot)
+    }
+
+    /// Reorders sessions within the same folder level.
+    func reorderSessions(folderId: UUID?, from: IndexSet, to: Int) {
+        let snapshot = MoveSnapshot(sessionsBefore: sessions, foldersBefore: folders)
+        var level = sessions.filter { $0.folderId == folderId }.sorted { $0.sortOrder < $1.sortOrder }
+        level.move(fromOffsets: from, toOffset: to)
+        for (i, s) in level.enumerated() {
+            if let idx = sessions.firstIndex(where: { $0.id == s.id }) {
+                sessions[idx].sortOrder = i
+            }
+        }
+        db.saveSessions(sessions)
+        moveHistory.append(snapshot)
+    }
+
+    /// Reorders folders within the same parent level.
+    func reorderFolders(parentId: UUID?, from: IndexSet, to: Int) {
+        let snapshot = MoveSnapshot(sessionsBefore: sessions, foldersBefore: folders)
+        var level = folders.filter { $0.parentId == parentId }.sorted { $0.sortOrder < $1.sortOrder }
+        level.move(fromOffsets: from, toOffset: to)
+        for (i, f) in level.enumerated() {
+            if let idx = folders.firstIndex(where: { $0.id == f.id }) {
+                folders[idx].sortOrder = i
+            }
+        }
+        db.saveFolders(folders)
+        moveHistory.append(snapshot)
+    }
+
+    /// Undo last move / reorder operation.
+    func undoLastMove() {
+        guard let snapshot = moveHistory.popLast() else { return }
+        sessions = snapshot.sessionsBefore
+        folders  = snapshot.foldersBefore
+        db.saveSessions(sessions)
+        db.saveFolders(folders)
+    }
+
+    var canUndoMove: Bool { !moveHistory.isEmpty }
+
+    // Guard: returns true if `potentialChild` is nil or a descendant of `ancestor`
+    private func isFolderDescendant(potentialChild id: UUID?, of ancestor: UUID) -> Bool {
+        guard let id else { return false }
+        if id == ancestor { return true }
+        guard let folder = folders.first(where: { $0.id == id }) else { return false }
+        return isFolderDescendant(potentialChild: folder.parentId, of: ancestor)
+    }
+
     // MARK: - Batch import (from column-mapped CSV)
 
     func addImportedData(sessions newSessions: [Session], folders newFolders: [Folder], credentials newCreds: [Credential]) {

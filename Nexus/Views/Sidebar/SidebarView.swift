@@ -1,14 +1,32 @@
 import SwiftUI
+import UniformTypeIdentifiers
+import AppKit
+
+// MARK: - Transfer type for Drag & Drop
+
+extension UTType {
+    static let nexusSidebarItem = UTType("com.hollinger.Nexus.sidebarItem")!
+}
+
+struct SidebarTransferItem: Transferable, Codable {
+    let id: UUID
+    let isFolder: Bool
+
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .nexusSidebarItem)
+    }
+}
+
+// MARK: - Sidebar root
 
 struct SidebarView: View {
     @Environment(AppViewModel.self) private var vm
     @State private var searchText = ""
+    @State private var isRootDropTargeted = false
 
-    // Edit is only allowed when exactly one item is selected
-    private var canEditSelected: Bool { vm.selectedSidebarItems.count == 1 }
+    private var canEditSelected:  Bool { vm.selectedSidebarItems.count == 1 }
     private var canDeleteSelected: Bool { !vm.selectedSidebarItems.isEmpty }
 
-    // The folder currently selected (if any) — used as default for new sessions
     private var selectedFolder: Folder? {
         for item in vm.selectedSidebarItems {
             if case .folder(let f) = item { return f }
@@ -33,25 +51,49 @@ struct SidebarView: View {
 
         List(selection: $vm.selectedSidebarItems) {
             Section {
+                // Root-level folders (reorderable)
                 ForEach(vm.childFolders(of: nil)) { folder in
                     FolderRow(folder: folder, depth: 0, searchText: searchText)
                 }
+                .onMove { from, to in
+                    vm.reorderFolders(parentId: nil, from: from, to: to)
+                }
+
+                // Root-level sessions (reorderable)
                 ForEach(vm.sessions(in: nil).filtered(by: searchText)) { session in
                     SessionRow(session: session)
+                }
+                .onMove { from, to in
+                    vm.reorderSessions(folderId: nil, from: from, to: to)
                 }
             }
         }
         .listStyle(.sidebar)
         .searchable(text: $searchText, placement: .sidebar)
+        // Drop onto root (outside any folder) → move item to top level
+        .dropDestination(for: SidebarTransferItem.self) { items, _ in
+            for item in items {
+                vm.moveSidebarItem(id: item.id, isFolder: item.isFolder, toFolderId: nil)
+            }
+            return !items.isEmpty
+        } isTargeted: { targeted in
+            isRootDropTargeted = targeted
+        }
+        .overlay(alignment: .bottom) {
+            if isRootDropTargeted {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.accentColor, lineWidth: 2)
+                    .padding(4)
+                    .allowsHitTesting(false)
+            }
+        }
         .onDeleteCommand { deleteSelected() }
-        // Double-click detection via NSEvent monitor (no SwiftUI gesture = no selection conflict)
         .background(SidebarDoubleClickMonitor {
             if let item = vm.selectedSidebarItem, case .session(let s) = item {
                 vm.connect(to: s)
             }
         })
         .toolbar {
-            // ── Add (leftmost, + icon) ──────────────────────────────
             ToolbarItem(placement: .automatic) {
                 Menu {
                     Button {
@@ -71,27 +113,17 @@ struct SidebarView: View {
                 }
                 .help("action.add")
             }
-            // ── Edit ────────────────────────────────────────────────
             ToolbarItem(placement: .automatic) {
-                Button {
-                    editSelected()
-                } label: {
-                    Image(systemName: "pencil")
-                }
-                .disabled(!canEditSelected)
-                .help("action.edit")
-                .keyboardShortcut("e", modifiers: .command)
+                Button { editSelected() } label: { Image(systemName: "pencil") }
+                    .disabled(!canEditSelected)
+                    .help("action.edit")
+                    .keyboardShortcut("e", modifiers: .command)
             }
-            // ── Delete ──────────────────────────────────────────────
             ToolbarItem(placement: .automatic) {
-                Button {
-                    deleteSelected()
-                } label: {
-                    Image(systemName: "trash")
-                }
-                .disabled(!canDeleteSelected)
-                .help("action.delete")
-                .keyboardShortcut(.delete, modifiers: .command)
+                Button { deleteSelected() } label: { Image(systemName: "trash") }
+                    .disabled(!canDeleteSelected)
+                    .help("action.delete")
+                    .keyboardShortcut(.delete, modifiers: .command)
             }
         }
         .sheet(isPresented: $vm.showAddSession) {
@@ -100,25 +132,35 @@ struct SidebarView: View {
         .sheet(isPresented: $vm.showAddFolder) {
             AddFolderView(parentFolderId: vm.addSessionParentFolderId)
         }
-        .sheet(item: $vm.editingSession) { session in
-            AddSessionView(session: session)
-        }
-        .sheet(item: $vm.editingFolder) { folder in
-            AddFolderView(folder: folder)
-        }
-        .sheet(isPresented: $vm.showImportCSV) {
-            ImportCSVView()
-        }
+        .sheet(item: $vm.editingSession) { session in AddSessionView(session: session) }
+        .sheet(item: $vm.editingFolder)  { folder  in AddFolderView(folder: folder) }
+        .sheet(isPresented: $vm.showImportCSV) { ImportCSVView() }
+        // ⌘Z undo for drag moves
+        .focusedValue(\.sidebarUndoVM, vm.canUndoMove ? vm : nil)
     }
 }
 
-// MARK: - Folder row (recursive)
+// MARK: - Focused Value for undo
+
+private struct SidebarUndoVMKey: FocusedValueKey {
+    typealias Value = AppViewModel
+}
+
+extension FocusedValues {
+    var sidebarUndoVM: AppViewModel? {
+        get { self[SidebarUndoVMKey.self] }
+        set { self[SidebarUndoVMKey.self] = newValue }
+    }
+}
+
+// MARK: - Folder row (recursive, supports drop)
 
 struct FolderRow: View {
     let folder: Folder
     let depth: Int
     let searchText: String
     @Environment(AppViewModel.self) private var vm
+    @State private var isDropTargeted = false
 
     private var childFolders: [Folder] { vm.childFolders(of: folder.id) }
     private var childSessions: [Session] { vm.sessions(in: folder.id).filtered(by: searchText) }
@@ -127,21 +169,30 @@ struct FolderRow: View {
         DisclosureGroup(isExpanded: Binding(
             get: { folder.isExpanded },
             set: { newVal in
-                var updated = folder
-                updated.isExpanded = newVal
+                var updated = folder; updated.isExpanded = newVal
                 vm.updateFolder(updated)
             }
         )) {
+            // Child folders (reorderable within this folder)
             ForEach(childFolders) { child in
                 FolderRow(folder: child, depth: depth + 1, searchText: searchText)
             }
+            .onMove { from, to in
+                vm.reorderFolders(parentId: folder.id, from: from, to: to)
+            }
+
+            // Child sessions (reorderable within this folder)
             ForEach(childSessions) { session in
                 SessionRow(session: session)
+            }
+            .onMove { from, to in
+                vm.reorderSessions(folderId: folder.id, from: from, to: to)
             }
         } label: {
             Label(folder.name, systemImage: "folder")
                 .tag(SidebarItem.folder(folder))
-                // Context menu on label only — does NOT propagate to child rows
+                .background(isDropTargeted ? Color.accentColor.opacity(0.15) : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
                 .contextMenu {
                     Button {
                         vm.addSessionParentFolderId = folder.id
@@ -156,22 +207,29 @@ struct FolderRow: View {
                         Label("sidebar.add_subfolder", systemImage: "folder.badge.plus")
                     }
                     Divider()
-                    Button {
-                        vm.editingFolder = folder
-                    } label: {
+                    Button { vm.editingFolder = folder } label: {
                         Label("action.edit", systemImage: "pencil")
                     }
-                    Button(role: .destructive) {
-                        vm.deleteFolder(folder)
-                    } label: {
+                    Button(role: .destructive) { vm.deleteFolder(folder) } label: {
                         Label("action.delete", systemImage: "trash")
                     }
                 }
         }
+        // This folder is a drop target — items dropped here move into it
+        .dropDestination(for: SidebarTransferItem.self) { items, _ in
+            for item in items {
+                vm.moveSidebarItem(id: item.id, isFolder: item.isFolder, toFolderId: folder.id)
+            }
+            return !items.isEmpty
+        } isTargeted: { targeted in
+            isDropTargeted = targeted
+        }
+        // This folder itself is draggable
+        .draggable(SidebarTransferItem(id: folder.id, isFolder: true))
     }
 }
 
-// MARK: - Session row
+// MARK: - Session row (draggable)
 
 struct SessionRow: View {
     let session: Session
@@ -187,53 +245,35 @@ struct SessionRow: View {
                     .font(.body)
                     .lineLimit(1)
                 if !session.description.isEmpty {
-                    Text(session.description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    Text(session.description).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 } else if !session.host.isEmpty && !session.name.isEmpty {
-                    Text(session.host)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    Text(session.host).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        // No SwiftUI gesture at all — double-click is handled by SidebarDoubleClickMonitor
-        // at the NSEvent level so it never competes with List's native row selection.
         .tag(SidebarItem.session(session))
+        .draggable(SidebarTransferItem(id: session.id, isFolder: false))
         .contextMenu {
-            Button {
-                vm.connect(to: session)
-            } label: {
+            Button { vm.connect(to: session) } label: {
                 Label("action.connect", systemImage: "play.fill")
             }
             Divider()
-            Button {
-                vm.editingSession = session
-            } label: {
+            Button { vm.editingSession = session } label: {
                 Label("action.edit", systemImage: "pencil")
             }
-            Button(role: .destructive) {
-                vm.deleteSession(session)
-            } label: {
+            Button(role: .destructive) { vm.deleteSession(session) } label: {
                 Label("action.delete", systemImage: "trash")
             }
         }
     }
 }
 
-// MARK: - Double-click detector (NSEvent level — no SwiftUI gesture interference)
-// Placed as .background on the List so its NSView frame covers the sidebar area.
-// Only fires the action when the click happened within the sidebar's own bounds.
-
-import AppKit
+// MARK: - Double-click detector
 
 private struct SidebarDoubleClickMonitor: NSViewRepresentable {
     let onDoubleClick: () -> Void
-
     func makeNSView(context: Context) -> NSView { context.coordinator.placeholder }
     func updateNSView(_ nsView: NSView, context: Context) {
         context.coordinator.onDoubleClick = onDoubleClick
@@ -252,7 +292,6 @@ private struct SidebarDoubleClickMonitor: NSViewRepresentable {
                       let host = self?.placeholder,
                       let win  = host.window,
                       event.window === win else { return event }
-                // Check click is within the sidebar list frame (window coordinates)
                 let click = event.locationInWindow
                 let frame = host.convert(host.bounds, to: nil)
                 if frame.contains(click) {
@@ -261,7 +300,6 @@ private struct SidebarDoubleClickMonitor: NSViewRepresentable {
                 return event
             }
         }
-
         deinit { if let m = monitor { NSEvent.removeMonitor(m) } }
     }
 }
