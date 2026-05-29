@@ -1,6 +1,19 @@
 import Foundation
 import SwiftUI
 
+// MARK: - FocusedValue for macro execution (sessions list, available in menus)
+
+private struct MacroExecutorVMKey: FocusedValueKey {
+    typealias Value = [ConnectionSession]
+}
+
+extension FocusedValues {
+    var macroExecutorVM: [ConnectionSession]? {
+        get { self[MacroExecutorVMKey.self] }
+        set { self[MacroExecutorVMKey.self] = newValue }
+    }
+}
+
 @Observable
 final class AppViewModel {
     var folders: [Folder] = []

@@ -257,25 +257,34 @@ struct MacroEditorView: View {
 }
 
 // MARK: - MacroMenuItems (View wrapper for @Environment)
+// Note: Uses @FocusedValue to safely access AppViewModel from menu commands
 
 struct MacroMenuItems: View {
-    @Environment(AppViewModel.self) private var vm
+    @FocusedValue(\.macroExecutorVM) private var executorVM
     @Environment(\.openWindow) private var openWindow
     @State private var macroService = MacroService.shared
 
+    var body: some View {
+        MacroManagerOpener()
+        if !macroService.macros.isEmpty {
+            Divider()
+            ForEach(macroService.macros.prefix(10)) { macro in
+                Button(macro.name.isEmpty ? String(localized: "macro.new") : macro.name) {
+                    if let sessions = executorVM {
+                        macroService.executeMacro(macro, in: sessions)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct MacroManagerOpener: View {
+    @Environment(\.openWindow) private var openWindow
     var body: some View {
         Button("menu.macros.manager") {
             openWindow(id: "macros")
         }
         .keyboardShortcut("m", modifiers: [.command, .shift])
-
-        if !macroService.macros.isEmpty {
-            Divider()
-            ForEach(macroService.macros.prefix(10)) { macro in
-                Button(macro.name.isEmpty ? String(localized: "macro.new") : macro.name) {
-                    macroService.executeMacro(macro, in: vm.activeSessions)
-                }
-            }
-        }
     }
 }

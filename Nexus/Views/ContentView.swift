@@ -85,6 +85,7 @@ struct MainView: View {
         .sheet(isPresented: $vm.showFeatureRequest) {
             FeatureRequestView()
         }
+        .focusedValue(\.macroExecutorVM, vm.activeSessions)
         .onAppear {
             setupMenu()
         }
