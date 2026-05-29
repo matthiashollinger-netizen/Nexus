@@ -317,8 +317,8 @@ final class NexusRDPTerminalView: NSView {
 
         if !session.rdpDomain.isEmpty { args += ["/d:\(session.rdpDomain)"] }
 
-        // Password from credential
-        if let pwd = cs.sshPassword, !pwd.isEmpty {
+        // Password from RDP credential (rdpCredentialId) or fallback to ssh credential
+        if let pwd = cs.rdpPassword ?? cs.sshPassword, !pwd.isEmpty {
             args += ["/p:\(pwd)"]
         }
 

@@ -261,7 +261,8 @@ struct MacroEditorView: View {
 
 struct MacroMenuItems: View {
     @FocusedValue(\.macroExecutorVM) private var executorVM
-    @Environment(\.openWindow) private var openWindow
+    // Note: openWindow is handled in MacroManagerOpener (nested View) — do NOT
+    // declare it twice here, that caused undefined behaviour (duplicate property).
     @State private var macroService = MacroService.shared
 
     var body: some View {

@@ -597,3 +597,6 @@
 "theme.preview" = "Preview";
 "theme.active" = "Activate";
 "theme.select_hint" = "Select a theme from the list";
+
+// MARK: - Embedded Servers
+"server.tftp.root_warning" = "Port 69 requires root privileges — start with sudo or use port > 1024";

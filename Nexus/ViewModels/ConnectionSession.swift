@@ -28,6 +28,9 @@ final class ConnectionSession: Identifiable {
     /// Password captured from terminal input when no credential is stored
     var capturedPassword: String = ""
 
+    // RDP — resolved separately in AppViewModel.connect() from rdpCredentialId
+    var rdpPassword: String? = nil
+
     // Telnet
     var telnetService: TelnetService?
 

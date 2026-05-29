@@ -163,6 +163,13 @@ struct ServerCard: View {
 
             Divider()
 
+            // TFTP port-69 root-privilege warning
+            if server.type == .tftp && server.port == 69 {
+                Label("server.tftp.root_warning", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
             // Actions
             HStack(spacing: 8) {
                 if server.isRunning {

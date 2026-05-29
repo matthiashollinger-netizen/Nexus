@@ -73,6 +73,8 @@ final class AppViewModel {
         ThemeService.shared.loadThemes()
         MacroService.shared.loadMacros()
         EmbeddedServerService.shared.loadServers()
+        // Restore saved syntax highlighting ruleset selection
+        TerminalHighlighter.shared.updateEnabledRulesets(settings.enabledHighlightRulesets)
         // Hotkey monitor needs a live reference to activeSessions.
         // The closure is retained weakly to avoid a retain cycle.
         MacroService.shared.installHotkeyMonitor { [weak self] in
@@ -170,6 +172,13 @@ final class AppViewModel {
     func connect(to session: Session) {
         let cred = credential(for: session)
         let cs = ConnectionSession(session: session, credential: cred, settings: settings)
+        // Resolve RDP-specific credential (separate from the SSH credential)
+        if session.connectionType == .rdp, let rdpCredId = session.rdpCredentialId {
+            cs.rdpPassword = credentials.first { $0.id == rdpCredId }?.password
+        } else if session.connectionType == .rdp {
+            // Fall back to the inherited credential's password
+            cs.rdpPassword = cred?.password
+        }
         activeSessions.append(cs)
         selectedTabId = cs.id
         // Run on-connect macros and refresh schedules for new session count
