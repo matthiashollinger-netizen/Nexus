@@ -5,7 +5,11 @@ import AppKit
 // MARK: - Transfer type for Drag & Drop
 
 extension UTType {
-    static let nexusSidebarItem = UTType("com.hollinger.Nexus.sidebarItem")!
+    /// Custom UTType for sidebar drag & drop.
+    /// Uses exportedAs: so the type is always valid regardless of whether
+    /// it is declared in the system database — UTType("...") would return nil
+    /// and crash if the identifier isn't registered in Info.plist yet.
+    static let nexusSidebarItem = UTType(exportedAs: "com.hollinger.Nexus.sidebarItem")
 }
 
 struct SidebarTransferItem: Transferable, Codable {

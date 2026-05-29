@@ -26,5 +26,18 @@
 	<string>https://raw.githubusercontent.com/matthiashollinger-netizen/Nexus/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>yx+eogSSO+AT8UZZJi31SnJXk/F+94Q4rNDbOgJ40Pc=</string>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.hollinger.Nexus.sidebarItem</string>
+			<key>UTTypeDescription</key>
+			<string>Nexus Sidebar Item</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
