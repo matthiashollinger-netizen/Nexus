@@ -161,9 +161,23 @@ final class TerminalHighlighter {
             Rule(regex: re("(?:https?|ftp|ssh)://[A-Za-z0-9._~:/?#\\[\\]@!$&'()*+,;=%]+"),
                  open: m + u, close: rst, rulesets: [.network]),
 
-            // Port numbers :80, :443, :22, :8080
-            Rule(regex: re(":\\b(80|443|22|23|8080|8443|3306|5432|6379|27017|21|25|53|" +
-                           "3389|5900|9200|9300|6443|2375|2376|5000|8000|9000|4433)\\b"),
+            // Port — CONTEXT-SENSITIVE so timestamps (HH:MM:SS) are not mistaken
+            // for ports. We only colour ":port" when it directly follows an IPv4
+            // address or a hostname (letter before the colon), or the word "port".
+            //
+            // "20:22:51" → before ":22" is the digit "0" (not a dotted IPv4, not a
+            // letter), so neither rule matches → no false highlight.
+
+            // ":port" right after a full IPv4  (e.g. 10.0.0.1:8080)
+            Rule(regex: re("(?<=(?:\\d{1,3}\\.){3}\\d{1,3}):\\d{1,5}\\b"),
+                 open: m, close: rst, rulesets: [.network]),
+
+            // ":port" right after a hostname character  (e.g. localhost:22, host.example.com:443)
+            Rule(regex: re("(?<=[A-Za-z]):\\d{1,5}\\b"),
+                 open: m, close: rst, rulesets: [.network]),
+
+            // "port <number>"  (e.g. "Port 2222", "listening on port 80")
+            Rule(regex: re("\\b[Pp]ort\\s+\\d{1,5}\\b"),
                  open: m, close: rst, rulesets: [.network]),
         ]
     }
