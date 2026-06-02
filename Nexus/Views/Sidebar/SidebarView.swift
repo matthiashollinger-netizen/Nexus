@@ -2,22 +2,63 @@ import SwiftUI
 import UniformTypeIdentifiers
 import AppKit
 
-// MARK: - Transfer type for Drag & Drop
+// MARK: - Drag payload encoding
+//
+// We deliberately use the older NSItemProvider (`.onDrag`) + `.onDrop(delegate:)`
+// APIs rather than `.draggable`/`.dropDestination`. Reasons:
+//   • `.draggable` on a List row breaks single-click row selection on macOS
+//     (clicking the text didn't select — Task 4 regression). `.onDrag` keeps it.
+//   • `.onDrop(delegate:)` lets us return a `.move` operation so the cursor shows
+//     a clean move instead of the green "+" copy badge (Task 5).
+//
+// The payload is a tiny plain-text string: "session:<uuid>" or "folder:<uuid>".
 
-extension UTType {
-    /// Custom UTType for sidebar drag & drop.
-    /// Uses exportedAs: so the type is always valid regardless of whether
-    /// it is declared in the system database — UTType("...") would return nil
-    /// and crash if the identifier isn't registered in Info.plist yet.
-    static let nexusSidebarItem = UTType(exportedAs: "com.hollinger.Nexus.sidebarItem")
+enum SidebarDragPayload {
+    static func encode(id: UUID, isFolder: Bool) -> String {
+        "\(isFolder ? "folder" : "session"):\(id.uuidString)"
+    }
+    static func decode(_ string: String) -> (id: UUID, isFolder: Bool)? {
+        let parts = string.split(separator: ":", maxSplits: 1).map(String.init)
+        guard parts.count == 2, let id = UUID(uuidString: parts[1]) else { return nil }
+        return (id, parts[0] == "folder")
+    }
+    static func itemProvider(id: UUID, isFolder: Bool) -> NSItemProvider {
+        NSItemProvider(object: encode(id: id, isFolder: isFolder) as NSString)
+    }
 }
 
-struct SidebarTransferItem: Transferable, Codable {
-    let id: UUID
-    let isFolder: Bool
+// MARK: - Drop delegate (returns .move so no "+" cursor)
 
-    static var transferRepresentation: some TransferRepresentation {
-        CodableRepresentation(contentType: .nexusSidebarItem)
+struct SidebarDropDelegate: DropDelegate {
+    let targetFolderId: UUID?       // nil = drop onto root
+    let vm: AppViewModel
+    @Binding var isTargeted: Bool
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: [.text])
+    }
+
+    func dropEntered(info: DropInfo) { isTargeted = true }
+    func dropExited(info: DropInfo)  { isTargeted = false }
+
+    // Returning .move makes macOS show a move cursor (no green "+" copy badge).
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        isTargeted = false
+        let providers = info.itemProviders(for: [.text])
+        guard let provider = providers.first else { return false }
+
+        provider.loadObject(ofClass: NSString.self) { object, _ in
+            guard let string = object as? String,
+                  let payload = SidebarDragPayload.decode(string) else { return }
+            DispatchQueue.main.async {
+                vm.moveSidebarItem(id: payload.id, isFolder: payload.isFolder, toFolderId: targetFolderId)
+            }
+        }
+        return true
     }
 }
 
@@ -74,15 +115,10 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .searchable(text: $searchText, placement: .sidebar)
-        // Drop onto root (outside any folder) → move item to top level
-        .dropDestination(for: SidebarTransferItem.self) { items, _ in
-            for item in items {
-                vm.moveSidebarItem(id: item.id, isFolder: item.isFolder, toFolderId: nil)
-            }
-            return !items.isEmpty
-        } isTargeted: { targeted in
-            isRootDropTargeted = targeted
-        }
+        // Drop onto root (outside any folder) → move item to top level.
+        // .move operation = clean move cursor, no "+" copy badge.
+        .onDrop(of: [.text], delegate: SidebarDropDelegate(
+            targetFolderId: nil, vm: vm, isTargeted: $isRootDropTargeted))
         .overlay(alignment: .bottom) {
             if isRootDropTargeted {
                 RoundedRectangle(cornerRadius: 6)
@@ -194,9 +230,16 @@ struct FolderRow: View {
             }
         } label: {
             Label(folder.name, systemImage: "folder")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())   // whole row selectable, incl. the text
                 .tag(SidebarItem.folder(folder))
                 .background(isDropTargeted ? Color.accentColor.opacity(0.15) : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
+                // .onDrag (not .draggable) keeps single-click row selection working.
+                .onDrag { SidebarDragPayload.itemProvider(id: folder.id, isFolder: true) }
+                // Drop INTO this folder.
+                .onDrop(of: [.text], delegate: SidebarDropDelegate(
+                    targetFolderId: folder.id, vm: vm, isTargeted: $isDropTargeted))
                 .contextMenu {
                     Button {
                         vm.addSessionParentFolderId = folder.id
@@ -219,17 +262,6 @@ struct FolderRow: View {
                     }
                 }
         }
-        // This folder is a drop target — items dropped here move into it
-        .dropDestination(for: SidebarTransferItem.self) { items, _ in
-            for item in items {
-                vm.moveSidebarItem(id: item.id, isFolder: item.isFolder, toFolderId: folder.id)
-            }
-            return !items.isEmpty
-        } isTargeted: { targeted in
-            isDropTargeted = targeted
-        }
-        // This folder itself is draggable
-        .draggable(SidebarTransferItem(id: folder.id, isFolder: true))
     }
 }
 
@@ -257,8 +289,10 @@ struct SessionRow: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())   // entire row (incl. text) is the click target
         .tag(SidebarItem.session(session))
-        .draggable(SidebarTransferItem(id: session.id, isFolder: false))
+        // .onDrag (not .draggable) so a single click on the text still selects.
+        .onDrag { SidebarDragPayload.itemProvider(id: session.id, isFolder: false) }
         .contextMenu {
             Button { vm.connect(to: session) } label: {
                 Label("action.connect", systemImage: "play.fill")
