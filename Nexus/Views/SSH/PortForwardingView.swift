@@ -4,85 +4,103 @@ import SwiftUI
 
 struct GatewaySection: View {
     @Binding var draft: Session
+    // Collapsed by default so the advanced tunneling options don't clutter the
+    // basic SSH session view (addresses the "unübersichtlich" feedback). Auto-
+    // expands if the session already uses any gateway feature.
+    @State private var expanded: Bool = false
+
+    private var usesGateway: Bool {
+        draft.jumpHost != nil
+            || !draft.portForwardings.isEmpty
+            || (draft.socks5Proxy?.enabled ?? false)
+    }
 
     var body: some View {
-        // ── Jump Host ────────────────────────────────────────────────────────
         Section {
-            Toggle("gateway.jump_host.enabled", isOn: Binding(
-                get: { draft.jumpHost != nil },
-                set: { enabled in
-                    draft.jumpHost = enabled ? JumpHost() : nil
-                }
-            ))
-
-            if draft.jumpHost != nil {
-                LabeledContent("gateway.jump_host.host") {
-                    TextField("", text: Binding(
-                        get: { draft.jumpHost?.host ?? "" },
-                        set: { draft.jumpHost?.host = $0 }
-                    ))
-                }
-                LabeledContent("session.port") {
-                    TextField("", value: Binding(
-                        get: { draft.jumpHost?.port ?? 22 },
-                        set: { draft.jumpHost?.port = $0 }
-                    ), format: .number)
-                    .frame(width: 70)
-                }
-                LabeledContent("session.username") {
-                    TextField("", text: Binding(
-                        get: { draft.jumpHost?.username ?? "" },
-                        set: { draft.jumpHost?.username = $0 }
-                    ))
-                }
-            }
-        } header: {
-            Text("gateway.section.jump_host")
-        }
-
-        // ── Port Forwardings ─────────────────────────────────────────────────
-        Section {
-            ForEach($draft.portForwardings) { $fwd in
-                PortForwardingRow(fwd: $fwd) {
-                    draft.portForwardings.removeAll { $0.id == fwd.id }
-                }
-            }
-
-            Button {
-                draft.portForwardings.append(PortForwarding())
+            DisclosureGroup(isExpanded: $expanded) {
+                jumpHostControls
+                Divider()
+                forwardingControls
+                Divider()
+                socks5Controls
             } label: {
-                Label("gateway.fwd.add", systemImage: "plus.circle")
+                HStack {
+                    Label("gateway.advanced", systemImage: "arrow.triangle.branch")
+                    if usesGateway {
+                        Text("gateway.active_badge")
+                            .font(.caption2)
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .background(Color.accentColor.opacity(0.15))
+                            .clipShape(Capsule())
+                    }
+                }
             }
-        } header: {
-            Text("gateway.section.forwardings")
-        } footer: {
-            Text("gateway.fwd.hint")
-                .font(.caption).foregroundStyle(.secondary)
         }
+        .onAppear { if usesGateway { expanded = true } }
+    }
 
-        // ── SOCKS5 ───────────────────────────────────────────────────────────
-        Section {
-            Toggle("gateway.socks5.enabled", isOn: Binding(
-                get: { draft.socks5Proxy?.enabled ?? false },
-                set: { enabled in
-                    if draft.socks5Proxy == nil { draft.socks5Proxy = SOCKS5Config() }
-                    draft.socks5Proxy?.enabled = enabled
-                }
-            ))
-
-            if draft.socks5Proxy?.enabled == true {
-                LabeledContent("gateway.socks5.port") {
-                    TextField("", value: Binding(
-                        get: { draft.socks5Proxy?.localPort ?? 1080 },
-                        set: { draft.socks5Proxy?.localPort = $0 }
-                    ), format: .number)
-                    .frame(width: 80)
-                }
-                Text("gateway.socks5.hint")
-                    .font(.caption).foregroundStyle(.secondary)
+    // ── Jump Host ────────────────────────────────────────────────────────────
+    @ViewBuilder private var jumpHostControls: some View {
+        Toggle("gateway.jump_host.enabled", isOn: Binding(
+            get: { draft.jumpHost != nil },
+            set: { enabled in draft.jumpHost = enabled ? JumpHost() : nil }
+        ))
+        if draft.jumpHost != nil {
+            LabeledContent("gateway.jump_host.host") {
+                TextField("", text: Binding(
+                    get: { draft.jumpHost?.host ?? "" },
+                    set: { draft.jumpHost?.host = $0 }))
             }
-        } header: {
-            Text("gateway.section.socks5")
+            LabeledContent("session.port") {
+                TextField("", value: Binding(
+                    get: { draft.jumpHost?.port ?? 22 },
+                    set: { draft.jumpHost?.port = $0 }), format: .number)
+                .frame(width: 70)
+            }
+            LabeledContent("session.username") {
+                TextField("", text: Binding(
+                    get: { draft.jumpHost?.username ?? "" },
+                    set: { draft.jumpHost?.username = $0 }))
+            }
+        }
+    }
+
+    // ── Port Forwardings ──────────────────────────────────────────────────────
+    @ViewBuilder private var forwardingControls: some View {
+        Text("gateway.section.forwardings")
+            .font(.subheadline.weight(.medium))
+        ForEach($draft.portForwardings) { $fwd in
+            PortForwardingRow(fwd: $fwd) {
+                draft.portForwardings.removeAll { $0.id == fwd.id }
+            }
+        }
+        Button {
+            draft.portForwardings.append(PortForwarding())
+        } label: {
+            Label("gateway.fwd.add", systemImage: "plus.circle")
+        }
+        Text("gateway.fwd.hint")
+            .font(.caption).foregroundStyle(.secondary)
+    }
+
+    // ── SOCKS5 ────────────────────────────────────────────────────────────────
+    @ViewBuilder private var socks5Controls: some View {
+        Toggle("gateway.socks5.enabled", isOn: Binding(
+            get: { draft.socks5Proxy?.enabled ?? false },
+            set: { enabled in
+                if draft.socks5Proxy == nil { draft.socks5Proxy = SOCKS5Config() }
+                draft.socks5Proxy?.enabled = enabled
+            }
+        ))
+        if draft.socks5Proxy?.enabled == true {
+            LabeledContent("gateway.socks5.port") {
+                TextField("", value: Binding(
+                    get: { draft.socks5Proxy?.localPort ?? 1080 },
+                    set: { draft.socks5Proxy?.localPort = $0 }), format: .number)
+                .frame(width: 80)
+            }
+            Text("gateway.socks5.hint")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 }

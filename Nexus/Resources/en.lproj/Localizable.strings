@@ -640,3 +640,7 @@
 "serial.error.cannot_open" = "Cannot open %@: %@";
 "serial.error.exclusive" = "Serial port %@ is already in use by another program.";
 "serial.error.config" = "Could not configure the serial port.";
+
+// MARK: - Gateway (collapsible)
+"gateway.advanced" = "Gateway & Tunneling (advanced)";
+"gateway.active_badge" = "active";

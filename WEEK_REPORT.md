@@ -150,7 +150,23 @@ Rendering-Fläche — substanzielles eigenes Projekt, separat zu planen.
 | **RDP** | Keine native einbettbare Lib; FreeRDP braucht XQuartz | Eigene Engine, separates Projekt |
 | **FTP-Server** | `pyftpdlib` ist kein System-Binary (pip-Install) | Nativer FTP-Server (Control+Data-Channel) als eigenes Feature |
 | **SEC-1: HKDF → PBKDF2** | Format-Migration nötig, Daten-Verlust-Risiko mitten in der Woche | Versioniertes Format + transparente Migration beim nächsten Save |
-| **Aufgabe 2: Session-Editor-Redesign (MobaXterm-Stil)** | Großer UI-Umbau; Priorität lag auf Stabilität/Sicherheit/Self-Contained | Siehe unten |
+| **Aufgabe 2: Session-Editor — voller MobaXterm-Redesign** | Großer UI-Umbau (Icon-Protokoll-Buttons, komplette Neugliederung); Priorität lag auf Stabilität/Sicherheit/Self-Contained, ein Voll-Rewrite spät in einem Härtungs-Durchgang ist Regressions-Risiko | **Teilweise umgesetzt** (siehe unten); Voll-Redesign als eigener UI-fokussierter Durchgang |
+
+### Aufgabe 2 (teilweise): Session-Editor übersichtlicher
+Statt eines riskanten Voll-Rewrites wurde der konkrete „unübersichtlich"-Schmerzpunkt
+gezielt entschärft:
+- Die drei Gateway-Bereiche (Jump Host, Port Forwarding, SOCKS5) klutterten bisher
+  **jede** SSH-Session. Sie sind jetzt in **einer aufklappbaren „Gateway & Tunneling
+  (erweitert)"**-Gruppe zusammengefasst, **standardmäßig eingeklappt**.
+- Die Gruppe **klappt automatisch auf**, wenn die Session bereits ein Gateway-Feature
+  nutzt, und zeigt dann ein **„aktiv"-Badge**.
+- Dadurch sind die Basis-Felder (Host, Port, User, Credential) wieder prominent —
+  ohne dass die fortgeschrittenen Optionen verloren gehen.
+
+**Noch offen für einen eigenen UI-Durchgang:** die große Protokoll-Icon-Leiste à la
+MobaXterm und die Gliederung aller Abschnitte (Terminal/Verhalten) als
+DisclosureGroups. Bewusst nicht spät in diesem Härtungs-Durchgang gemacht, um keine
+UI-Regressionen einzuschleppen.
 
 ---
 
