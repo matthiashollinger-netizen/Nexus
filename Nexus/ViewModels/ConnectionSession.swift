@@ -10,6 +10,29 @@ enum ConnectionState: Equatable {
     case failed(String)
 }
 
+extension ConnectionSession {
+    /// Maps a low-level NWError to a short, friendly, localized message instead of
+    /// surfacing a raw technical error string to the user.
+    nonisolated static func friendlyConnectionError(_ error: NWError) -> String {
+        switch error {
+        case .posix(let code):
+            switch code {
+            case .ECONNREFUSED: return String(localized: "conn.error.refused")
+            case .ETIMEDOUT:    return String(localized: "conn.error.timeout")
+            case .EHOSTUNREACH, .ENETUNREACH: return String(localized: "conn.error.unreachable")
+            case .ECONNRESET:   return String(localized: "conn.error.reset")
+            default: break
+            }
+        case .dns:
+            return String(localized: "conn.error.dns")
+        default:
+            break
+        }
+        // Fall back to the system-localized description (already user-readable).
+        return error.localizedDescription
+    }
+}
+
 @Observable
 final class ConnectionSession: Identifiable {
     let id: UUID = UUID()
@@ -97,7 +120,7 @@ final class ConnectionSession: Identifiable {
             if case .ready = nwState {
                 self.state = .connected
             } else if case .failed(let err) = nwState {
-                self.state = .failed(err.localizedDescription)
+                self.state = .failed(Self.friendlyConnectionError(err))
             } else if case .cancelled = nwState {
                 self.state = .disconnected
             }

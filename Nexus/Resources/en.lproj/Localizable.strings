@@ -627,3 +627,16 @@
 
 // MARK: - RDP (deactivated)
 "rdp.coming_soon" = "Remote Desktop (RDP) is coming in a future version.\nNo native, embeddable RDP engine exists yet — see the project notes.";
+
+// MARK: - Connection errors (friendly)
+"conn.error.refused" = "Connection refused — the host is reachable but nothing is listening on that port.";
+"conn.error.timeout" = "Connection timed out — the host did not respond.";
+"conn.error.unreachable" = "Host unreachable — check the address and your network.";
+"conn.error.reset" = "Connection reset by the remote host.";
+"conn.error.dns" = "Could not resolve the hostname — check the address.";
+
+// MARK: - Serial errors (friendly)
+"serial.error.no_port" = "No serial port selected.";
+"serial.error.cannot_open" = "Cannot open %@: %@";
+"serial.error.exclusive" = "Serial port %@ is already in use by another program.";
+"serial.error.config" = "Could not configure the serial port.";

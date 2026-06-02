@@ -15,27 +15,28 @@ final class SerialService {
 
     func connect(port: String, baudRate: Int, dataBits: Int = 8, stopBits: String = "1", parity: String = "none", flowControl: String = "none") {
         guard !port.isEmpty else {
-            onStateChange?(.error("No serial port specified"))
+            onStateChange?(.error(String(localized: "serial.error.no_port")))
             return
         }
 
         let fileFD = Darwin.open(port, O_RDWR | O_NOCTTY | O_NONBLOCK)
         guard fileFD >= 0 else {
-            onStateChange?(.error("Cannot open \(port): \(String(cString: strerror(errno)))"))
+            let reason = String(cString: strerror(errno))
+            onStateChange?(.error(String(format: String(localized: "serial.error.cannot_open"), port, reason)))
             return
         }
 
         // Exclusive access
         if ioctl(fileFD, TIOCEXCL) == -1 {
             Darwin.close(fileFD)
-            onStateChange?(.error("Cannot get exclusive access to \(port)"))
+            onStateChange?(.error(String(format: String(localized: "serial.error.exclusive"), port)))
             return
         }
 
         // Remove O_NONBLOCK after opening
         if fcntl(fileFD, F_SETFL, 0) == -1 {
             Darwin.close(fileFD)
-            onStateChange?(.error("fcntl error"))
+            onStateChange?(.error(String(localized: "serial.error.config")))
             return
         }
 
