@@ -45,8 +45,10 @@ struct AddSessionView: View {
                         TextField("", text: $draft.description)
                     }
                     LabeledContent("session.type") {
+                        // Only fully-supported protocols are selectable. RDP is
+                        // deactivated this version (see WEEK_REPORT.md, Aufgabe 4).
                         Picker("", selection: $draft.connectionType) {
-                            ForEach(ConnectionType.allCases) { t in
+                            ForEach(ConnectionType.allCases.filter(\.isAvailable)) { t in
                                 Text(t.rawValue).tag(t)
                             }
                         }

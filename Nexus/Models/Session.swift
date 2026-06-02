@@ -25,6 +25,17 @@ enum ConnectionType: String, Codable, CaseIterable, Identifiable {
         case .rdp:    return "desktopcomputer"
         }
     }
+
+    /// Whether this protocol is fully supported without external tools.
+    /// RDP is deactivated: no embeddable native RDP library exists, and FreeRDP
+    /// requires XQuartz/Homebrew — which contradicts the self-contained goal.
+    /// See WEEK_REPORT.md (Aufgabe 4) for the evaluation and the path forward.
+    var isAvailable: Bool {
+        switch self {
+        case .ssh, .telnet, .serial: return true
+        case .rdp:                   return false
+        }
+    }
 }
 
 struct Session: Identifiable, Codable, Hashable {

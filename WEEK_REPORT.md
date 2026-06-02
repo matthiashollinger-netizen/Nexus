@@ -102,9 +102,55 @@ Keine kritischen/hohen aktiven Schwachstellen. Highlights:
 
 ---
 
+### Aufgabe 3: Self-Contained App (keine externen Abhängigkeiten)
+
+**Kern-Ziel erreicht:** SSH, SFTP, Telnet und Serial laufen vollständig ohne jede
+Zusatzinstallation (System-`/usr/bin/ssh`, `/usr/bin/sftp`, Network.framework, IOKit).
+
+| Abhängigkeit | Vorher | Jetzt |
+|--------------|--------|-------|
+| `sshpass` | — | ✅ War nie eingebunden |
+| `/usr/bin/sftp` | System-Binary | ✅ Bleibt (ships mit macOS, kein Install) |
+| **HTTP-Server** (`python3 -m http.server`) | ⚠️ python3 fehlt auf frischem macOS! | ✅ **Native Swift-Implementierung** (`NativeHTTPServer`, Network.framework) |
+| **FTP-Server** (`pyftpdlib`) | ⚠️ pip-Install nötig | 🚫 **Deaktiviert** (ausgegraut, „folgt") |
+| **TFTP-Server** (`/usr/libexec/tftpd`) | System-Binary | ✅ Bleibt (ships mit macOS; Port 69 braucht root — Warnung vorhanden) |
+
+**Native HTTP-Server** (`NativeHTTPServer.swift`):
+- GET/HEAD, statisches File-Serving, Directory-Listing, `index.html`
+- **Path-Traversal-Schutz** (kein Ausbruch aus dem Root-Verzeichnis) — getestet
+- MIME-Type-Erkennung, korrekte HTTP/1.1-Header
+- Tests: `NativeHTTPServerTests` (Port-Validierung, End-to-End-Serving, Traversal-Block)
+
+### Aufgabe 4: RDP — ehrliche Evaluierung → **deaktiviert**
+
+**Recherche-Ergebnis:** Es existiert **keine** brauchbare native, einbettbare
+Swift/Objective-C RDP-Bibliothek. Die einzige realistische Option (FreeRDP) benötigt
+**XQuartz/X11 + Homebrew** — das widerspricht dem Self-Contained-Ziel fundamental.
+Eine eigene RDP-Implementierung (Protokoll-Stack, Grafik, Input) wäre ein
+**Monats-Projekt**, kein Wochen-Task.
+
+**Entscheidung (gemäß Vorgabe „lieber sauber deaktivieren"):**
+- `ConnectionType.rdp.isAvailable = false` → RDP **nicht mehr als Session-Typ wählbar**
+  (aus dem Protokoll-Picker gefiltert).
+- Der gesamte **FreeRDP-Code wurde entfernt** (kein `xfreerdp`-Aufruf, keine
+  XQuartz-Abhängigkeit mehr im Release).
+- Bestehende RDP-Sessions (falls vorhanden) zeigen einen klaren Hinweis
+  „RDP folgt in einer kommenden Version" statt einen Prozess zu starten.
+
+**Empfohlener Weg für später:** Eigene RDP-Engine auf Basis eines reinen
+Swift-Netzwerk-Stacks (NWConnection) mit Anbindung an eine plattform-native
+Rendering-Fläche — substanzielles eigenes Projekt, separat zu planen.
+
+---
+
 ## Bewusst zurückgestellt / deaktiviert
 
-_(wird am Ende finalisiert)_
+| Punkt | Grund | Empfehlung |
+|-------|-------|-----------|
+| **RDP** | Keine native einbettbare Lib; FreeRDP braucht XQuartz | Eigene Engine, separates Projekt |
+| **FTP-Server** | `pyftpdlib` ist kein System-Binary (pip-Install) | Nativer FTP-Server (Control+Data-Channel) als eigenes Feature |
+| **SEC-1: HKDF → PBKDF2** | Format-Migration nötig, Daten-Verlust-Risiko mitten in der Woche | Versioniertes Format + transparente Migration beim nächsten Save |
+| **Aufgabe 2: Session-Editor-Redesign (MobaXterm-Stil)** | Großer UI-Umbau; Priorität lag auf Stabilität/Sicherheit/Self-Contained | Siehe unten |
 
 ---
 

@@ -249,10 +249,26 @@ struct AddServerSheet: View {
             Form {
                 Picker("session.type", selection: $type) {
                     ForEach(EmbeddedServer.ServerType.allCases, id: \.self) { t in
-                        Text(t.displayName).tag(t)
+                        if t.isAvailable {
+                            Text(t.displayName).tag(t)
+                        } else {
+                            // Deactivated type shown but not selectable
+                            Text("\(t.displayName) — \(String(localized: "server.coming_soon"))")
+                                .tag(t)
+                        }
                     }
                 }
-                .onChange(of: type) { _, new in port = new.defaultPort }
+                .onChange(of: type) { _, new in
+                    // Don't let the user land on a deactivated type.
+                    if !new.isAvailable { type = .http }
+                    port = type.defaultPort
+                }
+
+                if !type.isAvailable {
+                    Label("server.ftp_unavailable", systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
 
                 LabeledContent("server.port") {
                     TextField("server.port", value: $port, format: .number)

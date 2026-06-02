@@ -617,3 +617,13 @@
 "settings.backups.restore_message" = "Dies ersetzt deine aktuellen Sessions, Ordner und Einstellungen. Vom aktuellen Stand wird zuerst ein Backup erstellt.";
 "settings.backups.count %lld" = "%lld Backups";
 "settings.backups.row_detail %lld %@" = "%lld Sessions · %@";
+
+// MARK: - Embedded Servers (self-contained)
+"server.coming_soon" = "folgt";
+"server.ftp_unavailable" = "FTP benötigt eine externe Bibliothek und ist in dieser Version nicht verfügbar. HTTP läuft vollständig nativ.";
+"server.error.binary_not_found" = "Benötigtes Programm '%@' nicht gefunden";
+"server.error.port_in_use" = "Port %d ist bereits belegt";
+"server.error.not_available" = "%@-Server ist in dieser Version nicht verfügbar";
+
+// MARK: - RDP (deaktiviert)
+"rdp.coming_soon" = "Remote Desktop (RDP) folgt in einer kommenden Version.\nEs gibt noch keine native, einbettbare RDP-Engine — siehe Projekt-Notizen.";

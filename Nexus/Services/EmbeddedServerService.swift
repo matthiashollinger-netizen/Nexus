@@ -31,6 +31,17 @@ struct EmbeddedServer: Identifiable, Codable {
             case .tftp: return 69
             }
         }
+
+        /// Whether this server type works without any external installation.
+        /// - HTTP: native (Network.framework) — fully self-contained ✅
+        /// - TFTP: macOS system binary /usr/libexec/tftpd — self-contained ✅ (needs root for :69)
+        /// - FTP: requires `pip install pyftpdlib` — NOT self-contained → deactivated
+        var isAvailable: Bool {
+            switch self {
+            case .http, .tftp: return true
+            case .ftp:         return false
+            }
+        }
     }
 }
 
@@ -43,6 +54,7 @@ final class EmbeddedServerService {
     var servers: [EmbeddedServer] = []
 
     private var processes: [UUID: Process] = [:]
+    private var httpServers: [UUID: NativeHTTPServer] = [:]
     private var serverLogs: [UUID: [String]] = [:]
 
     private var appSupportURL: URL {
@@ -77,11 +89,41 @@ final class EmbeddedServerService {
     func start(_ server: EmbeddedServer) async throws {
         guard let idx = servers.firstIndex(where: { $0.id == server.id }) else { return }
 
+        // Deactivated server types cannot start (UI greys them out, but guard anyway).
+        guard server.type.isAvailable else {
+            throw EmbeddedServerError.notAvailable(server.type.displayName)
+        }
+
         // Check if port is available
         if isPortInUse(server.port) {
             throw EmbeddedServerError.portInUse(server.port)
         }
 
+        // HTTP uses the native Network.framework server — no python3 needed.
+        if server.type == .http {
+            let rootPath = server.rootDirectory.isEmpty
+                ? FileManager.default.homeDirectoryForCurrentUser.path
+                : server.rootDirectory
+            guard let httpServer = NativeHTTPServer(
+                rootDirectory: URL(fileURLWithPath: rootPath), port: server.port) else {
+                throw EmbeddedServerError.portInUse(server.port)
+            }
+            httpServer.onLog = { [weak self] line in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    var existing = self.serverLogs[server.id] ?? []
+                    existing.append(line)
+                    if existing.count > 200 { existing = Array(existing.suffix(200)) }
+                    self.serverLogs[server.id] = existing
+                }
+            }
+            try httpServer.start()
+            httpServers[server.id] = httpServer
+            servers[idx].isRunning = true
+            return
+        }
+
+        // TFTP (and any future Process-based type) uses a system binary.
         let process = try buildProcess(for: server)
 
         let pipe = Pipe()
@@ -120,9 +162,16 @@ final class EmbeddedServerService {
     // MARK: - Stop
 
     func stop(_ server: EmbeddedServer) {
-        guard let proc = processes[server.id] else { return }
-        proc.terminate()
-        processes.removeValue(forKey: server.id)
+        // Native HTTP server
+        if let httpServer = httpServers[server.id] {
+            httpServer.stop()
+            httpServers.removeValue(forKey: server.id)
+        }
+        // Process-based server (TFTP)
+        if let proc = processes[server.id] {
+            proc.terminate()
+            processes.removeValue(forKey: server.id)
+        }
         if let idx = servers.firstIndex(where: { $0.id == server.id }) {
             servers[idx].isRunning = false
         }
@@ -144,17 +193,15 @@ final class EmbeddedServerService {
 
         switch server.type {
         case .http:
-            guard let python = findPython3() else { throw EmbeddedServerError.binaryNotFound("python3") }
-            process.executableURL = URL(fileURLWithPath: python)
-            process.arguments = ["-m", "http.server", "\(server.port)", "--directory", rootDir]
+            // HTTP is handled by NativeHTTPServer, never reaches here.
+            throw EmbeddedServerError.notAvailable("HTTP")
 
         case .ftp:
-            guard let python = findPython3() else { throw EmbeddedServerError.binaryNotFound("python3") }
-            // pyftpdlib may not be installed — use a fallback
-            process.executableURL = URL(fileURLWithPath: python)
-            process.arguments = ["-m", "pyftpdlib", "-p", "\(server.port)", "-d", rootDir]
+            // Deactivated — requires pyftpdlib (not bundled). UI greys this out.
+            throw EmbeddedServerError.notAvailable("FTP")
 
         case .tftp:
+            // macOS ships tftpd as a system binary — no install required.
             let tftp = "/usr/libexec/tftpd"
             guard FileManager.default.fileExists(atPath: tftp) else {
                 throw EmbeddedServerError.binaryNotFound("tftpd")
@@ -164,11 +211,6 @@ final class EmbeddedServerService {
         }
 
         return process
-    }
-
-    private func findPython3() -> String? {
-        let candidates = ["/usr/bin/python3", "/usr/local/bin/python3", "/opt/homebrew/bin/python3"]
-        return candidates.first { FileManager.default.fileExists(atPath: $0) }
     }
 
     private func isPortInUse(_ port: Int) -> Bool {
@@ -205,11 +247,16 @@ final class EmbeddedServerService {
 enum EmbeddedServerError: LocalizedError {
     case binaryNotFound(String)
     case portInUse(Int)
+    case notAvailable(String)
 
     var errorDescription: String? {
         switch self {
-        case .binaryNotFound(let bin): return "Required binary '\(bin)' not found"
-        case .portInUse(let port): return "Port \(port) is already in use"
+        case .binaryNotFound(let bin):
+            return String(format: String(localized: "server.error.binary_not_found"), bin)
+        case .portInUse(let port):
+            return String(format: String(localized: "server.error.port_in_use"), port)
+        case .notAvailable(let name):
+            return String(format: String(localized: "server.error.not_available"), name)
         }
     }
 }
