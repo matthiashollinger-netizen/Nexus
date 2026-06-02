@@ -79,6 +79,18 @@ struct Session: Identifiable, Codable, Hashable {
     var rdpClipboardSharing: Bool = true
     var rdpDriveRedirection: Bool = false
     var rdpCredentialId: UUID? = nil
+
+    // Connection behaviour
+    var connectTimeout: Int = 10
+
+    // Terminal & appearance (per-session overrides; nil = use global default)
+    var themeId: UUID? = nil
+    var terminalFontSize: Double? = nil
+    var highlightRuleset: String? = nil   // nil = global; "" or a HighlightRuleset rawValue
+
+    // Behaviour
+    var macroOnConnectId: UUID? = nil
+    var autoConnectOnLaunch: Bool = false
 }
 
 // MARK: - SSH Gateway Models

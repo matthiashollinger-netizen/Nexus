@@ -14,6 +14,7 @@ struct SSHArgumentBuilder {
     var jumpHost: JumpHost? = nil
     var portForwardings: [PortForwarding] = []
     var socks5Proxy: SOCKS5Config? = nil
+    var connectTimeout: Int = 10
 
     func build() -> [String] {
         // If the user entered "user@host" in the host field, split it out
@@ -29,7 +30,7 @@ struct SSHArgumentBuilder {
         var args: [String] = []
 
         args += ["-p", "\(port)"]
-        args += ["-o", "ConnectTimeout=10"]
+        args += ["-o", "ConnectTimeout=\(max(1, connectTimeout))"]
         args += ["-o", "ServerAliveInterval=60"]
 
         if useLegacyAlgorithms {

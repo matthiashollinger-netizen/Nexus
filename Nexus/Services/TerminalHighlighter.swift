@@ -51,7 +51,18 @@ final class TerminalHighlighter {
     /// Which rulesets are enabled — can be changed at runtime from AppSettings
     var enabledRulesets: Set<HighlightRuleset> = [.default, .logLevel]
 
-    private init() {
+    /// Returns a highlighter for a session: a per-session instance with a single
+    /// ruleset if the session overrides it, otherwise the shared global instance.
+    static func forSession(rulesetOverride: String?) -> TerminalHighlighter {
+        guard let raw = rulesetOverride, let rs = HighlightRuleset(rawValue: raw) else {
+            return shared
+        }
+        let instance = TerminalHighlighter()
+        instance.enabledRulesets = [rs]
+        return instance
+    }
+
+    init() {
         // Returns a compiled regex, or a guaranteed-never-matching one if `pattern`
         // is somehow invalid — no force-try, cannot crash.
         func re(_ pattern: String, options: NSRegularExpression.Options = []) -> NSRegularExpression {

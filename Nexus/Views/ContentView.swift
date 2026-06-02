@@ -22,6 +22,7 @@ struct ContentView: View {
 struct MainView: View {
     @Environment(AppViewModel.self) private var vm
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var didAutoConnect = false
 
     private var activeSSHSession: ConnectionSession? {
         vm.activeSessions.first {
@@ -87,12 +88,14 @@ struct MainView: View {
         }
         .focusedValue(\.macroExecutorVM, vm.activeSessions)
         .onAppear {
-            setupMenu()
+            // Auto-connect flagged sessions once, shortly after the UI is up.
+            if !didAutoConnect {
+                didAutoConnect = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    vm.connectAutoSessions()
+                }
+            }
         }
-    }
-
-    private func setupMenu() {
-        // Menu items are handled via commands in NexusApp
     }
 }
 

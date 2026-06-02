@@ -104,6 +104,7 @@ final class ConnectionSession: Identifiable {
         builder.jumpHost        = session.jumpHost
         builder.portForwardings = session.portForwardings
         builder.socks5Proxy     = session.socks5Proxy
+        builder.connectTimeout  = session.connectTimeout
         sshArgs = builder.build()
         sshPassword = credential?.password
         // No credential linked → offer to save after successful login

@@ -644,3 +644,26 @@
 // MARK: - Gateway (aufklappbar)
 "gateway.advanced" = "Gateway & Tunneling (erweitert)";
 "gateway.active_badge" = "aktiv";
+
+// MARK: - Session-Editor (v2.2.0 Redesign)
+"session.basic" = "Basis-Einstellungen";
+"session.organization" = "Organisation";
+"session.host.placeholder" = "Hostname oder IP";
+"session.username.placeholder" = "Benutzer";
+"session.name.placeholder" = "optionaler Anzeigename";
+"session.validation.host" = "Host ist erforderlich";
+"session.validation.serial_port" = "Seriellen Port wählen";
+"session.protocol.coming_soon" = "Folgt in einer kommenden Version";
+"session.adv.security" = "Verbindung & Sicherheit";
+"session.adv.serial_params" = "Serielle Parameter";
+"session.adv.terminal" = "Terminal & Darstellung";
+"session.adv.behaviour" = "Verhalten";
+"session.ssh.timeout" = "Verbindungs-Timeout";
+"session.ssh.key.placeholder" = "Pfad zum privaten Schlüssel";
+"session.term.theme" = "Theme";
+"session.term.use_global" = "Globale Vorgabe verwenden";
+"session.term.font_size" = "Schriftgröße";
+"session.term.highlight" = "Syntax-Hervorhebung";
+"session.behaviour.macro" = "Macro bei Verbindung ausführen";
+"session.behaviour.macro.none" = "Keines";
+"session.behaviour.autoconnect" = "Beim Start automatisch verbinden";

@@ -4,39 +4,22 @@ import SwiftUI
 
 struct GatewaySection: View {
     @Binding var draft: Session
-    // Collapsed by default so the advanced tunneling options don't clutter the
-    // basic SSH session view (addresses the "unübersichtlich" feedback). Auto-
-    // expands if the session already uses any gateway feature.
-    @State private var expanded: Bool = false
 
-    private var usesGateway: Bool {
+    /// True if any gateway feature is configured — used by the editor to auto-expand.
+    var usesGateway: Bool {
         draft.jumpHost != nil
             || !draft.portForwardings.isEmpty
             || (draft.socks5Proxy?.enabled ?? false)
     }
 
+    // Renders the gateway controls directly (the editor wraps this in a
+    // DisclosureGroup so it sits alongside the other advanced sections).
     var body: some View {
-        Section {
-            DisclosureGroup(isExpanded: $expanded) {
-                jumpHostControls
-                Divider()
-                forwardingControls
-                Divider()
-                socks5Controls
-            } label: {
-                HStack {
-                    Label("gateway.advanced", systemImage: "arrow.triangle.branch")
-                    if usesGateway {
-                        Text("gateway.active_badge")
-                            .font(.caption2)
-                            .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(Color.accentColor.opacity(0.15))
-                            .clipShape(Capsule())
-                    }
-                }
-            }
-        }
-        .onAppear { if usesGateway { expanded = true } }
+        jumpHostControls
+        Divider()
+        forwardingControls
+        Divider()
+        socks5Controls
     }
 
     // ── Jump Host ────────────────────────────────────────────────────────────

@@ -200,6 +200,26 @@ final class AppViewModel {
         // Run on-connect macros and refresh schedules for new session count
         MacroService.shared.runOnConnectMacros(for: cs)
         MacroService.shared.scheduleAllMacros(activeSessions: activeSessions)
+
+        // Per-session "run macro on connect" — delayed so the terminal/PTY is up
+        // and the shell prompt is likely ready before commands are sent.
+        if let macroId = session.macroOnConnectId,
+           let macro = MacroService.shared.macros.first(where: { $0.id == macroId }) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak cs] in
+                guard let cs else { return }
+                MacroService.shared.executeMacro(macro, in: [cs])
+            }
+        }
+    }
+
+    /// Connects all sessions flagged `autoConnectOnLaunch`. Called once after launch.
+    func connectAutoSessions() {
+        for session in sessions where session.autoConnectOnLaunch {
+            // Avoid duplicate tabs if already connected.
+            if !activeSessions.contains(where: { $0.session.id == session.id }) {
+                connect(to: session)
+            }
+        }
     }
 
     func closeSession(_ cs: ConnectionSession) {

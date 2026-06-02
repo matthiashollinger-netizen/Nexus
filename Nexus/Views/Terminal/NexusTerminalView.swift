@@ -49,10 +49,11 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
     private var capturingPassword = false
     private var captureBuffer = ""
     private var keyMonitor: Any?
-    private let highlighter = TerminalHighlighter.shared
+    private let highlighter: TerminalHighlighter
 
     init(cs: ConnectionSession, fontName: String, fontSize: Double) {
         self.cs = cs
+        self.highlighter = TerminalHighlighter.forSession(rulesetOverride: cs.session.highlightRuleset)
         super.init(frame: .zero)
         // Store weak reference so TabItemView can give us keyboard focus on tab switch
         cs.terminalNSView = self
@@ -199,10 +200,11 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
 
 final class NexusNetTerminalView: TerminalView, TerminalViewDelegate {
     private let cs: ConnectionSession
-    private let highlighter = TerminalHighlighter.shared
+    private let highlighter: TerminalHighlighter
 
     init(cs: ConnectionSession, fontName: String, fontSize: Double) {
         self.cs = cs
+        self.highlighter = TerminalHighlighter.forSession(rulesetOverride: cs.session.highlightRuleset)
         super.init(frame: .zero)
         // Store weak reference so TabItemView can give us keyboard focus on tab switch
         cs.terminalNSView = self

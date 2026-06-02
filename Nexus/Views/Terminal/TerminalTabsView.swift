@@ -238,16 +238,18 @@ struct TabContentView: View {
     var body: some View {
         // Reading ThemeService.shared.activeTheme here makes SwiftUI subscribe to
         // theme changes — any theme switch triggers updateNSView on all terminals.
-        let activeTheme = ThemeService.shared.activeTheme
-        let bgColor = Color(activeTheme.terminalBackground.nsColor)
+        let globalTheme = ThemeService.shared.activeTheme
+        // Background uses the selected tab's (possibly per-session) theme.
+        let selectedTheme = resolvedTheme(for: vm.activeSessions.first { $0.id == vm.selectedTabId }, global: globalTheme)
+        let bgColor = Color(selectedTheme.terminalBackground.nsColor)
 
         ZStack {
             ForEach(vm.activeSessions) { cs in
                 NexusTerminalView(
                     cs: cs,
                     fontName: vm.settings.terminalFontName,
-                    fontSize: vm.settings.terminalFontSize,
-                    theme: activeTheme
+                    fontSize: cs.session.terminalFontSize ?? vm.settings.terminalFontSize,
+                    theme: resolvedTheme(for: cs, global: globalTheme)
                 )
                 .opacity(cs.id == vm.selectedTabId ? 1 : 0)
                 .allowsHitTesting(cs.id == vm.selectedTabId)
@@ -277,6 +279,15 @@ struct TabContentView: View {
                 SaveCredentialsSheet(cs: cs).environment(vm)
             }
         }
+    }
+
+    /// Resolves the theme for a session: per-session override if set, else global.
+    private func resolvedTheme(for cs: ConnectionSession?, global: NexusTheme) -> NexusTheme {
+        guard let id = cs?.session.themeId,
+              let theme = ThemeService.shared.themes.first(where: { $0.id == id }) else {
+            return global
+        }
+        return theme
     }
 }
 
