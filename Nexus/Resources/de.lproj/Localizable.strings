@@ -667,3 +667,8 @@
 "session.behaviour.macro" = "Macro bei Verbindung ausführen";
 "session.behaviour.macro.none" = "Keines";
 "session.behaviour.autoconnect" = "Beim Start automatisch verbinden";
+
+// MARK: - SFTP-Zustände
+"sftp.error.no_session" = "Keine aktive SSH-Session für SFTP.";
+"sftp.empty" = "Dieser Ordner ist leer.";
+"sftp.empty_hidden" = "Nur versteckte Dateien — über das Auge einblenden.";

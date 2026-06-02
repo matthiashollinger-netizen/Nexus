@@ -667,3 +667,8 @@
 "session.behaviour.macro" = "Run macro on connect";
 "session.behaviour.macro.none" = "None";
 "session.behaviour.autoconnect" = "Auto-connect on launch";
+
+// MARK: - SFTP states
+"sftp.error.no_session" = "No active SSH session for SFTP.";
+"sftp.empty" = "This folder is empty.";
+"sftp.empty_hidden" = "Only hidden files here — toggle the eye to show them.";

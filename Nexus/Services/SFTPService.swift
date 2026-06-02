@@ -55,6 +55,32 @@ actor SFTPService {
         return parseLsOutput(output, basePath: path)
     }
 
+    /// Resolves the login (home) directory via `pwd` and lists it in one batch.
+    /// Used on first connect so the browser lands where the user actually starts —
+    /// listing "/" often appears empty or is restricted on many servers/devices.
+    func listHome(host: String, port: Int, username: String, password: String?,
+                  keyPath: String?) async throws -> (path: String, items: [SFTPItem]) {
+        let commands = "pwd\nls -la\nquit\n"
+        let output = try await runBatch(host: host, port: port, username: username,
+                                        password: password, keyPath: keyPath,
+                                        commands: commands)
+        let home = parseRemoteWorkingDirectory(output) ?? "/"
+        let items = parseLsOutput(output, basePath: home)
+        return (home, items)
+    }
+
+    /// Extracts the path from sftp's `pwd` output line:
+    /// "Remote working directory: /home/user"
+    func parseRemoteWorkingDirectory(_ output: String) -> String? {
+        for line in output.components(separatedBy: .newlines) {
+            if let r = line.range(of: "Remote working directory:") {
+                let path = line[r.upperBound...].trimmingCharacters(in: .whitespaces)
+                if !path.isEmpty { return path }
+            }
+        }
+        return nil
+    }
+
     func downloadFile(host: String, port: Int, username: String, password: String?,
                       keyPath: String?, remotePath: String, to localURL: URL) async throws {
         let commands = "get \"\(remotePath)\" \"\(localURL.path)\"\nquit\n"

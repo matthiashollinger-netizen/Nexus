@@ -62,6 +62,19 @@ struct SFTPBrowserView: View {
                     .controlSize(.small)
                 }
                 Spacer()
+            } else if displayedItems.isEmpty {
+                Spacer()
+                VStack(spacing: 8) {
+                    Image(systemName: "folder")
+                        .font(.largeTitle)
+                        .foregroundStyle(.tertiary)
+                    Text(items.isEmpty ? "sftp.empty" : "sftp.empty_hidden")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+                Spacer()
             } else {
                 List(displayedItems) { item in
                     SFTPItemRow(item: item)
@@ -129,14 +142,14 @@ struct SFTPBrowserView: View {
         }
         .frame(width: 280)
         .onAppear {
-            Task { await loadDirectory(path: currentPath) }
+            // First load resolves the home directory rather than "/".
+            Task { await loadHome() }
         }
-        // Reset path + reload when the connected session changes
+        // Reset + reload home when the connected session changes
         // (e.g. user switches to a different SSH tab while SFTP panel is open)
         .onChange(of: cs.id) { _, _ in
-            vm.sftpCurrentPath = "/"
             items = []
-            Task { await loadDirectory(path: "/") }
+            Task { await loadHome() }
         }
         // Transfer progress overlay
         .overlay {
@@ -167,8 +180,32 @@ struct SFTPBrowserView: View {
 
     // MARK: - Actions
 
+    /// Resolves the remote home directory and lists it (used on first connect).
+    private func loadHome() async {
+        guard let sshInfo = sshConnectionInfo() else {
+            errorMessage = String(localized: "sftp.error.no_session")
+            return
+        }
+        isLoading = true
+        errorMessage = nil
+        do {
+            let (home, result) = try await SFTPService.shared.listHome(
+                host: sshInfo.host, port: sshInfo.port,
+                username: sshInfo.username, password: sshInfo.password,
+                keyPath: sshInfo.keyPath)
+            vm.sftpCurrentPath = home
+            items = sortItems(result)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
     private func loadDirectory(path: String) async {
-        guard let sshInfo = sshConnectionInfo() else { return }
+        guard let sshInfo = sshConnectionInfo() else {
+            errorMessage = String(localized: "sftp.error.no_session")
+            return
+        }
         isLoading = true
         errorMessage = nil
         do {
@@ -176,14 +213,18 @@ struct SFTPBrowserView: View {
                 host: sshInfo.host, port: sshInfo.port,
                 username: sshInfo.username, password: sshInfo.password,
                 keyPath: sshInfo.keyPath, path: path)
-            items = result.sorted { a, b in
-                if a.isDirectory != b.isDirectory { return a.isDirectory }
-                return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
-            }
+            items = sortItems(result)
         } catch {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    private func sortItems(_ result: [SFTPItem]) -> [SFTPItem] {
+        result.sorted { a, b in
+            if a.isDirectory != b.isDirectory { return a.isDirectory }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
     }
 
     private func downloadFile(item: SFTPItem) async {

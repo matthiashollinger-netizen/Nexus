@@ -190,4 +190,48 @@ struct SFTPItemParserTests {
         #expect(hidden.count == 2)
         #expect(visible.count == 2)
     }
+
+    // MARK: - Home directory resolution (pwd output)
+
+    @Test func parseRemoteWorkingDirectory() async {
+        let output = """
+        Remote working directory: /home/admin
+        drwxr-xr-x  2 admin admin  64 May 29 10:00 configs
+        """
+        let home = await service.parseRemoteWorkingDirectory(output)
+        #expect(home == "/home/admin")
+    }
+
+    @Test func parseRemoteWorkingDirectoryMissing() async {
+        let output = "-rw-r--r--  1 user user 10 May 29 10:00 file.txt"
+        let home = await service.parseRemoteWorkingDirectory(output)
+        #expect(home == nil)
+    }
+
+    @Test func pwdPlusListParsesEntriesNotThePwdLine() async {
+        // A combined `pwd` + `ls -la` batch output: the pwd line must NOT become an item.
+        let output = """
+        Remote working directory: /home/user
+        drwxr-xr-x  4 user user  128 May 29 10:00 .
+        drwxr-xr-x 10 user user  320 May 29 09:00 ..
+        -rw-r--r--  1 user user 1234 May 20 08:00 notes.txt
+        drwxr-xr-x  2 user user   64 May 22 15:00 bin
+        """
+        let home = await service.parseRemoteWorkingDirectory(output) ?? "/"
+        let items = await service.parseLsOutput(output, basePath: home)
+        #expect(home == "/home/user")
+        #expect(items.count == 2)   // notes.txt + bin (. and .. and pwd line excluded)
+        #expect(items.contains { $0.name == "notes.txt" && $0.path == "/home/user/notes.txt" })
+        #expect(!items.contains { $0.name.contains("working") })
+    }
+
+    // MARK: - Symlink with arrow target
+
+    @Test func parseSymlinkArrowStripped() async {
+        let line = "lrwxrwxrwx  1 user user  10 May 28 11:00 current -> releases/v3"
+        let item = await service.parseLsLine(line, basePath: "/srv/")
+        #expect(item?.name == "current")       // arrow + target stripped from name
+        #expect(item?.isSymlink == true)
+        #expect(item?.path == "/srv/current")
+    }
 }
