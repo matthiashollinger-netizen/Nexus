@@ -5,59 +5,31 @@ import AppKit
 
 struct EmbeddedServersView: View {
     @State private var serverService = EmbeddedServerService.shared
-    @State private var showAddServer = false
-    @State private var newServerType: EmbeddedServer.ServerType = .http
     @State private var configuringServer: EmbeddedServer? = nil
     @State private var errorMessage: String? = nil
 
-    let columns = [GridItem(.flexible()), GridItem(.flexible())]
+    private let columns = [GridItem(.flexible()), GridItem(.flexible())]
 
     var body: some View {
         VStack(spacing: 0) {
-            // Toolbar
+            // Header
             HStack {
-                Text("servers.title")
-                    .font(.headline)
+                Image(systemName: "server.rack").foregroundStyle(.secondary)
+                Text("servers.title").font(.headline)
                 Spacer()
-                Button {
-                    showAddServer = true
-                } label: {
-                    Label("action.add", systemImage: "plus")
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
 
             Divider()
 
-            if serverService.servers.isEmpty {
-                Spacer()
-                VStack(spacing: 12) {
-                    Image(systemName: "server.rack")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.secondary)
-                    Text("servers.empty")
-                        .foregroundStyle(.secondary)
-                    Button("action.add") { showAddServer = true }
-                        .buttonStyle(.bordered)
-                }
-                Spacer()
-            } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach($serverService.servers) { $server in
-                            ServerCard(server: $server,
-                                       logs: serverService.logs(for: server),
-                                       onStart: { Task { await startServer(server) } },
-                                       onStop: { serverService.stop(server) },
-                                       onConfigure: { configuringServer = server },
-                                       onDelete: { deleteServer(server) })
-                        }
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(EmbeddedServer.ServerType.allCases) { type in
+                        cardForType(type)
                     }
-                    .padding(16)
                 }
+                .padding(16)
             }
 
             if let err = errorMessage {
@@ -73,11 +45,10 @@ struct EmbeddedServersView: View {
                 .background(Color.orange.opacity(0.1))
             }
         }
-        .onAppear { serverService.loadServers() }
-        .sheet(isPresented: $showAddServer) {
-            AddServerSheet { type, port, root in
-                addServer(type: type, port: port, rootDir: root)
-            }
+        .frame(minWidth: 560, minHeight: 460)
+        .onAppear {
+            serverService.loadServers()
+            ensureDefaultInstances()
         }
         .sheet(item: $configuringServer) { server in
             if let idx = serverService.servers.firstIndex(where: { $0.id == server.id }) {
@@ -89,17 +60,33 @@ struct EmbeddedServersView: View {
         }
     }
 
-    private func addServer(type: EmbeddedServer.ServerType, port: Int, rootDir: String) {
-        var server = EmbeddedServer(type: type, port: port)
-        server.rootDirectory = rootDir
-        serverService.servers.append(server)
-        serverService.saveServers()
+    // MARK: - One card per server type
+
+    @ViewBuilder
+    private func cardForType(_ type: EmbeddedServer.ServerType) -> some View {
+        if type.isAvailable, let idx = serverService.servers.firstIndex(where: { $0.type == type }) {
+            ServerCard(server: $serverService.servers[idx],
+                       logs: serverService.logs(for: serverService.servers[idx]),
+                       onStart: { Task { await startServer(serverService.servers[idx]) } },
+                       onStop: { serverService.stop(serverService.servers[idx]) },
+                       onConfigure: { configuringServer = serverService.servers[idx] })
+        } else if type.isSystemService {
+            SystemServiceCard(type: type)
+        } else {
+            DeactivatedServerCard(type: type)
+        }
     }
 
-    private func deleteServer(_ server: EmbeddedServer) {
-        serverService.stop(server)
-        serverService.servers.removeAll { $0.id == server.id }
-        serverService.saveServers()
+    /// Ensures a persisted instance exists for each startable server type.
+    private func ensureDefaultInstances() {
+        var changed = false
+        for type in EmbeddedServer.ServerType.allCases where type.isAvailable {
+            if !serverService.servers.contains(where: { $0.type == type }) {
+                serverService.servers.append(EmbeddedServer(type: type, port: type.defaultPort))
+                changed = true
+            }
+        }
+        if changed { serverService.saveServers() }
     }
 
     private func startServer(_ server: EmbeddedServer) async {
@@ -111,6 +98,68 @@ struct EmbeddedServersView: View {
     }
 }
 
+// MARK: - System service card (e.g. SFTP via macOS Remote Login)
+
+private struct SystemServiceCard: View {
+    let type: EmbeddedServer.ServerType
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: type.systemImage).font(.title2).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(type.displayName).fontWeight(.semibold)
+                    Text("server.system_service").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            Text(LocalizedStringKey(type.noteKey))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Divider()
+            Button("server.open_settings") { openSharingSettings() }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+        }
+        .padding(14)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func openSharingSettings() {
+        // Opens System Settings → General → Sharing (where Remote Login lives).
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Sharing-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+}
+
+// MARK: - Deactivated server card (FTP, Telnet)
+
+private struct DeactivatedServerCard: View {
+    let type: EmbeddedServer.ServerType
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: type.systemImage).font(.title2).foregroundStyle(.tertiary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(type.displayName).fontWeight(.semibold).foregroundStyle(.secondary)
+                    Text("server.coming_soon").font(.caption).foregroundStyle(.tertiary)
+                }
+                Spacer()
+            }
+            Text(LocalizedStringKey(type.noteKey))
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+        .opacity(0.7)
+    }
+}
+
 // MARK: - Server Card
 
 struct ServerCard: View {
@@ -119,7 +168,6 @@ struct ServerCard: View {
     let onStart: () -> Void
     let onStop: () -> Void
     let onConfigure: () -> Void
-    let onDelete: () -> Void
 
     @State private var showLogs = false
 
@@ -196,11 +244,6 @@ struct ServerCard: View {
                 }
                 .buttonStyle(.borderless)
                 .help("server.logs")
-
-                Button(role: .destructive) { onDelete() } label: {
-                    Image(systemName: "trash")
-                }
-                .buttonStyle(.borderless)
             }
 
             // Logs (expandable)
@@ -228,84 +271,6 @@ struct ServerCard: View {
         }
         .padding(14)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
-    }
-}
-
-// MARK: - Add Server Sheet
-
-struct AddServerSheet: View {
-    let onAdd: (EmbeddedServer.ServerType, Int, String) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var type: EmbeddedServer.ServerType = .http
-    @State private var port: Int = 8080
-    @State private var rootDir = ""
-
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("action.add")
-                .font(.headline)
-
-            Form {
-                Picker("session.type", selection: $type) {
-                    ForEach(EmbeddedServer.ServerType.allCases, id: \.self) { t in
-                        if t.isAvailable {
-                            Text(t.displayName).tag(t)
-                        } else {
-                            // Deactivated type shown but not selectable
-                            Text("\(t.displayName) — \(String(localized: "server.coming_soon"))")
-                                .tag(t)
-                        }
-                    }
-                }
-                .onChange(of: type) { _, new in
-                    // Don't let the user land on a deactivated type.
-                    if !new.isAvailable { type = .http }
-                    port = type.defaultPort
-                }
-
-                if !type.isAvailable {
-                    Label("server.ftp_unavailable", systemImage: "exclamationmark.triangle")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-
-                LabeledContent("server.port") {
-                    TextField("server.port", value: $port, format: .number)
-                        .frame(width: 80)
-                }
-
-                LabeledContent("server.root") {
-                    HStack {
-                        Text(rootDir.isEmpty ? "~/" : rootDir)
-                            .foregroundStyle(rootDir.isEmpty ? .secondary : .primary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Button("action.edit") {
-                            let panel = NSOpenPanel()
-                            panel.canChooseFiles = false
-                            panel.canChooseDirectories = true
-                            if panel.runModal() == .OK {
-                                rootDir = panel.url?.path ?? ""
-                            }
-                        }
-                        .controlSize(.small)
-                    }
-                }
-            }
-            .formStyle(.grouped)
-
-            HStack {
-                Button("action.cancel", role: .cancel) { dismiss() }
-                Button("action.add") {
-                    onAdd(type, port, rootDir)
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(24)
-        .frame(width: 380)
     }
 }
 

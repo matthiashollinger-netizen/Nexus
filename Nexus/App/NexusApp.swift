@@ -81,6 +81,10 @@ struct NexusCommands: Commands {
             MacroMenuItems()
         }
 
+        CommandMenu("menu.tools") {
+            ToolsMenuItems()
+        }
+
         CommandGroup(after: .newItem) {
             Button("menu.new_session") {
                 vm.addSessionParentFolderId = nil
@@ -142,6 +146,28 @@ private struct SidebarUndoButton: View {
 }
 
 // MARK: - Help menu items (View wrapper required for @Environment openWindow)
+
+// MARK: - Tools menu (View wrapper required for @Environment openWindow)
+
+private struct ToolsMenuItems: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("menu.server_manager") {
+            openWindow(id: "servers")
+        }
+        .keyboardShortcut("s", modifiers: [.command, .shift, .option])
+
+        Divider()
+
+        Button("menu.theme_editor") {
+            openWindow(id: "themes")
+        }
+        Button("menu.text_editor") {
+            openWindow(id: "editor")
+        }
+    }
+}
 
 private struct HelpMenuItems: View {
     @Environment(\.openWindow) private var openWindow

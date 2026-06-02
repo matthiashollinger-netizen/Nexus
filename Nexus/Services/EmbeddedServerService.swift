@@ -11,35 +11,58 @@ struct EmbeddedServer: Identifiable, Codable {
     var isRunning: Bool = false
     var autoStart: Bool = false
 
-    enum ServerType: String, Codable, CaseIterable {
-        case http = "HTTP"
-        case ftp  = "FTP"
-        case tftp = "TFTP"
+    enum ServerType: String, Codable, CaseIterable, Identifiable {
+        case http   = "HTTP"
+        case tftp   = "TFTP"
+        case sftp   = "SFTP"
+        case ftp    = "FTP"
+        case telnet = "Telnet"
 
+        var id: String { rawValue }
         var displayName: String { rawValue }
         var systemImage: String {
             switch self {
-            case .http: return "globe"
-            case .ftp:  return "server.rack"
-            case .tftp: return "arrow.up.arrow.down.circle"
+            case .http:   return "globe"
+            case .tftp:   return "arrow.up.arrow.down.circle"
+            case .sftp:   return "folder.badge.gearshape"
+            case .ftp:    return "server.rack"
+            case .telnet: return "terminal"
             }
         }
         var defaultPort: Int {
             switch self {
-            case .http: return 8080
-            case .ftp:  return 2121
-            case .tftp: return 69
+            case .http:   return 8080
+            case .tftp:   return 69
+            case .sftp:   return 22
+            case .ftp:    return 2121
+            case .telnet: return 23
             }
         }
 
-        /// Whether this server type works without any external installation.
-        /// - HTTP: native (Network.framework) — fully self-contained ✅
-        /// - TFTP: macOS system binary /usr/libexec/tftpd — self-contained ✅ (needs root for :69)
-        /// - FTP: requires `pip install pyftpdlib` — NOT self-contained → deactivated
+        /// Can this server be started directly from within Nexus, self-contained?
+        /// - HTTP: native (Network.framework) ✅
+        /// - TFTP: macOS system binary /usr/libexec/tftpd ✅ (root for :69)
+        /// - SFTP: provided by macOS "Remote Login" (system setting), not a process
+        ///         we start ourselves → shown as an info card.
+        /// - FTP:  needs pyftpdlib (not bundled) → deactivated.
+        /// - Telnet: would expose an unauthenticated shell → intentionally not shipped.
         var isAvailable: Bool {
             switch self {
             case .http, .tftp: return true
-            case .ftp:         return false
+            case .sftp, .ftp, .telnet: return false
+            }
+        }
+
+        /// macOS provides this as a system service rather than a process we launch.
+        var isSystemService: Bool { self == .sftp }
+
+        /// Localized one-line note explaining the status of a non-startable type.
+        var noteKey: String {
+            switch self {
+            case .sftp:   return "server.note.sftp"
+            case .ftp:    return "server.note.ftp"
+            case .telnet: return "server.note.telnet"
+            default:      return ""
             }
         }
     }
@@ -192,14 +215,6 @@ final class EmbeddedServerService {
             : server.rootDirectory
 
         switch server.type {
-        case .http:
-            // HTTP is handled by NativeHTTPServer, never reaches here.
-            throw EmbeddedServerError.notAvailable("HTTP")
-
-        case .ftp:
-            // Deactivated — requires pyftpdlib (not bundled). UI greys this out.
-            throw EmbeddedServerError.notAvailable("FTP")
-
         case .tftp:
             // macOS ships tftpd as a system binary — no install required.
             let tftp = "/usr/libexec/tftpd"
@@ -208,6 +223,14 @@ final class EmbeddedServerService {
             }
             process.executableURL = URL(fileURLWithPath: tftp)
             process.arguments = ["-i", rootDir, "\(server.port)"]
+
+        case .http:
+            // HTTP is handled by NativeHTTPServer, never reaches here.
+            throw EmbeddedServerError.notAvailable("HTTP")
+
+        case .ftp, .sftp, .telnet:
+            // Deactivated / system-provided — UI handles these without starting a process.
+            throw EmbeddedServerError.notAvailable(server.type.displayName)
         }
 
         return process

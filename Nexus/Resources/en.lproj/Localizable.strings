@@ -672,3 +672,14 @@
 "sftp.error.no_session" = "No active SSH session for SFTP.";
 "sftp.empty" = "This folder is empty.";
 "sftp.empty_hidden" = "Only hidden files here — toggle the eye to show them.";
+
+// MARK: - Server Manager (v2.2.0)
+"menu.tools" = "Tools";
+"menu.server_manager" = "Server Manager…";
+"menu.theme_editor" = "Theme Editor…";
+"menu.text_editor" = "Text Editor…";
+"server.system_service" = "macOS system service";
+"server.open_settings" = "Open Sharing Settings…";
+"server.note.sftp" = "SFTP is provided by macOS Remote Login. Enable it in System Settings → General → Sharing → Remote Login.";
+"server.note.ftp" = "FTP requires an external library and is not bundled. Use HTTP or SFTP instead.";
+"server.note.telnet" = "A Telnet server would expose an unauthenticated shell and is intentionally not shipped for security reasons.";

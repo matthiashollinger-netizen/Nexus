@@ -672,3 +672,14 @@
 "sftp.error.no_session" = "Keine aktive SSH-Session für SFTP.";
 "sftp.empty" = "Dieser Ordner ist leer.";
 "sftp.empty_hidden" = "Nur versteckte Dateien — über das Auge einblenden.";
+
+// MARK: - Server-Manager (v2.2.0)
+"menu.tools" = "Werkzeuge";
+"menu.server_manager" = "Server-Manager…";
+"menu.theme_editor" = "Theme-Editor…";
+"menu.text_editor" = "Text-Editor…";
+"server.system_service" = "macOS-Systemdienst";
+"server.open_settings" = "Freigabe-Einstellungen öffnen…";
+"server.note.sftp" = "SFTP wird über die macOS-Remoteanmeldung bereitgestellt. Aktiviere sie unter Systemeinstellungen → Allgemein → Freigabe → Entfernte Anmeldung.";
+"server.note.ftp" = "FTP benötigt eine externe Bibliothek und ist nicht enthalten. Nutze stattdessen HTTP oder SFTP.";
+"server.note.telnet" = "Ein Telnet-Server würde eine nicht authentifizierte Shell freigeben und wird aus Sicherheitsgründen bewusst nicht ausgeliefert.";
