@@ -73,13 +73,13 @@ struct NexusTheme: Identifiable, Codable, Equatable {
 
 extension NexusTheme {
     static var nexusDark: NexusTheme {
-        var t = NexusTheme(id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, name: "Nexus Dark")
+        var t = NexusTheme(id: (UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID()), name: "Nexus Dark")
         t.isBuiltIn = true
         return t
     }
 
     static var nexusLight: NexusTheme {
-        var t = NexusTheme(id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, name: "Nexus Light")
+        var t = NexusTheme(id: (UUID(uuidString: "00000000-0000-0000-0000-000000000002") ?? UUID()), name: "Nexus Light")
         t.isBuiltIn = true
         t.terminalBackground = .init(red: 0.96, green: 0.96, blue: 0.96)
         t.terminalForeground = .init(red: 0.1,  green: 0.1,  blue: 0.1)
@@ -89,7 +89,7 @@ extension NexusTheme {
     }
 
     static var solarizedDark: NexusTheme {
-        var t = NexusTheme(id: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!, name: "Solarized Dark")
+        var t = NexusTheme(id: (UUID(uuidString: "00000000-0000-0000-0000-000000000003") ?? UUID()), name: "Solarized Dark")
         t.isBuiltIn = true
         t.terminalBackground = .init(red: 0, green: 0.169, blue: 0.212)
         t.terminalForeground = .init(red: 0.514, green: 0.58, blue: 0.588)
@@ -99,7 +99,7 @@ extension NexusTheme {
     }
 
     static var monokai: NexusTheme {
-        var t = NexusTheme(id: UUID(uuidString: "00000000-0000-0000-0000-000000000004")!, name: "Monokai")
+        var t = NexusTheme(id: (UUID(uuidString: "00000000-0000-0000-0000-000000000004") ?? UUID()), name: "Monokai")
         t.isBuiltIn = true
         t.terminalBackground = .init(red: 0.157, green: 0.157, blue: 0.157)
         t.terminalForeground = .init(red: 0.972, green: 0.972, blue: 0.949)
@@ -110,7 +110,7 @@ extension NexusTheme {
     }
 
     static var nord: NexusTheme {
-        var t = NexusTheme(id: UUID(uuidString: "00000000-0000-0000-0000-000000000005")!, name: "Nord")
+        var t = NexusTheme(id: (UUID(uuidString: "00000000-0000-0000-0000-000000000005") ?? UUID()), name: "Nord")
         t.isBuiltIn = true
         t.terminalBackground = .init(red: 0.180, green: 0.204, blue: 0.251)
         t.terminalForeground = .init(red: 0.847, green: 0.871, blue: 0.914)
@@ -120,7 +120,7 @@ extension NexusTheme {
     }
 
     static var dracula: NexusTheme {
-        var t = NexusTheme(id: UUID(uuidString: "00000000-0000-0000-0000-000000000006")!, name: "Dracula")
+        var t = NexusTheme(id: (UUID(uuidString: "00000000-0000-0000-0000-000000000006") ?? UUID()), name: "Dracula")
         t.isBuiltIn = true
         t.terminalBackground = .init(red: 0.157, green: 0.165, blue: 0.212)
         t.terminalForeground = .init(red: 0.973, green: 0.973, blue: 0.949)
@@ -131,7 +131,7 @@ extension NexusTheme {
     }
 
     static var ciscoGreen: NexusTheme {
-        var t = NexusTheme(id: UUID(uuidString: "00000000-0000-0000-0000-000000000007")!, name: "Cisco Green")
+        var t = NexusTheme(id: (UUID(uuidString: "00000000-0000-0000-0000-000000000007") ?? UUID()), name: "Cisco Green")
         t.isBuiltIn = true
         t.terminalBackground = .init(red: 0,    green: 0.06, blue: 0)
         t.terminalForeground = .init(red: 0,    green: 0.9,  blue: 0)

@@ -9,15 +9,16 @@ final class ThemeService {
     static let shared = ThemeService()
 
     var themes: [NexusTheme] = []
-    var activeThemeId: UUID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    var activeThemeId: UUID = (UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID())
 
     var activeTheme: NexusTheme {
         themes.first { $0.id == activeThemeId } ?? .nexusDark
     }
 
     private var appSupportURL: URL {
-        let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Nexus")
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
+        let url = base.appendingPathComponent("Nexus")
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
@@ -52,7 +53,9 @@ final class ThemeService {
     // MARK: - Export / Import
 
     func exportTheme(_ theme: NexusTheme) throws -> URL {
-        let url = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+        let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Downloads")
+        let url = downloads
             .appendingPathComponent("\(theme.name.replacingOccurrences(of: " ", with: "_")).nexustheme")
         let data = try JSONEncoder().encode(theme)
         try data.write(to: url, options: .atomicWrite)

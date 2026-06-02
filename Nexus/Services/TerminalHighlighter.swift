@@ -52,10 +52,12 @@ final class TerminalHighlighter {
     var enabledRulesets: Set<HighlightRuleset> = [.default, .logLevel]
 
     private init() {
+        // Returns a compiled regex, or a guaranteed-never-matching one if `pattern`
+        // is somehow invalid — no force-try, cannot crash.
         func re(_ pattern: String, options: NSRegularExpression.Options = []) -> NSRegularExpression {
-            // swiftlint:disable:next force_try
-            (try? NSRegularExpression(pattern: pattern, options: options)) ??
-                (try! NSRegularExpression(pattern: "(?!)", options: []))
+            if let rx = try? NSRegularExpression(pattern: pattern, options: options) { return rx }
+            if let never = try? NSRegularExpression(pattern: "(?!)", options: []) { return never }
+            return NSRegularExpression()  // unreachable fallback; default init never matches
         }
 
         let y  = "\u{1B}[33m"

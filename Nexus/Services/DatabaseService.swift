@@ -4,9 +4,17 @@ import CryptoKit
 final class DatabaseService {
     let appSupportURL: URL
 
-    init() {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        appSupportURL = base.appendingPathComponent("Nexus", isDirectory: true)
+    /// - Parameter rootDirectory: override the storage root (tests pass a temp dir
+    ///   so they never touch the user's real data). Production passes nil.
+    init(rootDirectory: URL? = nil) {
+        if let rootDirectory {
+            appSupportURL = rootDirectory
+        } else {
+            // Fallback chain instead of force-unwrap: app support → ~/Library/Application Support
+            let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+                ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
+            appSupportURL = base.appendingPathComponent("Nexus", isDirectory: true)
+        }
         try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
     }
 
@@ -17,6 +25,8 @@ final class DatabaseService {
     }
 
     func saveSessions(_ sessions: [Session]) {
+        // Throttled snapshot of the PRE-save state before we overwrite it.
+        createBackup(force: false)
         save(sessions, to: "sessions.json")
     }
 
@@ -27,6 +37,7 @@ final class DatabaseService {
     }
 
     func saveFolders(_ folders: [Folder]) {
+        createBackup(force: false)
         save(folders, to: "folders.json")
     }
 
@@ -110,6 +121,125 @@ final class DatabaseService {
         try saveCredentials(bundle.credentials, masterPassword: masterPassword)
     }
 
+    // MARK: - Backups
+    // A backup is a single timestamped JSON bundle that captures all data files,
+    // including the encrypted credentials blob (base64) so no master password is
+    // needed to take or keep a backup. Rolling window keeps the newest N backups.
+
+    private var backupsURL: URL {
+        let url = appSupportURL.appendingPathComponent("Backups", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    static let maxBackups = 15
+    // Instance-level (not static): production uses a single shared db instance, and
+    // per-instance state keeps tests hermetic under parallel execution.
+    private var lastBackupAt: Date = .distantPast
+
+    /// Creates a backup of the current data files. `force == false` throttles to at
+    /// most one backup per `minInterval` seconds so frequent saves don't churn the ring.
+    @discardableResult
+    func createBackup(force: Bool = false, minInterval: TimeInterval = 300) -> URL? {
+        if !force {
+            let elapsed = Date().timeIntervalSince(lastBackupAt)
+            if elapsed < minInterval { return nil }
+        }
+
+        // Don't back up an empty database (nothing to protect, avoids noise on first run)
+        let sessions = loadSessions()
+        let folders  = loadFolders()
+        if sessions.isEmpty && folders.isEmpty { return nil }
+
+        let credURL = appSupportURL.appendingPathComponent("credentials.enc")
+        let credB64 = (try? Data(contentsOf: credURL))?.base64EncodedString()
+
+        let bundle = BackupBundle(
+            createdAt: Date(),
+            sessions: sessions,
+            folders: folders,
+            settings: loadSettings(),
+            credentialsEncBase64: credB64
+        )
+
+        guard let data = try? JSONEncoder().encode(bundle) else { return nil }
+
+        // Short random suffix prevents collisions when two backups land in the same
+        // second (timestamp has second granularity) — otherwise one would overwrite
+        // the other and silently be lost.
+        let stamp = Self.timestampFormatter.string(from: Date())
+        let suffix = String(UUID().uuidString.prefix(6))
+        let url = backupsURL.appendingPathComponent("backup_\(stamp)_\(suffix).json")
+        guard (try? data.write(to: url, options: .atomic)) != nil else { return nil }
+
+        lastBackupAt = Date()
+        pruneBackups()
+        return url
+    }
+
+    /// Returns all backups, newest first.
+    func listBackups() -> [BackupInfo] {
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: backupsURL,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles])) ?? []
+
+        return urls
+            .filter { $0.lastPathComponent.hasPrefix("backup_") && $0.pathExtension == "json" }
+            .compactMap { url -> BackupInfo? in
+                let modDate = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+                let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+                // Read session/folder counts cheaply
+                var sessionCount = 0
+                if let data = try? Data(contentsOf: url),
+                   let b = try? JSONDecoder().decode(BackupBundle.self, from: data) {
+                    sessionCount = b.sessions.count
+                }
+                return BackupInfo(url: url, createdAt: modDate, sizeBytes: size, sessionCount: sessionCount)
+            }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// Restores a backup: overwrites the live data files. The caller must reload
+    /// the view model afterwards. Credentials are restored as the encrypted blob,
+    /// so the existing master password continues to work.
+    func restoreBackup(from url: URL) throws {
+        let data = try Data(contentsOf: url)
+        let bundle = try JSONDecoder().decode(BackupBundle.self, from: data)
+
+        // Back up the current state first so a restore is itself undoable.
+        createBackup(force: true)
+
+        saveSessions(bundle.sessions)
+        saveFolders(bundle.folders)
+        saveSettings(bundle.settings)
+
+        let credURL = appSupportURL.appendingPathComponent("credentials.enc")
+        if let b64 = bundle.credentialsEncBase64, let credData = Data(base64Encoded: b64) {
+            try credData.write(to: credURL, options: .atomic)
+        }
+    }
+
+    func deleteBackup(_ url: URL) {
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    /// Removes the oldest backups beyond `maxBackups`.
+    private func pruneBackups() {
+        let backups = listBackups()  // newest first
+        guard backups.count > Self.maxBackups else { return }
+        for backup in backups[Self.maxBackups...] {
+            try? FileManager.default.removeItem(at: backup.url)
+        }
+    }
+
+    private static let timestampFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        return f
+    }()
+
     // MARK: - Helpers
 
     private func load<T: Decodable>(_ type: T.Type, from filename: String) -> T? {
@@ -121,6 +251,8 @@ final class DatabaseService {
     private func save<T: Encodable>(_ value: T, to filename: String) {
         let url = appSupportURL.appendingPathComponent(filename)
         guard let data = try? JSONEncoder().encode(value) else { return }
+        // .atomic = write to a temp file, then rename — never leaves a half-written
+        // file even if the app crashes mid-write.
         try? data.write(to: url, options: .atomic)
     }
 
@@ -163,6 +295,25 @@ struct NexusExport: Codable, @unchecked Sendable {
     let credentials: [Credential]
     let settings: AppSettings
     let exportDate: Date
+}
+
+/// A single backup bundle. Credentials are kept as the raw encrypted blob (base64)
+/// so backups never need — and never expose — the master password.
+struct BackupBundle: Codable {
+    let createdAt: Date
+    let sessions: [Session]
+    let folders: [Folder]
+    let settings: AppSettings
+    let credentialsEncBase64: String?
+}
+
+/// Lightweight metadata about a backup file (for the management UI).
+struct BackupInfo: Identifiable {
+    var id: URL { url }
+    let url: URL
+    let createdAt: Date
+    let sizeBytes: Int
+    let sessionCount: Int
 }
 
 enum DBError: LocalizedError {

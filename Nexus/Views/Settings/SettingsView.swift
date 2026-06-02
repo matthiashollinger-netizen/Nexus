@@ -158,6 +158,7 @@ struct SecuritySettingsView: View {
     @State private var confirmNewPassword = ""
     @State private var errorMessage: String? = nil
     @State private var successMessage: String? = nil
+    @State private var showBackups = false
 
     var body: some View {
         @Bindable var vm = vm
@@ -195,9 +196,21 @@ struct SecuritySettingsView: View {
                     .disabled(currentPassword.isEmpty || newPassword.isEmpty)
                 }
             }
+
+            Section {
+                Button("settings.backups.manage") { showBackups = true }
+            } header: {
+                Text("settings.backups")
+            } footer: {
+                Text("settings.backups.hint")
+                    .font(.caption)
+            }
         }
         .formStyle(.grouped)
         .padding()
+        .sheet(isPresented: $showBackups) {
+            BackupManagerView().environment(vm)
+        }
     }
 
     private func changeMasterPassword() {

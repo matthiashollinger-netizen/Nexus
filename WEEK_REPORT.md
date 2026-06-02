@@ -51,13 +51,54 @@ statt einer Bibliothek, die die Kern-Hardware nicht bedienen kann.
 
 _(wird fortlaufend ergänzt)_
 
-### Task 1-Folge: Keychain-Popup bei SSH-Verbindung entfernt
+### Aufgabe 1-Folge: Keychain-Popup bei SSH-Verbindung entfernt
 - `NexusSSHTerminalView.startSSH()` injiziert das Passwort jetzt über ein
   temporäres Askpass-Script (wie SFTP), statt es im Keychain abzulegen.
 - Der Keychain-basierte Pfad in `NexusAskPassService` entfällt → **kein
   Sicherheits-Popup** mehr beim Verbinden.
 - Das Temp-Script wird mit `0700` geschrieben und nach Prozess-Ende garantiert
   gelöscht (auch im Fehlerfall).
+- Ungenutztes Bundle-Script `Resources/nexus-askpass` entfernt.
+
+### Aufgabe 6: Automatische Backups (Datenverlust-Schutz)
+- `DatabaseService.createBackup()` — Backup-Bundle (sessions/folders/settings +
+  verschlüsselter Credentials-Blob als base64) als `backup_<timestamp>_<id>.json`.
+- **Backup beim App-Start** (force) + **throttled vor jedem Speichern** (max. 1×
+  pro 5 min, damit häufige Saves den Ring nicht zumüllen).
+- **Rolling Window**: neueste 15 Backups, ältere werden automatisch gelöscht.
+- **Atomares Speichern** war bereits aktiv (`.atomic` = temp-Datei + Rename) →
+  keine korrupten Dateien bei Crash während des Schreibens.
+- **Eindeutiger Datei-Suffix** verhindert Kollision zweier Backups in derselben
+  Sekunde (sonst stiller Verlust).
+- UI: **Einstellungen → Sicherheit → Backups verwalten** — Liste mit Datum,
+  Session-Anzahl, Größe; Wiederherstellen (mit Bestätigung), Löschen, „Jetzt
+  Backup erstellen". Vor jeder Wiederherstellung wird der aktuelle Stand gesichert.
+- `DatabaseService.init(rootDirectory:)` für hermetische Tests injizierbar.
+- Tests: `BackupTests` (Bundle-Round-Trip, Create/List/Restore, Empty-Skip,
+  Max-Konstante).
+
+### Aufgabe 5: Crash-Prävention (nil-Safety)
+Gesamte Codebase nach gefährlichen Force-Unwraps durchsucht und abgesichert:
+- `UTType(filenameExtension: "nexustheme")!` in ThemeEditorView → `if let` mit
+  Fallback (**exakt die Crash-Klasse von v2.0.0**).
+- 8× `UUID(uuidString: "…")!` (Theme-IDs) → `?? UUID()` (crash-proof; valide
+  Literale verhalten sich identisch).
+- 6× `FileManager…urls(for:…).first!` (App-Support/Downloads) → `?? Fallback-Pfad`.
+- `try!` in `TerminalHighlighter.re()` → optionale Kette ohne Force-Try.
+- Keine `as!`-Force-Casts und keine ungeprüften Array-Zugriffe gefunden.
+
+### Aufgabe 10: Security Audit → siehe SECURITY_AUDIT.md
+Keine kritischen/hohen aktiven Schwachstellen. Highlights:
+- ✅ Keine hardcodierten Secrets, kein Passwort-Logging, kein UserDefaults für Secrets.
+- ✅ Prozess-Aufrufe durchgängig mit Argument-Arrays (kein Shell-Injection).
+- ✅ AES-256-GCM korrekt (CryptoKit, Random-Nonce, 32-Byte-Salt), Keychain
+  `WhenUnlocked`, Sparkle EdDSA aktiv.
+- 🟡 SEC-1: HKDF statt Passwort-KDF — Empfehlung PBKDF2 (Migration nötig, bewusst
+  zurückgestellt um keine Daten zu zerstören).
+- ⚪ SEC-2: `StrictHostKeyChecking=no` — akzeptiertes Risiko für Legacy-Switches,
+  **pro Session abschaltbar** (Toggle vorhanden).
+- 🔵 SEC-6: Verwaiste Temp-Key/Askpass-Dateien werden jetzt beim App-Start
+  aufgeräumt (Crash-Resilienz).
 
 ---
 

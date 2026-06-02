@@ -46,8 +46,9 @@ final class EmbeddedServerService {
     private var serverLogs: [UUID: [String]] = [:]
 
     private var appSupportURL: URL {
-        let url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Nexus")
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library/Application Support")
+        let url = base.appendingPathComponent("Nexus")
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }

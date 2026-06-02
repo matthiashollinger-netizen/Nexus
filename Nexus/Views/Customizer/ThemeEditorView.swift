@@ -185,7 +185,13 @@ struct ThemeEditorView: View {
 
     private func importTheme() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.init(filenameExtension: "nexustheme")!]
+        // UTType(filenameExtension:) returns nil for an unregistered extension —
+        // force-unwrapping it was the exact crash class that broke v2.0.0. Fall back
+        // to allowing any file rather than crashing if the type can't be resolved.
+        if let themeType = UTType(filenameExtension: "nexustheme") {
+            panel.allowedContentTypes = [themeType]
+        }
+        panel.allowsOtherFileTypes = true
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             try? themeService.importTheme(from: url)

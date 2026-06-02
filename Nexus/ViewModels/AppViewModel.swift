@@ -80,6 +80,20 @@ final class AppViewModel {
         MacroService.shared.installHotkeyMonitor { [weak self] in
             self?.activeSessions ?? []
         }
+        // SEC-6: remove temp private-key / askpass files orphaned by a previous crash.
+        Self.cleanupOrphanedTempFiles()
+    }
+
+    /// Deletes leftover `nexus_key_*` and `nexus_askpass_*` / `nexus_sftp_*` files in
+    /// the temp directory that a crash may have prevented from being cleaned up.
+    private static func cleanupOrphanedTempFiles() {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+        let prefixes = ["nexus_key_", "nexus_askpass_", "nexus_sftp_"]
+        let entries = (try? FileManager.default.contentsOfDirectory(
+            at: tmp, includingPropertiesForKeys: nil)) ?? []
+        for url in entries where prefixes.contains(where: { url.lastPathComponent.hasPrefix($0) }) {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     // MARK: - Load
@@ -88,6 +102,8 @@ final class AppViewModel {
         folders = db.loadFolders()
         sessions = db.loadSessions()
         settings = db.loadSettings()
+        // Snapshot the last-good state at launch so a crash/corruption is recoverable.
+        db.createBackup(force: true)
     }
 
     func unlock(password: String) {

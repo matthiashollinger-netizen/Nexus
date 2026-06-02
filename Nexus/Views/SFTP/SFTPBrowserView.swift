@@ -190,8 +190,9 @@ struct SFTPBrowserView: View {
         guard let sshInfo = sshConnectionInfo() else { return }
         transferProgress = TransferProgress(filename: item.name, type: .download, fraction: 0)
 
-        let destURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
-            .appendingPathComponent(item.name)
+        let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Downloads")
+        let destURL = downloads.appendingPathComponent(item.name)
 
         do {
             try await SFTPService.shared.downloadFile(

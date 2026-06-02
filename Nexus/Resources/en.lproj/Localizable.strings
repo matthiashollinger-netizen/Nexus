@@ -600,3 +600,20 @@
 
 // MARK: - Embedded Servers
 "server.tftp.root_warning" = "Port 69 requires root privileges — start with sudo or use port > 1024";
+
+// MARK: - Backups
+"settings.backups" = "Backups";
+"settings.backups.hint" = "Nexus automatically backs up your sessions and folders at launch and before changes. The newest 15 backups are kept.";
+"settings.backups.manage" = "Manage Backups…";
+"settings.backups.title" = "Backups";
+"settings.backups.subtitle" = "Restore an earlier state of your sessions and folders";
+"settings.backups.empty" = "No backups yet";
+"settings.backups.empty_hint" = "Backups appear here once you have sessions and use the app.";
+"settings.backups.create_now" = "Create Backup Now";
+"settings.backups.created" = "Backup created";
+"settings.backups.restored" = "Backup restored";
+"settings.backups.restore" = "Restore";
+"settings.backups.restore_confirm" = "Restore this backup?";
+"settings.backups.restore_message" = "This replaces your current sessions, folders and settings. A backup of the current state is created first.";
+"settings.backups.count %lld" = "%lld backups";
+"settings.backups.row_detail %lld %@" = "%lld sessions · %@";
