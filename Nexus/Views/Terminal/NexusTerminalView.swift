@@ -86,14 +86,13 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
         }
         cs.state = .connecting
 
-        // Build environment: start with current process env, then inject SSH_ASKPASS
+        // Build environment: start with current process env, then inject SSH_ASKPASS.
+        // Keychain-free since v2.1.0 — uses a temp script, no security popup.
         var envDict = ProcessInfo.processInfo.environment
         let token = cs.id.uuidString
 
         if let pwd = cs.sshPassword, !pwd.isEmpty {
-            // Store password in temp keychain slot for the askpass helper
-            NexusAskPassService.storePassword(pwd, token: token)
-            if let askpassEnv = NexusAskPassService.environment(token: token) {
+            if let askpassEnv = NexusAskPassService.prepare(password: pwd, token: token) {
                 envDict.merge(askpassEnv) { _, new in new }
             }
         }

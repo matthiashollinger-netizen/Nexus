@@ -1,108 +1,68 @@
 import Foundation
-import Security
 
-/// Manages the SSH_ASKPASS integration.
+/// Manages SSH_ASKPASS integration for `/usr/bin/ssh` password authentication.
+///
+/// Design (v2.1.0): **no Keychain**. Earlier versions stored the session password
+/// in a temporary Keychain slot, which triggered a macOS security prompt on every
+/// connection. We now write a short-lived shell script (0600) that echoes the
+/// password, point `SSH_ASKPASS` at it, and delete it the moment the session ends.
+/// This is the same keychain-free mechanism `SFTPService` already uses.
 ///
 /// Flow:
-///   1. Call `prepare(password:token:)` before connecting — stores the password
-///      in a temporary keychain slot.
-///   2. Pass the env vars returned by `environment(token:askpassPath:)` to
-///      SwiftTerm's `startProcess(executable:args:environment:)`.
-///   3. SSH calls `nexus-askpass` when it needs the password; the script reads
-///      from the same keychain slot.
-///   4. Call `cleanup(token:)` after the session ends.
+///   1. `prepare(password:token:)` writes the temp askpass script, returns env vars.
+///   2. Pass those env vars to SwiftTerm's `startProcess(environment:)`.
+///   3. `cleanup(token:)` deletes the script after the session ends.
 ///
-/// The keychain slot uses service = "com.hollinger.Nexus.askpass" and
-/// account = the session UUID string, so multiple simultaneous sessions
-/// each get their own isolated slot.
-
+/// Security trade-off (documented in SECURITY_AUDIT.md): the password lives briefly
+/// in a 0600 temp file owned by the user, removed immediately on disconnect. This
+/// avoids both the Keychain popup and any plaintext password in the process arg list.
 enum NexusAskPassService {
 
-    private static let keychainService = "com.hollinger.Nexus.askpass"
+    /// Tracks the temp script path per session token so cleanup can remove it.
+    nonisolated(unsafe) private static var scriptPaths: [String: String] = [:]
+    private static let lock = NSLock()
 
-    // MARK: - Keychain helpers
+    // MARK: - Prepare
 
-    static func storePassword(_ password: String, token: String) {
-        let data = Data(password.utf8)
-        // Delete any leftover first
-        let delQuery: [String: Any] = [
-            kSecClass as String:       kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: token
-        ]
-        SecItemDelete(delQuery as CFDictionary)
+    /// Writes a temporary askpass script for `password` and returns the environment
+    /// dictionary to inject into the ssh process. Returns nil if `password` is empty.
+    static func prepare(password: String, token: String) -> [String: String]? {
+        guard !password.isEmpty else { return nil }
 
-        let addQuery: [String: Any] = [
-            kSecClass as String:              kSecClassGenericPassword,
-            kSecAttrService as String:        keychainService,
-            kSecAttrAccount as String:        token,
-            kSecValueData as String:          data,
-            kSecAttrAccessible as String:     kSecAttrAccessibleAfterFirstUnlock
-        ]
-        SecItemAdd(addQuery as CFDictionary, nil)
-    }
+        // Escape characters special inside a double-quoted shell string.
+        let escaped = password
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "$",  with: "\\$")
+            .replacingOccurrences(of: "`",  with: "\\`")
+        let script = "#!/bin/sh\nprintf '%s\\n' \"\(escaped)\"\n"
 
-    static func cleanup(token: String) {
-        let query: [String: Any] = [
-            kSecClass as String:       kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: token
-        ]
-        SecItemDelete(query as CFDictionary)
-    }
-
-    // MARK: - Helper binary path
-
-    /// Returns the path to the `nexus-askpass` script, deploying it from
-    /// the app bundle to a writable location if necessary.
-    static func askpassPath() -> String? {
-        let supportDir = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)
-            .first?
-            .appendingPathComponent("Nexus")
-
-        guard let supportDir else { return nil }
-
-        let destURL = supportDir.appendingPathComponent("nexus-askpass")
-
-        // Deploy from bundle if not yet present or if outdated
-        if let bundleURL = Bundle.main.url(forResource: "nexus-askpass", withExtension: nil) {
-            let needsDeploy: Bool
-            if !FileManager.default.fileExists(atPath: destURL.path) {
-                needsDeploy = true
-            } else {
-                // Redeploy if bundle version is newer (compare modification dates)
-                let destMod = (try? FileManager.default.attributesOfItem(atPath: destURL.path))?[.modificationDate] as? Date ?? .distantPast
-                let srcMod  = (try? FileManager.default.attributesOfItem(atPath: bundleURL.path))?[.modificationDate] as? Date ?? .distantPast
-                needsDeploy = srcMod > destMod
-            }
-
-            if needsDeploy {
-                try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
-                try? FileManager.default.removeItem(at: destURL)
-                try? FileManager.default.copyItem(at: bundleURL, to: destURL)
-                // Set executable bit (0755)
-                try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destURL.path)
-            }
+        let path = NSTemporaryDirectory() + "nexus_askpass_\(UUID().uuidString).sh"
+        guard (try? script.write(toFile: path, atomically: true, encoding: .utf8)) != nil else {
+            return nil
         }
+        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: path)
 
-        guard FileManager.default.isExecutableFile(atPath: destURL.path) else { return nil }
-        return destURL.path
-    }
+        lock.lock()
+        scriptPaths[token] = path
+        lock.unlock()
 
-    // MARK: - Environment builder
-
-    /// Returns the process environment entries needed for SSH_ASKPASS.
-    /// Pass these to `startProcess(environment:)` in SwiftTerm.
-    ///
-    /// - Returns: nil if the askpass helper is not available (skips ASKPASS setup).
-    static func environment(token: String) -> [String: String]? {
-        guard let path = askpassPath() else { return nil }
         return [
             "SSH_ASKPASS":         path,
             "SSH_ASKPASS_REQUIRE": "force",
-            "NEXUS_ASKPASS_TOKEN": token,
-            "DISPLAY":             ":"          // required for SSH_ASKPASS to activate
+            "DISPLAY":             ":"   // required for SSH to invoke SSH_ASKPASS at all
         ]
+    }
+
+    // MARK: - Cleanup
+
+    /// Deletes the temp askpass script associated with `token`. Safe to call twice.
+    static func cleanup(token: String) {
+        lock.lock()
+        let path = scriptPaths.removeValue(forKey: token)
+        lock.unlock()
+        if let path {
+            try? FileManager.default.removeItem(atPath: path)
+        }
     }
 }
