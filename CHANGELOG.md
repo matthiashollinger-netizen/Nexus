@@ -2,6 +2,32 @@
 
 ---
 
+## [2.2.0] - 2026-06-02
+
+### Neu
+- **Session-Editor komplett neu (MobaXterm-Stil)**: oben eine horizontale Leiste
+  großer Protokoll-Icons (SSH / Telnet / Serial), darunter prominente Basis-
+  Einstellungen und einzeln aufklappbare Advanced-Bereiche (Verbindung & Sicherheit,
+  Gateway & Tunneling, Serielle Parameter, Terminal & Darstellung, Verhalten).
+  Live-Validierung, aufgeräumter Erstkontakt.
+- **Per-Session-Optionen**: eigenes Theme, Schriftgröße, Syntax-Regelset,
+  „Macro bei Verbindung ausführen" und „beim Start automatisch verbinden".
+- **Server-Manager** als eigener Menüpunkt (Werkzeuge → Server-Manager, ⌘⌥⇧S):
+  eine Karte pro Server-Typ. HTTP (nativ) und TFTP (System) startbar; SFTP über
+  macOS-Remoteanmeldung; FTP/Telnet bewusst deaktiviert mit Begründung.
+
+### Behoben
+- **SFTP-Browser zeigte keine Dateien**: beim Verbinden wird jetzt das Home-
+  Verzeichnis gelistet (statt „/"), leere Ordner und Listing-Fehler sind sichtbar.
+- **Einzelklick in der Sidebar** funktioniert wieder auf der ganzen Zeile inkl.
+  Text (nicht nur daneben).
+- **Sidebar-Drag** fühlt sich wie Verschieben an (Move-Cursor, kein „+"-Kopier-
+  Badge mehr).
+- **Syntax-Highlighting** färbt Zahlen in Uhrzeiten (z. B. `20:22:51`) nicht mehr
+  fälschlich als Ports — Ports nur noch im Kontext (IP:Port, Host:Port, „Port N").
+
+---
+
 ## [2.1.0] - 2026-06-02
 
 ### Verbessert
