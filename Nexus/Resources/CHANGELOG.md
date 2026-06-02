@@ -2,34 +2,99 @@
 
 ---
 
+## [2.1.0] - 2026-06-02
+
+### Verbessert
+- **Kein Keychain-Popup mehr** beim Aufbau von SSH-Verbindungen — Passwort-Übergabe
+  läuft jetzt keychain-frei über ein kurzlebiges, sofort gelöschtes Temp-Script.
+- **Self-Contained**: Der eingebaute HTTP-Server läuft jetzt **nativ** (kein `python3`
+  mehr nötig — das fehlt auf frischem macOS). SSH/SFTP/Telnet/Serial brauchen keinerlei
+  Zusatzinstallation.
+- **Übersichtlicherer Session-Editor**: Gateway/Tunneling-Optionen (Jump Host, Port
+  Forwarding, SOCKS5) in einer aufklappbaren, standardmäßig eingeklappten Gruppe.
+- Freundlichere, zweisprachige Fehlermeldungen bei Verbindungs- und Serial-Problemen
+  (statt technischem Error-Dump).
+
+### Neu
+- **Automatische Backups**: Nexus sichert Sessions/Ordner beim Start und vor Änderungen
+  (rollierend, neueste 15). Verwaltung unter Einstellungen → Sicherheit → Backups
+  verwalten (Wiederherstellen / Löschen / Jetzt sichern).
+
+### Behoben
+- Crash-Härtung: alle gefährlichen Force-Unwraps (UTType/URL/UUID) entfernt —
+  insbesondere die Klasse, die v2.0.0 zum Absturz brachte.
+- Verwaiste temporäre Key-/Askpass-Dateien werden beim App-Start aufgeräumt.
+
+### Deaktiviert (bewusst, dokumentiert)
+- **RDP**: keine native einbettbare Engine verfügbar, FreeRDP benötigt XQuartz —
+  als Protokoll vorerst deaktiviert (FreeRDP-Code entfernt). Folgt in einer
+  kommenden Version.
+- **FTP-Server**: benötigt eine externe Bibliothek — vorerst deaktiviert. HTTP läuft
+  nativ, TFTP nutzt das macOS-System-Binary.
+
+### Sicherheit
+- Security-Audit durchgeführt (siehe SECURITY_AUDIT.md): keine kritischen/hohen
+  aktiven Schwachstellen. Krypto-Tests (AES-256-GCM) ergänzt.
+
+---
+
 ## [2.0.0] - 2026-05-29
 
 ### Neu
 
-- **SFTP-Browser**: Integrierter SFTP-Dateimanager (280pt Seitenleiste)
-  - Toggle-Button in der Toolbar — sichtbar wenn SSH-Session aktiv
-  - Breadcrumb-Navigation, Upload/Download, Umbenennen, Löschen, Neuer Ordner
+- **Feature 4 — SFTP-Browser**: Integrierter SFTP-Dateimanager (280pt Seitenleiste)
+  - Toggle-Button in der Toolbar (Ordner-Icon) — sichtbar wenn SSH-Session aktiv
+  - Breadcrumb-Navigation, Dateiliste mit Icon/Name/Größe/Datum
+  - Upload/Download, Umbenennen, Löschen, Neuer Ordner via Kontextmenü
   - Progress-Overlay bei Transfers, Hidden-Files-Toggle
+  - Nutzt /usr/bin/sftp -b- (kein externes Framework)
 
-- **Eingebauter Texteditor**:
+- **Feature 5 — Eingebauter Texteditor**:
+  - NSTextView-basierter Editor mit Zeilennummern (RulerView)
   - Syntax-Highlighting für Swift, Python, Bash, JSON, YAML, XML/HTML
-  - Zeilennummern, ⌘F/⌘H Suchen & Ersetzen, Encoding-Wahl
+  - NSTextFinder (⌘F / ⌘H), Encoding-Wahl, Schriftgrößensteuerung (⌘+ / ⌘-)
+  - SFTP-Doppelklick öffnet Datei im Editor → automatischer Re-Upload nach Speichern
 
-- **Makros + Hotkeys + Zeitplanung**:
-  - Makro-Manager mit Hotkey-Recorder und Zeitplanung
-  - Globale Tastenkürzel, "Bei Verbindung ausführen"-Option
+- **Feature 6 — Makros + Hotkeys + Zeitplanung**:
+  - Makro-Manager-Fenster: Liste + Editor, Befehle (mehrzeilig), Delay-Slider (0–5s)
+  - Hotkey-Recorder: globale Tastenkürzel für direktes Ausführen
+  - Zeitplanung: Interval-Timer + "Bei Verbindung ausführen"-Option
+  - Persistenz in ~/Library/Application Support/Nexus/macros.json
+  - Menü-Integration: Makros-Menü mit allen definierten Makros
 
-- **Eingebettete Server**: HTTP, FTP, TFTP — direkt aus Nexus starten
+- **Feature 7 — Eingebettete Server**:
+  - HTTP-Server (python3 -m http.server), FTP (pyftpdlib), TFTP (/usr/libexec/tftpd)
+  - 2-Spalten Grid mit Server-Karten, Start/Stop/Konfigurieren-Buttons
+  - Log-Viewer (letzte 200 Zeilen), AutoStart-Option
+  - Eigenes Fenster ("servers")
 
-- **RDP via FreeRDP**: Vollständige RDP-Integration (benötigt brew install freerdp)
+- **Feature 8 — RDP via FreeRDP**:
+  - NexusRDPTerminalView ersetzt Platzhalter
+  - Sucht xfreerdp3/xfreerdp in /opt/homebrew/bin und /usr/local/bin
+  - Installation-Anleitung mit "brew install freerdp"-Copy-Button falls Binary fehlt
+  - Reconnect-Button nach Verbindungsabbruch
 
-- **Erweitertes Syntax-Highlighting**:
-  - Cisco IOS, Log-Level, Netzwerk-URLs/Ports
-  - Regelset-Verwaltung in Einstellungen
+- **Feature 9 — Erweitertes Syntax-Highlighting**:
+  - Cisco IOS: Prompts (Router#/Switch>), Keywords, Interface-Typen → blau/cyan
+  - Log-Level: ERROR/CRITICAL→rot, WARN→orange, INFO→blau, SUCCESS→grün, DEBUG→cyan
+  - Netzwerk: URLs→magenta+unterstrichen, bekannte Ports→magenta
+  - Regelset-Verwaltung in Einstellungen → Syntax-Tab
 
-- **Themes / Professional Customizer**:
+- **Feature 10 — Themes / Professional Customizer**:
+  - NexusTheme-Modell mit vollständigem ANSI-16-Farbpaletten-Support
   - 7 eingebaute Themes: Nexus Dark, Nexus Light, Solarized Dark, Monokai, Nord, Dracula, Cisco Green
-  - Eigener Theme-Editor mit ColorPickern und Live-Vorschau
+  - Theme-Editor-Fenster: Terminal/UI/Schrift/Verhalten-Tabs mit ColorPickern
+  - Live-Vorschau, Import/Export (.nexustheme-Dateien)
+
+- **Feature 11 — Unit Tests** (37 Tests, alle bestanden):
+  - SSHArgumentBuilderTests: basicArgs, legacyAlgorithms, jumpHost, portForwarding, socks5, combinedArgs
+  - MacroTests: saveMacroAndReload, hotkey, schedule, codableRoundTrip
+  - SFTPItemParserTests: parseLsLine, parseSymlink, parseHiddenFile, parseLsOutput, pathConstruction
+
+### Behoben
+- macOS App Crash beim Start in Test-Umgebung: MacroMenuItems verwendet nun @FocusedValue
+  statt @Environment(AppViewModel.self) um EXC_BREAKPOINT in SwiftUI-Menü-Initialisierung zu verhindern
+- ConnectionState: Equatable-Konformität ergänzt (benötigt für RDP-Statusvergleiche)
 
 ---
 

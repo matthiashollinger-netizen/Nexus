@@ -2,6 +2,42 @@
 
 ---
 
+## [2.1.0] - 2026-06-02
+
+### Verbessert
+- **Kein Keychain-Popup mehr** beim Aufbau von SSH-Verbindungen — Passwort-Übergabe
+  läuft jetzt keychain-frei über ein kurzlebiges, sofort gelöschtes Temp-Script.
+- **Self-Contained**: Der eingebaute HTTP-Server läuft jetzt **nativ** (kein `python3`
+  mehr nötig — das fehlt auf frischem macOS). SSH/SFTP/Telnet/Serial brauchen keinerlei
+  Zusatzinstallation.
+- **Übersichtlicherer Session-Editor**: Gateway/Tunneling-Optionen (Jump Host, Port
+  Forwarding, SOCKS5) in einer aufklappbaren, standardmäßig eingeklappten Gruppe.
+- Freundlichere, zweisprachige Fehlermeldungen bei Verbindungs- und Serial-Problemen
+  (statt technischem Error-Dump).
+
+### Neu
+- **Automatische Backups**: Nexus sichert Sessions/Ordner beim Start und vor Änderungen
+  (rollierend, neueste 15). Verwaltung unter Einstellungen → Sicherheit → Backups
+  verwalten (Wiederherstellen / Löschen / Jetzt sichern).
+
+### Behoben
+- Crash-Härtung: alle gefährlichen Force-Unwraps (UTType/URL/UUID) entfernt —
+  insbesondere die Klasse, die v2.0.0 zum Absturz brachte.
+- Verwaiste temporäre Key-/Askpass-Dateien werden beim App-Start aufgeräumt.
+
+### Deaktiviert (bewusst, dokumentiert)
+- **RDP**: keine native einbettbare Engine verfügbar, FreeRDP benötigt XQuartz —
+  als Protokoll vorerst deaktiviert (FreeRDP-Code entfernt). Folgt in einer
+  kommenden Version.
+- **FTP-Server**: benötigt eine externe Bibliothek — vorerst deaktiviert. HTTP läuft
+  nativ, TFTP nutzt das macOS-System-Binary.
+
+### Sicherheit
+- Security-Audit durchgeführt (siehe SECURITY_AUDIT.md): keine kritischen/hohen
+  aktiven Schwachstellen. Krypto-Tests (AES-256-GCM) ergänzt.
+
+---
+
 ## [2.0.0] - 2026-05-29
 
 ### Neu

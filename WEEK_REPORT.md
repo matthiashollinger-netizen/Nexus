@@ -172,4 +172,59 @@ UI-Regressionen einzuschleppen.
 
 ## Was der User nächste Woche zuerst testen sollte
 
-_(wird am Ende finalisiert)_
+**Reihenfolge nach Wichtigkeit / Regressionsrisiko:**
+
+1. **SSH-Verbindung zu einem Legacy-Switch** (der Kern-Use-Case!)
+   - Verbindet eine echte SSH-Session zu einem alten Cisco/HP-Switch noch?
+   - **Erscheint KEIN Keychain-Popup mehr?** (das war das Hauptziel)
+   - Passwort-Login funktioniert (kein Hängenbleiben am Prompt)?
+
+2. **SFTP-Browser** mit derselben SSH-Session
+   - Verbindet er jetzt zuverlässig (vorher „keine Verbindung")?
+   - Datei herunterladen/hochladen, Ordner anlegen, umbenennen, löschen.
+
+3. **Backups** (Datenverlust-Schutz — der wichtigste neue Schutz)
+   - Einstellungen → Sicherheit → **Backups verwalten**: ist beim Start ein Backup
+     entstanden? „Jetzt Backup erstellen" testen, dann „Wiederherstellen".
+   - Sessions sollten nach Wiederherstellung korrekt zurückkommen.
+
+4. **App-Start-Stabilität** (kein Crash)
+   - App mehrfach starten/beenden. Drag & Drop in der Sidebar. Theme wechseln.
+
+5. **Nativer HTTP-Server** (Tools → Embedded Servers)
+   - HTTP-Server mit einem Ordner starten, im Browser `http://localhost:8080`
+     öffnen → Datei-Listing/Dateien werden ausgeliefert (ohne python3!).
+
+6. **Session-Editor** — ist er übersichtlicher?
+   - Neue SSH-Session: Basis-Felder prominent, „Gateway & Tunneling" eingeklappt.
+
+**Bekannte, bewusste Änderungen (kein Bug):**
+- **RDP** lässt sich nicht mehr als Session-Typ wählen (deaktiviert, siehe Aufgabe 4).
+- **FTP-Server** ist ausgegraut („folgt"). HTTP + TFTP funktionieren.
+
+**Wenn alles passt:** Diese Beta via `./scripts/promote_beta.sh v2.1.0-beta.1`
+auf Stable promoten (erst nach erfolgreichem Test — nicht automatisch).
+
+---
+
+## Test- & Build-Status am Ende des Durchgangs
+- `xcodebuild build`: ✅ erfolgreich, keine Errors
+- Unit-Tests (`NexusTests`): ✅ **56/56 grün, 0 Failures**
+  (SSHArgumentBuilder, Macro, SFTPItemParser, Backup, DatabaseCrypto, NativeHTTPServer)
+- UI-Test `NexusUITestsLaunchTests.testLaunch`: ⚠️ schlägt **umgebungsbedingt** fehl
+  („has not loaded accessibility" — bekanntes Headless-Problem im Test-Runner,
+  **nicht** code-bezogen). Unit-Tests sind die maßgebliche Absicherung.
+
+## Erledigte Aufgaben — Überblick
+| # | Aufgabe | Status |
+|---|---------|--------|
+| 1 | SSH/SFTP native (Citadel) | ⛔ **Gate gestoppt** (Legacy-Algos) + ✅ Keychain-Popup behoben |
+| 2 | Session-Editor MobaXterm-Redesign | 🟡 **Teilweise** (Gateway aufklappbar); Voll-Redesign offen |
+| 3 | Self-Contained | ✅ HTTP nativ, FTP/RDP deaktiviert, SSH/SFTP/Telnet/Serial install-frei |
+| 4 | RDP ehrliche Evaluierung | ✅ **Deaktiviert** (kein nativer Weg), FreeRDP-Code entfernt |
+| 5 | Crash-Prävention (nil-Safety) | ✅ Alle Force-Unwraps abgesichert |
+| 6 | Auto-Backup | ✅ Vollständig + UI + Tests |
+| 7 | Robuste Fehlerbehandlung | ✅ Verbindungs-/Serial-/SFTP-/Server-Fehler lokalisiert |
+| 8 | Umfassende Unit-Tests | ✅ +Backup +Crypto +HTTP-Server (56 Tests) |
+| 9 | Offene GitHub Issues | ✅ Keine offen (0 Issues) |
+| 10 | Security Audit | ✅ SECURITY_AUDIT.md, keine kritischen Findings |
