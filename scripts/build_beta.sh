@@ -159,6 +159,19 @@ rm -rf "$ARCHIVE_PATH" "$EXPORT_DIR" "$DMG_PATH"
 
 # ─── 1. Archive ──────────────────────────────────────────────────────────────
 info "Archiving (Release, arm64) — version ${VERSION}…"
+# Pick a signing strategy: use a real Developer identity if one exists, otherwise
+# fall back to ad-hoc signing ("-") so betas can still be built when no cert is
+# available (e.g. an expired Apple Development cert). Ad-hoc-signed betas run after a
+# right-click → Open; the Sparkle EdDSA signature (separate) still gates updates.
+if security find-identity -v -p codesigning 2>/dev/null | grep -q "valid identities found" \
+   && [ "$(security find-identity -v -p codesigning 2>/dev/null | grep -c 'Developer ID\|Apple Development')" -gt 0 ]; then
+    SIGN_ARGS=()
+    info "Using available code-signing identity."
+else
+    SIGN_ARGS=(CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=YES)
+    warn "No Developer signing identity found — building an AD-HOC signed beta."
+fi
+
 xcodebuild archive \
     -project "$PROJECT" \
     -scheme "$SCHEME" \
@@ -167,6 +180,7 @@ xcodebuild archive \
     -destination "generic/platform=macOS" \
     -derivedDataPath ~/Library/Developer/Xcode/DerivedData/Nexus-ggzdrjuyysxxadanmpxkyorzgfrn \
     -disableAutomaticPackageResolution \
+    "${SIGN_ARGS[@]}" \
     MARKETING_VERSION="$BASE_VERSION" \
     CURRENT_PROJECT_VERSION="$BASE_VERSION" \
     2>&1 | grep -E "^(error:|warning: )" || true
