@@ -26,6 +26,12 @@
   Zielposition; Ordner werden beim Hineinziehen hervorgehoben.
 - Session-Editor: überflüssige Platzhalter-Texte rechts neben Host/Benutzername/Name
   entfernt.
+- **Crash-Härtung (autonomer Smoke-Test)**: ungültige Portnummern (> 65535 oder 0)
+  führten bei Telnet-Verbindungen und der Server-Port-Prüfung zu einem Absturz; der
+  native HTTP-Server wickelte zu große Ports still um. Alle drei Stellen lehnen
+  ungültige Ports jetzt sauber ab. 23 zusätzliche automatische Tests (CSV-Import,
+  Telnet/Serial/Askpass-Robustheit, Theme-Roundtrip, Server-Edge-Cases, echter
+  SFTP-Auth-Pipeline-Test).
 
 ### Neu
 - **Echte eingebettete Server** im Server-Manager (Mac = Server, Switch = Client):
