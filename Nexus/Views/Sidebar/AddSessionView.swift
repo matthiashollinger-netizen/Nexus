@@ -111,7 +111,7 @@ struct AddSessionView: View {
             switch draft.connectionType {
             case .ssh, .telnet:
                 LabeledContent("session.host") {
-                    TextField("session.host.placeholder", text: $draft.host)
+                    TextField("", text: $draft.host)
                         .autocorrectionDisabled()
                         .textFieldStyle(.roundedBorder)
                         .overlay(invalidBorder(when: draft.host.trimmingCharacters(in: .whitespaces).isEmpty))
@@ -123,7 +123,7 @@ struct AddSessionView: View {
                 }
                 if draft.connectionType == .ssh {
                     LabeledContent("session.username") {
-                        TextField("session.username.placeholder", text: $draft.username)
+                        TextField("", text: $draft.username)
                             .autocorrectionDisabled()
                             .textFieldStyle(.roundedBorder)
                     }
@@ -135,7 +135,7 @@ struct AddSessionView: View {
 
             case .rdp:
                 LabeledContent("session.host") {
-                    TextField("session.host.placeholder", text: $draft.host)
+                    TextField("", text: $draft.host)
                         .textFieldStyle(.roundedBorder)
                 }
             }
@@ -255,7 +255,7 @@ struct AddSessionView: View {
     @ViewBuilder private var bottomSection: some View {
         Section {
             LabeledContent("session.name") {
-                TextField("session.name.placeholder", text: $draft.name)
+                TextField("", text: $draft.name)
                     .textFieldStyle(.roundedBorder)
             }
             LabeledContent("session.description") {
