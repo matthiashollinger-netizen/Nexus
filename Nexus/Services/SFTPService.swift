@@ -37,6 +37,21 @@ enum SFTPError: LocalizedError {
     }
 }
 
+// MARK: - SFTP connection parameters
+//
+// Bundles everything an SFTP batch needs. The `options` carry the SAME legacy
+// algorithms / host-key / timeout / jump-host settings the SSH terminal uses, so
+// SFTP can reach exactly the servers the terminal can (the old SFTP code omitted
+// the legacy-algorithm flags → "Authentication failed" / reset on old switches).
+struct SFTPConnection {
+    var host: String
+    var port: Int
+    var username: String
+    var password: String?
+    var keyPath: String?
+    var options: SSHConnectionOptions
+}
+
 // MARK: - SFTP Service
 
 actor SFTPService {
@@ -44,26 +59,49 @@ actor SFTPService {
 
     private let sftp = "/usr/bin/sftp"
 
+    // MARK: - Argument building (pure, testable)
+
+    /// Builds the `/usr/bin/sftp` argument list for `conn`. Note the port flag is
+    /// `-P` (UPPERCASE) — sftp differs from ssh which uses `-p`.
+    nonisolated func buildArguments(_ conn: SFTPConnection) -> [String] {
+        // Split "user@host" if present.
+        var effectiveUser = conn.username
+        var effectiveHost = conn.host
+        if conn.host.contains("@"), let atRange = conn.host.range(of: "@", options: .backwards) {
+            let parsedUser = String(conn.host[..<atRange.lowerBound])
+            let parsedHost = String(conn.host[atRange.upperBound...])
+            if effectiveUser.isEmpty { effectiveUser = parsedUser }
+            effectiveHost = parsedHost
+        }
+
+        var args = ["-b", "-"]
+        args += conn.options.commonOptionFlags()   // ConnectTimeout, legacy algos, StrictHostKey
+        args += ["-P", "\(conn.port)"]              // UPPERCASE -P for sftp
+        args += conn.options.jumpHostFlag()         // -J jump host (same as ssh)
+
+        if let kp = conn.keyPath, !kp.isEmpty {
+            args += ["-i", kp]
+        }
+        if effectiveUser.isEmpty {
+            args += [effectiveHost]
+        } else {
+            args += ["\(effectiveUser)@\(effectiveHost)"]
+        }
+        return args
+    }
+
     // MARK: - Public API
 
-    func listDirectory(host: String, port: Int, username: String, password: String?,
-                       keyPath: String?, path: String) async throws -> [SFTPItem] {
-        let commands = "ls -la \"\(path)\"\nquit\n"
-        let output = try await runBatch(host: host, port: port, username: username,
-                                        password: password, keyPath: keyPath,
-                                        commands: commands)
+    func listDirectory(_ conn: SFTPConnection, path: String) async throws -> [SFTPItem] {
+        let output = try await runBatch(conn, commands: "ls -la \"\(path)\"\nquit\n")
         return parseLsOutput(output, basePath: path)
     }
 
     /// Resolves the login (home) directory via `pwd` and lists it in one batch.
     /// Used on first connect so the browser lands where the user actually starts —
     /// listing "/" often appears empty or is restricted on many servers/devices.
-    func listHome(host: String, port: Int, username: String, password: String?,
-                  keyPath: String?) async throws -> (path: String, items: [SFTPItem]) {
-        let commands = "pwd\nls -la\nquit\n"
-        let output = try await runBatch(host: host, port: port, username: username,
-                                        password: password, keyPath: keyPath,
-                                        commands: commands)
+    func listHome(_ conn: SFTPConnection) async throws -> (path: String, items: [SFTPItem]) {
+        let output = try await runBatch(conn, commands: "pwd\nls -la\nquit\n")
         let home = parseRemoteWorkingDirectory(output) ?? "/"
         let items = parseLsOutput(output, basePath: home)
         return (home, items)
@@ -81,51 +119,34 @@ actor SFTPService {
         return nil
     }
 
-    func downloadFile(host: String, port: Int, username: String, password: String?,
-                      keyPath: String?, remotePath: String, to localURL: URL) async throws {
-        let commands = "get \"\(remotePath)\" \"\(localURL.path)\"\nquit\n"
-        let output = try await runBatch(host: host, port: port, username: username,
-                                        password: password, keyPath: keyPath,
-                                        commands: commands)
+    func downloadFile(_ conn: SFTPConnection, remotePath: String, to localURL: URL) async throws {
+        let output = try await runBatch(conn, commands: "get \"\(remotePath)\" \"\(localURL.path)\"\nquit\n")
         let low = output.lowercased()
         if low.contains("no such file") || low.contains("permission denied") || low.contains("failure") {
             throw SFTPError.operationFailed(output)
         }
     }
 
-    func uploadFile(host: String, port: Int, username: String, password: String?,
-                    keyPath: String?, from localURL: URL, remotePath: String) async throws {
-        let commands = "put \"\(localURL.path)\" \"\(remotePath)\"\nquit\n"
-        let output = try await runBatch(host: host, port: port, username: username,
-                                        password: password, keyPath: keyPath,
-                                        commands: commands)
+    func uploadFile(_ conn: SFTPConnection, from localURL: URL, remotePath: String) async throws {
+        let output = try await runBatch(conn, commands: "put \"\(localURL.path)\" \"\(remotePath)\"\nquit\n")
         let low = output.lowercased()
         if low.contains("permission denied") || low.contains("failure") {
             throw SFTPError.operationFailed(output)
         }
     }
 
-    func rename(host: String, port: Int, username: String, password: String?,
-                keyPath: String?, from: String, to: String) async throws {
-        let commands = "rename \"\(from)\" \"\(to)\"\nquit\n"
-        let output = try await runBatch(host: host, port: port, username: username,
-                                        password: password, keyPath: keyPath,
-                                        commands: commands)
+    func rename(_ conn: SFTPConnection, from: String, to: String) async throws {
+        let output = try await runBatch(conn, commands: "rename \"\(from)\" \"\(to)\"\nquit\n")
         let low = output.lowercased()
         if low.contains("failure") || low.contains("permission denied") || low.contains("no such file") {
             throw SFTPError.operationFailed(output)
         }
     }
 
-    func delete(host: String, port: Int, username: String, password: String?,
-                keyPath: String?, path: String, isDirectory: Bool) async throws {
+    func delete(_ conn: SFTPConnection, path: String, isDirectory: Bool) async throws {
         // rmdir only works on empty directories — SFTP protocol limitation.
-        // For non-empty dirs the server returns a "failure" message.
         let cmd = isDirectory ? "rmdir \"\(path)\"" : "rm \"\(path)\""
-        let commands = "\(cmd)\nquit\n"
-        let output = try await runBatch(host: host, port: port, username: username,
-                                        password: password, keyPath: keyPath,
-                                        commands: commands)
+        let output = try await runBatch(conn, commands: "\(cmd)\nquit\n")
         let low = output.lowercased()
         if isDirectory && (low.contains("failure") || low.contains("not empty")) {
             throw SFTPError.directoryNotEmpty
@@ -135,12 +156,8 @@ actor SFTPService {
         }
     }
 
-    func createDirectory(host: String, port: Int, username: String, password: String?,
-                         keyPath: String?, path: String) async throws {
-        let commands = "mkdir \"\(path)\"\nquit\n"
-        let output = try await runBatch(host: host, port: port, username: username,
-                                        password: password, keyPath: keyPath,
-                                        commands: commands)
+    func createDirectory(_ conn: SFTPConnection, path: String) async throws {
+        let output = try await runBatch(conn, commands: "mkdir \"\(path)\"\nquit\n")
         let low = output.lowercased()
         if low.contains("failure") || low.contains("permission denied") {
             throw SFTPError.operationFailed(output)
@@ -149,22 +166,13 @@ actor SFTPService {
 
     // MARK: - Private: Run batch SFTP
 
-    private func runBatch(host: String, port: Int, username: String,
-                          password: String?, keyPath: String?,
-                          commands: String) async throws -> String {
+    private func runBatch(_ conn: SFTPConnection, commands: String) async throws -> String {
         guard FileManager.default.fileExists(atPath: sftp) else {
             throw SFTPError.sftpNotFound
         }
 
-        // Parse "user@host" format — same logic as SSHArgumentBuilder
-        var effectiveUser = username
-        var effectiveHost = host
-        if host.contains("@"), let atRange = host.range(of: "@", options: .backwards) {
-            let parsedUser = String(host[..<atRange.lowerBound])
-            let parsedHost = String(host[atRange.upperBound...])
-            if effectiveUser.isEmpty { effectiveUser = parsedUser }
-            effectiveHost = parsedHost
-        }
+        let args = buildArguments(conn)
+        let password = conn.password
 
         // Temp askpass script path — declared here so we can clean up in terminationHandler
         var askpassScriptPath: String? = nil
@@ -172,25 +180,6 @@ actor SFTPService {
         return try await withCheckedThrowingContinuation { continuation in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: sftp)
-
-            var args = ["-b", "-",
-                        "-o", "ConnectTimeout=10",
-                        "-o", "StrictHostKeyChecking=no",
-                        "-o", "UserKnownHostsFile=/dev/null"]
-
-            // Explicit port flag for sftp is -P (uppercase)
-            args += ["-P", "\(port)"]
-
-            if let kp = keyPath, !kp.isEmpty {
-                args += ["-i", kp]
-            }
-
-            if effectiveUser.isEmpty {
-                args += [effectiveHost]
-            } else {
-                args += ["\(effectiveUser)@\(effectiveHost)"]
-            }
-
             process.arguments = args
 
             // Build environment

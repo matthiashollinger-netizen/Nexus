@@ -182,17 +182,14 @@ struct SFTPBrowserView: View {
 
     /// Resolves the remote home directory and lists it (used on first connect).
     private func loadHome() async {
-        guard let sshInfo = sshConnectionInfo() else {
+        guard let conn = sftpConnection() else {
             errorMessage = String(localized: "sftp.error.no_session")
             return
         }
         isLoading = true
         errorMessage = nil
         do {
-            let (home, result) = try await SFTPService.shared.listHome(
-                host: sshInfo.host, port: sshInfo.port,
-                username: sshInfo.username, password: sshInfo.password,
-                keyPath: sshInfo.keyPath)
+            let (home, result) = try await SFTPService.shared.listHome(conn)
             vm.sftpCurrentPath = home
             items = sortItems(result)
         } catch {
@@ -202,17 +199,14 @@ struct SFTPBrowserView: View {
     }
 
     private func loadDirectory(path: String) async {
-        guard let sshInfo = sshConnectionInfo() else {
+        guard let conn = sftpConnection() else {
             errorMessage = String(localized: "sftp.error.no_session")
             return
         }
         isLoading = true
         errorMessage = nil
         do {
-            let result = try await SFTPService.shared.listDirectory(
-                host: sshInfo.host, port: sshInfo.port,
-                username: sshInfo.username, password: sshInfo.password,
-                keyPath: sshInfo.keyPath, path: path)
+            let result = try await SFTPService.shared.listDirectory(conn, path: path)
             items = sortItems(result)
         } catch {
             errorMessage = error.localizedDescription
@@ -228,7 +222,7 @@ struct SFTPBrowserView: View {
     }
 
     private func downloadFile(item: SFTPItem) async {
-        guard let sshInfo = sshConnectionInfo() else { return }
+        guard let conn = sftpConnection() else { return }
         transferProgress = TransferProgress(filename: item.name, type: .download, fraction: 0)
 
         let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
@@ -236,10 +230,7 @@ struct SFTPBrowserView: View {
         let destURL = downloads.appendingPathComponent(item.name)
 
         do {
-            try await SFTPService.shared.downloadFile(
-                host: sshInfo.host, port: sshInfo.port,
-                username: sshInfo.username, password: sshInfo.password,
-                keyPath: sshInfo.keyPath, remotePath: item.path, to: destURL)
+            try await SFTPService.shared.downloadFile(conn, remotePath: item.path, to: destURL)
             transferProgress = nil
             NSWorkspace.shared.selectFile(destURL.path, inFileViewerRootedAtPath: destURL.deletingLastPathComponent().path)
         } catch {
@@ -249,17 +240,14 @@ struct SFTPBrowserView: View {
     }
 
     private func downloadAndOpen(item: SFTPItem) async {
-        guard let sshInfo = sshConnectionInfo() else { return }
+        guard let conn = sftpConnection() else { return }
         transferProgress = TransferProgress(filename: item.name, type: .download, fraction: 0)
 
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("nexus_sftp_\(UUID().uuidString)_\(item.name)")
 
         do {
-            try await SFTPService.shared.downloadFile(
-                host: sshInfo.host, port: sshInfo.port,
-                username: sshInfo.username, password: sshInfo.password,
-                keyPath: sshInfo.keyPath, remotePath: item.path, to: tempURL)
+            try await SFTPService.shared.downloadFile(conn, remotePath: item.path, to: tempURL)
             transferProgress = nil
             NSWorkspace.shared.open(tempURL)
         } catch {
@@ -269,12 +257,9 @@ struct SFTPBrowserView: View {
     }
 
     private func deleteItem(item: SFTPItem) async {
-        guard let sshInfo = sshConnectionInfo() else { return }
+        guard let conn = sftpConnection() else { return }
         do {
-            try await SFTPService.shared.delete(
-                host: sshInfo.host, port: sshInfo.port,
-                username: sshInfo.username, password: sshInfo.password,
-                keyPath: sshInfo.keyPath, path: item.path, isDirectory: item.isDirectory)
+            try await SFTPService.shared.delete(conn, path: item.path, isDirectory: item.isDirectory)
             await loadDirectory(path: currentPath)
         } catch {
             errorMessage = error.localizedDescription
@@ -282,14 +267,11 @@ struct SFTPBrowserView: View {
     }
 
     private func renameItem(_ item: SFTPItem, to newName: String) async {
-        guard let sshInfo = sshConnectionInfo(), !newName.isEmpty, newName != item.name else { return }
+        guard let conn = sftpConnection(), !newName.isEmpty, newName != item.name else { return }
         let parent = item.path.components(separatedBy: "/").dropLast().joined(separator: "/") + "/"
         let newPath = parent + newName
         do {
-            try await SFTPService.shared.rename(
-                host: sshInfo.host, port: sshInfo.port,
-                username: sshInfo.username, password: sshInfo.password,
-                keyPath: sshInfo.keyPath, from: item.path, to: newPath)
+            try await SFTPService.shared.rename(conn, from: item.path, to: newPath)
             await loadDirectory(path: currentPath)
         } catch {
             errorMessage = error.localizedDescription
@@ -297,13 +279,10 @@ struct SFTPBrowserView: View {
     }
 
     private func createFolder(name: String) async {
-        guard let sshInfo = sshConnectionInfo(), !name.isEmpty else { return }
+        guard let conn = sftpConnection(), !name.isEmpty else { return }
         let newPath = currentPath.hasSuffix("/") ? currentPath + name : currentPath + "/" + name
         do {
-            try await SFTPService.shared.createDirectory(
-                host: sshInfo.host, port: sshInfo.port,
-                username: sshInfo.username, password: sshInfo.password,
-                keyPath: sshInfo.keyPath, path: newPath)
+            try await SFTPService.shared.createDirectory(conn, path: newPath)
             await loadDirectory(path: currentPath)
         } catch {
             errorMessage = error.localizedDescription
@@ -318,14 +297,11 @@ struct SFTPBrowserView: View {
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             Task {
-                guard let sshInfo = sshConnectionInfo() else { return }
+                guard let conn = sftpConnection() else { return }
                 transferProgress = TransferProgress(filename: url.lastPathComponent, type: .upload, fraction: 0)
                 let remotePath = (currentPath.hasSuffix("/") ? currentPath : currentPath + "/") + url.lastPathComponent
                 do {
-                    try await SFTPService.shared.uploadFile(
-                        host: sshInfo.host, port: sshInfo.port,
-                        username: sshInfo.username, password: sshInfo.password,
-                        keyPath: sshInfo.keyPath, from: url, remotePath: remotePath)
+                    try await SFTPService.shared.uploadFile(conn, from: url, remotePath: remotePath)
                     transferProgress = nil
                     await loadDirectory(path: currentPath)
                 } catch {
@@ -336,36 +312,29 @@ struct SFTPBrowserView: View {
         }
     }
 
-    // MARK: - SSH Info helper
+    // MARK: - SFTP connection helper
 
-    private struct SSHInfo {
-        let host: String
-        let port: Int
-        let username: String
-        let password: String?
-        let keyPath: String?
-    }
-
-    private func sshConnectionInfo() -> SSHInfo? {
+    /// Builds the SFTP connection params from the live SSH session — INCLUDING the
+    /// session's legacy-algorithm / host-key / timeout / jump-host options, so SFTP
+    /// authenticates against exactly the servers the SSH terminal connects to.
+    private func sftpConnection() -> SFTPConnection? {
         guard cs.session.connectionType == .ssh else { return nil }
         let session = cs.session
 
-        // Parse "user@host" format in session.host — same logic as SSHArgumentBuilder
-        var effectiveUser = session.username
-        var effectiveHost = session.host
-        if session.host.contains("@"), let atRange = session.host.range(of: "@", options: .backwards) {
-            let parsedUser = String(session.host[..<atRange.lowerBound])
-            let parsedHost = String(session.host[atRange.upperBound...])
-            if effectiveUser.isEmpty { effectiveUser = parsedUser }
-            effectiveHost = parsedHost
-        }
+        let options = SSHConnectionOptions(
+            useLegacyAlgorithms: session.sshUseLegacyAlgorithms ?? vm.settings.sshLegacyAlgorithms,
+            strictHostKeyChecking: session.sshStrictHostKeyChecking,
+            connectTimeout: session.connectTimeout,
+            jumpHost: session.jumpHost
+        )
 
-        return SSHInfo(
-            host: effectiveHost,
+        return SFTPConnection(
+            host: session.host,             // buildArguments() handles "user@host"
             port: session.port,
-            username: effectiveUser,
+            username: session.username,
             password: cs.sshPassword,
-            keyPath: cs.tempKeyPath ?? (session.sshPrivateKeyPath.isEmpty ? nil : session.sshPrivateKeyPath)
+            keyPath: cs.tempKeyPath ?? (session.sshPrivateKeyPath.isEmpty ? nil : session.sshPrivateKeyPath),
+            options: options
         )
     }
 }

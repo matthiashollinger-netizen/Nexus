@@ -1,5 +1,44 @@
 import Foundation
 
+/// Connection options shared by BOTH `/usr/bin/ssh` (terminal) and `/usr/bin/sftp`
+/// (file browser). Centralising these guarantees that whatever lets the SSH terminal
+/// connect (legacy algorithms, host-key bypass, timeout, jump host) ALSO applies to
+/// SFTP — previously SFTP omitted the legacy-algorithm flags, so it failed against old
+/// switches that the terminal connected to fine ("Authentication failed" / reset).
+struct SSHConnectionOptions {
+    var useLegacyAlgorithms: Bool
+    var strictHostKeyChecking: Bool
+    var connectTimeout: Int = 10
+    var jumpHost: JumpHost? = nil
+
+    /// The `-o` flags common to ssh and sftp (NOT including -p/-P which differ).
+    func commonOptionFlags() -> [String] {
+        var args: [String] = []
+        args += ["-o", "ConnectTimeout=\(max(1, connectTimeout))"]
+
+        if useLegacyAlgorithms {
+            // Legacy switches need these SHA-1 algorithms re-enabled with `+`.
+            args += [
+                "-o", "KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1",
+                "-o", "HostKeyAlgorithms=+ssh-rsa",
+                "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa"
+            ]
+        }
+
+        if !strictHostKeyChecking {
+            args += ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
+        }
+        return args
+    }
+
+    /// The `-J` ProxyJump flag, if a jump host is configured.
+    func jumpHostFlag() -> [String] {
+        guard let j = jumpHost, !j.host.isEmpty else { return [] }
+        let spec = j.username.isEmpty ? "\(j.host):\(j.port)" : "\(j.username)@\(j.host):\(j.port)"
+        return ["-J", spec]
+    }
+}
+
 /// Builds the argument list for the system `ssh` binary.
 /// The actual PTY/process management is done by SwiftTerm's LocalTerminalView.
 struct SSHArgumentBuilder {
@@ -30,35 +69,23 @@ struct SSHArgumentBuilder {
         var args: [String] = []
 
         args += ["-p", "\(port)"]
-        args += ["-o", "ConnectTimeout=\(max(1, connectTimeout))"]
-        args += ["-o", "ServerAliveInterval=60"]
 
-        if useLegacyAlgorithms {
-            args += [
-                "-o", "KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1",
-                "-o", "HostKeyAlgorithms=+ssh-rsa",
-                "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa"
-            ]
-        }
-
-        if !strictHostKeyChecking {
-            args += ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null"]
-        }
+        // Shared connection options (identical to what SFTP uses — see SSHConnectionOptions)
+        let options = SSHConnectionOptions(
+            useLegacyAlgorithms: useLegacyAlgorithms,
+            strictHostKeyChecking: strictHostKeyChecking,
+            connectTimeout: connectTimeout,
+            jumpHost: jumpHost
+        )
+        args += options.commonOptionFlags()
+        args += ["-o", "ServerAliveInterval=60"]   // terminal-only keepalive
 
         if let keyPath = privateKeyPath, !keyPath.isEmpty {
             args += ["-i", keyPath]
         }
 
         // ── Jump Host (ProxyJump) ─────────────────────────────────────────────
-        if let j = jumpHost, !j.host.isEmpty {
-            let jumpSpec: String
-            if j.username.isEmpty {
-                jumpSpec = "\(j.host):\(j.port)"
-            } else {
-                jumpSpec = "\(j.username)@\(j.host):\(j.port)"
-            }
-            args += ["-J", jumpSpec]
-        }
+        args += options.jumpHostFlag()
 
         // ── Port Forwardings ──────────────────────────────────────────────────
         for fwd in portForwardings {
