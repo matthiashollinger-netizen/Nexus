@@ -686,3 +686,7 @@
 
 // MARK: - Sidebar drag
 "sidebar.drag_hint" = "Drag to move or reorder";
+
+// MARK: - Server Manager (v2.3.0 native servers)
+"server.privileged_port_warning" = "Ports below 1024 require root. Use a higher port (e.g. 6969 for TFTP).";
+"server.note.sftp" = "An SFTP server needs a full SSH server and cannot be shipped self-contained. Use TFTP or FTP for device uploads — TFTP is the Cisco/HP standard.";

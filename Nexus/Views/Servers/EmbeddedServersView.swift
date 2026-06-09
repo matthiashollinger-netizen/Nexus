@@ -70,8 +70,6 @@ struct EmbeddedServersView: View {
                        onStart: { Task { await startServer(serverService.servers[idx]) } },
                        onStop: { serverService.stop(serverService.servers[idx]) },
                        onConfigure: { configuringServer = serverService.servers[idx] })
-        } else if type.isSystemService {
-            SystemServiceCard(type: type)
         } else {
             DeactivatedServerCard(type: type)
         }
@@ -98,43 +96,7 @@ struct EmbeddedServersView: View {
     }
 }
 
-// MARK: - System service card (e.g. SFTP via macOS Remote Login)
-
-private struct SystemServiceCard: View {
-    let type: EmbeddedServer.ServerType
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Image(systemName: type.systemImage).font(.title2).foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(type.displayName).fontWeight(.semibold)
-                    Text("server.system_service").font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-            Text(LocalizedStringKey(type.noteKey))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Divider()
-            Button("server.open_settings") { openSharingSettings() }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-        }
-        .padding(14)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
-    }
-
-    private func openSharingSettings() {
-        // Opens System Settings → General → Sharing (where Remote Login lives).
-        if let url = URL(string: "x-apple.systempreferences:com.apple.Sharing-Settings.extension") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-}
-
-// MARK: - Deactivated server card (FTP, Telnet)
+// MARK: - Deactivated server card (SFTP, Telnet)
 
 private struct DeactivatedServerCard: View {
     let type: EmbeddedServer.ServerType
@@ -171,6 +133,20 @@ struct ServerCard: View {
 
     @State private var showLogs = false
 
+    /// The address a client/switch should use, e.g. "tftp://192.168.90.10:6969".
+    private var reachableAddress: String {
+        let ip = EmbeddedServerService.localIPAddress() ?? "127.0.0.1"
+        let scheme: String
+        switch server.type {
+        case .http:   scheme = "http"
+        case .tftp:   scheme = "tftp"
+        case .ftp:    scheme = "ftp"
+        case .sftp:   scheme = "sftp"
+        case .telnet: scheme = "telnet"
+        }
+        return "\(scheme)://\(ip):\(server.port)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             // Header
@@ -201,6 +177,16 @@ struct ServerCard: View {
                 Spacer()
             }
 
+            // Reachable address (what to type on the switch) — shown while running.
+            if server.isRunning {
+                Label(reachableAddress, systemImage: "antenna.radiowaves.left.and.right")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.green)
+                    .textSelection(.enabled)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
             if !server.rootDirectory.isEmpty {
                 Text(server.rootDirectory)
                     .font(.caption2)
@@ -211,9 +197,9 @@ struct ServerCard: View {
 
             Divider()
 
-            // TFTP port-69 root-privilege warning
-            if server.type == .tftp && server.port == 69 {
-                Label("server.tftp.root_warning", systemImage: "exclamationmark.triangle.fill")
+            // Privileged-port warning (ports < 1024 need root)
+            if server.port < 1024 {
+                Label("server.privileged_port_warning", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
             }

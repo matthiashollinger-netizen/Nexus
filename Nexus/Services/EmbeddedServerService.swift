@@ -32,35 +32,30 @@ struct EmbeddedServer: Identifiable, Codable {
         var defaultPort: Int {
             switch self {
             case .http:   return 8080
-            case .tftp:   return 69
+            case .tftp:   return 6969   // 69 needs root → default to a high port
             case .sftp:   return 22
             case .ftp:    return 2121
             case .telnet: return 23
             }
         }
 
-        /// Can this server be started directly from within Nexus, self-contained?
-        /// - HTTP: native (Network.framework) ✅
-        /// - TFTP: macOS system binary /usr/libexec/tftpd ✅ (root for :69)
-        /// - SFTP: provided by macOS "Remote Login" (system setting), not a process
-        ///         we start ourselves → shown as an info card.
-        /// - FTP:  needs pyftpdlib (not bundled) → deactivated.
-        /// - Telnet: would expose an unauthenticated shell → intentionally not shipped.
+        /// Can this server be started from within Nexus, self-contained (no external tool)?
+        /// - HTTP: native NativeHTTPServer ✅
+        /// - TFTP: native NativeTFTPServer ✅ (the Cisco/HP standard; high port avoids root)
+        /// - FTP:  native NativeFTPServer ✅ (passive mode)
+        /// - SFTP: requires a full SSH server → not shippable without system sshd → off
+        /// - Telnet: not needed (user) and would expose a shell → off
         var isAvailable: Bool {
             switch self {
-            case .http, .tftp: return true
-            case .sftp, .ftp, .telnet: return false
+            case .http, .tftp, .ftp: return true
+            case .sftp, .telnet:     return false
             }
         }
-
-        /// macOS provides this as a system service rather than a process we launch.
-        var isSystemService: Bool { self == .sftp }
 
         /// Localized one-line note explaining the status of a non-startable type.
         var noteKey: String {
             switch self {
             case .sftp:   return "server.note.sftp"
-            case .ftp:    return "server.note.ftp"
             case .telnet: return "server.note.telnet"
             default:      return ""
             }
@@ -76,8 +71,9 @@ final class EmbeddedServerService {
 
     var servers: [EmbeddedServer] = []
 
-    private var processes: [UUID: Process] = [:]
     private var httpServers: [UUID: NativeHTTPServer] = [:]
+    private var tftpServers: [UUID: NativeTFTPServer] = [:]
+    private var ftpServers: [UUID: NativeFTPServer] = [:]
     private var serverLogs: [UUID: [String]] = [:]
 
     private var appSupportURL: URL {
@@ -112,89 +108,66 @@ final class EmbeddedServerService {
     func start(_ server: EmbeddedServer) async throws {
         guard let idx = servers.firstIndex(where: { $0.id == server.id }) else { return }
 
-        // Deactivated server types cannot start (UI greys them out, but guard anyway).
         guard server.type.isAvailable else {
             throw EmbeddedServerError.notAvailable(server.type.displayName)
         }
 
-        // Check if port is available
-        if isPortInUse(server.port) {
-            throw EmbeddedServerError.portInUse(server.port)
-        }
+        let rootURL = URL(fileURLWithPath: server.rootDirectory.isEmpty
+            ? FileManager.default.homeDirectoryForCurrentUser.path
+            : server.rootDirectory)
 
-        // HTTP uses the native Network.framework server — no python3 needed.
-        if server.type == .http {
-            let rootPath = server.rootDirectory.isEmpty
-                ? FileManager.default.homeDirectoryForCurrentUser.path
-                : server.rootDirectory
-            guard let httpServer = NativeHTTPServer(
-                rootDirectory: URL(fileURLWithPath: rootPath), port: server.port) else {
-                throw EmbeddedServerError.portInUse(server.port)
-            }
-            httpServer.onLog = { [weak self] line in
-                DispatchQueue.main.async {
-                    guard let self else { return }
-                    var existing = self.serverLogs[server.id] ?? []
-                    existing.append(line)
-                    if existing.count > 200 { existing = Array(existing.suffix(200)) }
-                    self.serverLogs[server.id] = existing
-                }
-            }
-            try httpServer.start()
-            httpServers[server.id] = httpServer
-            servers[idx].isRunning = true
-            return
-        }
-
-        // TFTP (and any future Process-based type) uses a system binary.
-        let process = try buildProcess(for: server)
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-
-        // Capture logs
-        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            guard let self else { return }
-            let data = handle.availableData
-            if let line = String(data: data, encoding: .utf8), !line.isEmpty {
-                DispatchQueue.main.async {
-                    var existing = self.serverLogs[server.id] ?? []
-                    existing.append(contentsOf: line.components(separatedBy: .newlines).filter { !$0.isEmpty })
-                    if existing.count > 200 { existing = Array(existing.suffix(200)) }
-                    self.serverLogs[server.id] = existing
-                }
-            }
-        }
-
-        process.terminationHandler = { [weak self] _ in
+        // Logging closure shared by all native servers.
+        let log: (String) -> Void = { [weak self] line in
             DispatchQueue.main.async {
                 guard let self else { return }
-                self.processes.removeValue(forKey: server.id)
-                if let i = self.servers.firstIndex(where: { $0.id == server.id }) {
-                    self.servers[i].isRunning = false
-                }
+                var existing = self.serverLogs[server.id] ?? []
+                existing.append(line)
+                if existing.count > 200 { existing = Array(existing.suffix(200)) }
+                self.serverLogs[server.id] = existing
             }
         }
 
-        try process.run()
-        processes[server.id] = process
+        switch server.type {
+        case .http:
+            if isPortInUse(server.port) { throw EmbeddedServerError.portInUse(server.port) }
+            guard let s = NativeHTTPServer(rootDirectory: rootURL, port: server.port) else {
+                throw EmbeddedServerError.portInUse(server.port)
+            }
+            s.onLog = log
+            try s.start()
+            httpServers[server.id] = s
+
+        case .tftp:
+            // TFTP is UDP — the TCP isPortInUse check doesn't apply; NWListener reports conflicts.
+            guard let s = NativeTFTPServer(rootDirectory: rootURL, port: server.port) else {
+                throw EmbeddedServerError.portInUse(server.port)
+            }
+            s.onLog = log
+            try s.start()
+            tftpServers[server.id] = s
+
+        case .ftp:
+            if isPortInUse(server.port) { throw EmbeddedServerError.portInUse(server.port) }
+            guard let s = NativeFTPServer(rootDirectory: rootURL, port: server.port) else {
+                throw EmbeddedServerError.portInUse(server.port)
+            }
+            s.onLog = log
+            try s.start()
+            ftpServers[server.id] = s
+
+        case .sftp, .telnet:
+            throw EmbeddedServerError.notAvailable(server.type.displayName)
+        }
+
         servers[idx].isRunning = true
     }
 
     // MARK: - Stop
 
     func stop(_ server: EmbeddedServer) {
-        // Native HTTP server
-        if let httpServer = httpServers[server.id] {
-            httpServer.stop()
-            httpServers.removeValue(forKey: server.id)
-        }
-        // Process-based server (TFTP)
-        if let proc = processes[server.id] {
-            proc.terminate()
-            processes.removeValue(forKey: server.id)
-        }
+        httpServers[server.id]?.stop(); httpServers.removeValue(forKey: server.id)
+        tftpServers[server.id]?.stop(); tftpServers.removeValue(forKey: server.id)
+        ftpServers[server.id]?.stop(); ftpServers.removeValue(forKey: server.id)
         if let idx = servers.firstIndex(where: { $0.id == server.id }) {
             servers[idx].isRunning = false
         }
@@ -206,35 +179,35 @@ final class EmbeddedServerService {
         serverLogs[server.id] ?? []
     }
 
-    // MARK: - Helpers
+    // MARK: - Reachable address
 
-    private func buildProcess(for server: EmbeddedServer) throws -> Process {
-        let process = Process()
-        let rootDir = server.rootDirectory.isEmpty
-            ? FileManager.default.homeDirectoryForCurrentUser.path
-            : server.rootDirectory
-
-        switch server.type {
-        case .tftp:
-            // macOS ships tftpd as a system binary — no install required.
-            let tftp = "/usr/libexec/tftpd"
-            guard FileManager.default.fileExists(atPath: tftp) else {
-                throw EmbeddedServerError.binaryNotFound("tftpd")
+    /// Returns the Mac's primary LAN IPv4 address (for "tftp://<ip>:<port>" hints).
+    static func localIPAddress() -> String? {
+        var address: String?
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return nil }
+        defer { freeifaddrs(ifaddr) }
+        for ptr in sequence(first: first, next: { $0.pointee.ifa_next }) {
+            let flags = Int32(ptr.pointee.ifa_flags)
+            let addr = ptr.pointee.ifa_addr.pointee
+            // Up, running, not loopback, IPv4
+            guard (flags & (IFF_UP|IFF_RUNNING)) == (IFF_UP|IFF_RUNNING),
+                  (flags & IFF_LOOPBACK) == 0,
+                  addr.sa_family == UInt8(AF_INET) else { continue }
+            let name = String(cString: ptr.pointee.ifa_name)
+            // Prefer en0/en1 (Wi-Fi/Ethernet) over virtual interfaces.
+            guard name.hasPrefix("en") else { continue }
+            var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            if getnameinfo(ptr.pointee.ifa_addr, socklen_t(addr.sa_len), &host,
+                           socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 {
+                address = String(cString: host)
+                break
             }
-            process.executableURL = URL(fileURLWithPath: tftp)
-            process.arguments = ["-i", rootDir, "\(server.port)"]
-
-        case .http:
-            // HTTP is handled by NativeHTTPServer, never reaches here.
-            throw EmbeddedServerError.notAvailable("HTTP")
-
-        case .ftp, .sftp, .telnet:
-            // Deactivated / system-provided — UI handles these without starting a process.
-            throw EmbeddedServerError.notAvailable(server.type.displayName)
         }
-
-        return process
+        return address
     }
+
+    // MARK: - Helpers
 
     private func isPortInUse(_ port: Int) -> Bool {
         let fd = socket(AF_INET, SOCK_STREAM, 0)
