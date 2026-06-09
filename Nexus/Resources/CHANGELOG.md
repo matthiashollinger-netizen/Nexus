@@ -2,6 +2,41 @@
 
 ---
 
+## [2.3.0] - 2026-06-09
+
+### Behoben — KRITISCH (Datenverlust)
+- **Sessions verschwanden bei einem Versions-Update** und Backups zeigten „0 Sessions".
+  Ursache: Swifts synthetisiertes Codable verlangte jeden neuen Pflicht-Schlüssel im
+  alten `sessions.json` — fehlte einer, schlug das Laden ALLER Sessions fehl (Ordner
+  blieben, da unverändert). Fix: tolerante Decoder für Session/Folder/Settings, die
+  fehlende Schlüssel mit Defaults auffüllen → nie wieder Verlust bei Schema-Änderungen.
+  Zusätzliche Schutznetze: beschädigte Dateien werden bewahrt statt überschrieben,
+  und eine nicht-leere Sessions-Datei wird nie kommentarlos durch eine leere ersetzt.
+
+### Behoben
+- **SFTP „Authentication failed"**: SFTP wendet jetzt dieselben Legacy-Algorithmen,
+  Host-Key-, Timeout- und Jump-Host-Einstellungen an wie die SSH-Session (gemeinsamer
+  Code) — verbindet sich damit zu denselben (alten) Switches.
+- **Konfigurierter Port**: SFTP nutzt korrekt `-P` (Großbuchstabe), SSH `-p` — der
+  in der Session gesetzte Port (z. B. 2222) wird zuverlässig verwendet.
+- **Sidebar Einzel-/Doppelklick (3× zurückgekehrt — jetzt dauerhaft)**: ganze Zeile
+  per Einzelklick auswählbar; Doppelklick öffnet immer das angeklickte Item (nicht
+  mehr das zuvor ausgewählte). Begründung in NOTES.md dokumentiert.
+- **Sidebar-Drag**: sichtbarer Einfüge-Strich (Akzentfarbe) zeigt die genaue
+  Zielposition; Ordner werden beim Hineinziehen hervorgehoben.
+- Session-Editor: überflüssige Platzhalter-Texte rechts neben Host/Benutzername/Name
+  entfernt.
+
+### Neu
+- **Echte eingebettete Server** im Server-Manager (Mac = Server, Switch = Client):
+  - **TFTP-Server** nativ (der Cisco/HP-Standard), Up- und Download, Default-Port 6969.
+  - **FTP-Server** nativ (Passive Mode), Up- und Download, Default-Port 2121.
+  - HTTP weiterhin nativ. Bei laufendem Server wird die erreichbare Adresse angezeigt
+    (z. B. `tftp://192.168.x.x:6969`).
+  - SFTP-/Telnet-Server deaktiviert mit ehrlicher Begründung.
+
+---
+
 ## [2.2.0] - 2026-06-02
 
 ### Neu
