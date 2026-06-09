@@ -2,16 +2,26 @@ import SwiftUI
 import UniformTypeIdentifiers
 import AppKit
 
-// MARK: - Drag payload encoding
+// MARK: - Sidebar drag & drop
 //
-// We deliberately use the older NSItemProvider (`.onDrag`) + `.onDrop(delegate:)`
-// APIs rather than `.draggable`/`.dropDestination`. Reasons:
-//   • `.draggable` on a List row breaks single-click row selection on macOS
-//     (clicking the text didn't select — Task 4 regression). `.onDrag` keeps it.
-//   • `.onDrop(delegate:)` lets us return a `.move` operation so the cursor shows
-//     a clean move instead of the green "+" copy badge (Task 5).
+// WHY THIS DESIGN (read before changing — the click handling has regressed 3×):
 //
-// The payload is a tiny plain-text string: "session:<uuid>" or "folder:<uuid>".
+//  1. SINGLE-CLICK must select the whole row. The killer was `.onDrag`/`.draggable`
+//     applied to the ROW CONTENT — on macOS that steals the List's single-click
+//     selection on exactly the area it covers (so only the leading inset "beside the
+//     text" still selected). FIX: the drag source `.onDrag` lives ONLY on a small
+//     trailing grip handle, never on the selectable text. The row content stays a
+//     clean List selection target via `.contentShape(Rectangle())`.
+//
+//  2. DOUBLE-CLICK must open the row UNDER THE CURSOR. The killer was a GLOBAL
+//     NSEvent monitor that connected `vm.selectedSidebarItem` — i.e. whatever was
+//     already selected, not what was double-clicked. FIX: a per-row
+//     `simultaneousGesture(TapGesture(count: 2))` that captures THIS row's session,
+//     so it is always the correct item. No global state, no monitor.
+//
+//  3. VISIBLE DROP INDICATOR: each row is a drop target; while hovered it publishes
+//     itself to `SidebarDragModel` which draws an accent insertion line (reorder) or
+//     a folder highlight (move-into). No reliance on `.onMove`'s opaque native line.
 
 enum SidebarDragPayload {
     static func encode(id: UUID, isFolder: Bool) -> String {
@@ -27,38 +37,102 @@ enum SidebarDragPayload {
     }
 }
 
-// MARK: - Drop delegate (returns .move so no "+" cursor)
+/// Shared, observable drag state so rows can render the insertion line / highlight.
+@Observable final class SidebarDragModel {
+    var insertBeforeId: UUID? = nil   // draw an accent line above this row
+    var intoFolderId: UUID? = nil     // highlight this folder (move-into)
+    var onRoot: Bool = false          // highlight the root drop area
+}
 
-struct SidebarDropDelegate: DropDelegate {
-    let targetFolderId: UUID?       // nil = drop onto root
+/// Drop target for "insert before this row" (reorder within the row's level).
+struct RowReorderDropDelegate: DropDelegate {
+    let targetId: UUID
+    let targetIsFolder: Bool
+    let targetParentId: UUID?     // the folder the target lives in
     let vm: AppViewModel
-    @Binding var isTargeted: Bool
+    let model: SidebarDragModel
 
-    func validateDrop(info: DropInfo) -> Bool {
-        info.hasItemsConforming(to: [.text])
-    }
-
-    func dropEntered(info: DropInfo) { isTargeted = true }
-    func dropExited(info: DropInfo)  { isTargeted = false }
-
-    // Returning .move makes macOS show a move cursor (no green "+" copy badge).
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
-    }
+    func validateDrop(info: DropInfo) -> Bool { info.hasItemsConforming(to: [.text]) }
+    func dropEntered(info: DropInfo) { model.insertBeforeId = targetId; model.intoFolderId = nil; model.onRoot = false }
+    func dropExited(info: DropInfo)  { if model.insertBeforeId == targetId { model.insertBeforeId = nil } }
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
 
     func performDrop(info: DropInfo) -> Bool {
-        isTargeted = false
-        let providers = info.itemProviders(for: [.text])
-        guard let provider = providers.first else { return false }
-
+        model.insertBeforeId = nil
+        guard let provider = info.itemProviders(for: [.text]).first else { return false }
         provider.loadObject(ofClass: NSString.self) { object, _ in
-            guard let string = object as? String,
-                  let payload = SidebarDragPayload.decode(string) else { return }
+            guard let s = object as? String, let p = SidebarDragPayload.decode(s) else { return }
+            guard p.id != targetId else { return }   // can't drop onto self
             DispatchQueue.main.async {
-                vm.moveSidebarItem(id: payload.id, isFolder: payload.isFolder, toFolderId: targetFolderId)
+                vm.moveSidebarItem(id: p.id, isFolder: p.isFolder,
+                                   toFolderId: targetParentId, before: (targetId, targetIsFolder))
             }
         }
         return true
+    }
+}
+
+/// Drop target for "move into this folder".
+struct FolderIntoDropDelegate: DropDelegate {
+    let folderId: UUID
+    let vm: AppViewModel
+    let model: SidebarDragModel
+
+    func validateDrop(info: DropInfo) -> Bool { info.hasItemsConforming(to: [.text]) }
+    func dropEntered(info: DropInfo) { model.intoFolderId = folderId; model.insertBeforeId = nil; model.onRoot = false }
+    func dropExited(info: DropInfo)  { if model.intoFolderId == folderId { model.intoFolderId = nil } }
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
+
+    func performDrop(info: DropInfo) -> Bool {
+        model.intoFolderId = nil
+        guard let provider = info.itemProviders(for: [.text]).first else { return false }
+        provider.loadObject(ofClass: NSString.self) { object, _ in
+            guard let s = object as? String, let p = SidebarDragPayload.decode(s) else { return }
+            DispatchQueue.main.async {
+                vm.moveSidebarItem(id: p.id, isFolder: p.isFolder, toFolderId: folderId, before: nil)
+            }
+        }
+        return true
+    }
+}
+
+/// Drop target for the root area (move to top level).
+struct RootDropDelegate: DropDelegate {
+    let vm: AppViewModel
+    let model: SidebarDragModel
+
+    func validateDrop(info: DropInfo) -> Bool { info.hasItemsConforming(to: [.text]) }
+    func dropEntered(info: DropInfo) { model.onRoot = true }
+    func dropExited(info: DropInfo)  { model.onRoot = false }
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
+
+    func performDrop(info: DropInfo) -> Bool {
+        model.onRoot = false
+        guard let provider = info.itemProviders(for: [.text]).first else { return false }
+        provider.loadObject(ofClass: NSString.self) { object, _ in
+            guard let s = object as? String, let p = SidebarDragPayload.decode(s) else { return }
+            DispatchQueue.main.async {
+                vm.moveSidebarItem(id: p.id, isFolder: p.isFolder, toFolderId: nil, before: nil)
+            }
+        }
+        return true
+    }
+}
+
+/// A small trailing grip the user drags to move a row. `.onDrag` lives HERE only,
+/// never on the row's selectable content — so single-click selection keeps working.
+struct SidebarDragHandle: View {
+    let id: UUID
+    let isFolder: Bool
+
+    var body: some View {
+        Image(systemName: "line.3.horizontal")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+            .frame(width: 18, height: 18)
+            .contentShape(Rectangle())
+            .onDrag { SidebarDragPayload.itemProvider(id: id, isFolder: isFolder) }
+            .help("sidebar.drag_hint")
     }
 }
 
@@ -67,7 +141,7 @@ struct SidebarDropDelegate: DropDelegate {
 struct SidebarView: View {
     @Environment(AppViewModel.self) private var vm
     @State private var searchText = ""
-    @State private var isRootDropTargeted = false
+    @State private var dragModel = SidebarDragModel()
 
     private var canEditSelected:  Bool { vm.selectedSidebarItems.count == 1 }
     private var canDeleteSelected: Bool { !vm.selectedSidebarItems.isEmpty }
@@ -96,31 +170,23 @@ struct SidebarView: View {
 
         List(selection: $vm.selectedSidebarItems) {
             Section {
-                // Root-level folders (reorderable)
+                // Root-level folders
                 ForEach(vm.childFolders(of: nil)) { folder in
                     FolderRow(folder: folder, depth: 0, searchText: searchText)
                 }
-                .onMove { from, to in
-                    vm.reorderFolders(parentId: nil, from: from, to: to)
-                }
-
-                // Root-level sessions (reorderable)
+                // Root-level sessions
                 ForEach(vm.sessions(in: nil).filtered(by: searchText)) { session in
-                    SessionRow(session: session)
-                }
-                .onMove { from, to in
-                    vm.reorderSessions(folderId: nil, from: from, to: to)
+                    SessionRow(session: session, parentFolderId: nil)
                 }
             }
         }
         .listStyle(.sidebar)
+        .environment(dragModel)
         .searchable(text: $searchText, placement: .sidebar)
-        // Drop onto root (outside any folder) → move item to top level.
-        // .move operation = clean move cursor, no "+" copy badge.
-        .onDrop(of: [.text], delegate: SidebarDropDelegate(
-            targetFolderId: nil, vm: vm, isTargeted: $isRootDropTargeted))
+        // Drop onto the root area (outside any folder) → move to top level.
+        .onDrop(of: [.text], delegate: RootDropDelegate(vm: vm, model: dragModel))
         .overlay(alignment: .bottom) {
-            if isRootDropTargeted {
+            if dragModel.onRoot {
                 RoundedRectangle(cornerRadius: 6)
                     .stroke(Color.accentColor, lineWidth: 2)
                     .padding(4)
@@ -128,11 +194,6 @@ struct SidebarView: View {
             }
         }
         .onDeleteCommand { deleteSelected() }
-        .background(SidebarDoubleClickMonitor {
-            if let item = vm.selectedSidebarItem, case .session(let s) = item {
-                vm.connect(to: s)
-            }
-        })
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Menu {
@@ -200,7 +261,7 @@ struct FolderRow: View {
     let depth: Int
     let searchText: String
     @Environment(AppViewModel.self) private var vm
-    @State private var isDropTargeted = false
+    @Environment(SidebarDragModel.self) private var dragModel
 
     private var childFolders: [Folder] { vm.childFolders(of: folder.id) }
     private var childSessions: [Session] { vm.sessions(in: folder.id).filtered(by: searchText) }
@@ -213,63 +274,57 @@ struct FolderRow: View {
                 vm.updateFolder(updated)
             }
         )) {
-            // Child folders (reorderable within this folder)
             ForEach(childFolders) { child in
                 FolderRow(folder: child, depth: depth + 1, searchText: searchText)
             }
-            .onMove { from, to in
-                vm.reorderFolders(parentId: folder.id, from: from, to: to)
-            }
-
-            // Child sessions (reorderable within this folder)
             ForEach(childSessions) { session in
-                SessionRow(session: session)
-            }
-            .onMove { from, to in
-                vm.reorderSessions(folderId: folder.id, from: from, to: to)
+                SessionRow(session: session, parentFolderId: folder.id)
             }
         } label: {
-            Label(folder.name, systemImage: "folder")
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())   // whole row selectable, incl. the text
-                .tag(SidebarItem.folder(folder))
-                .background(isDropTargeted ? Color.accentColor.opacity(0.15) : Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-                // .onDrag (not .draggable) keeps single-click row selection working.
-                .onDrag { SidebarDragPayload.itemProvider(id: folder.id, isFolder: true) }
-                // Drop INTO this folder.
-                .onDrop(of: [.text], delegate: SidebarDropDelegate(
-                    targetFolderId: folder.id, vm: vm, isTargeted: $isDropTargeted))
-                .contextMenu {
-                    Button {
-                        vm.addSessionParentFolderId = folder.id
-                        vm.showAddSession = true
-                    } label: {
-                        Label("sidebar.add_session", systemImage: "plus.circle")
-                    }
-                    Button {
-                        vm.addSessionParentFolderId = folder.id
-                        vm.showAddFolder = true
-                    } label: {
-                        Label("sidebar.add_subfolder", systemImage: "folder.badge.plus")
-                    }
-                    Divider()
-                    Button { vm.editingFolder = folder } label: {
-                        Label("action.edit", systemImage: "pencil")
-                    }
-                    Button(role: .destructive) { vm.deleteFolder(folder) } label: {
-                        Label("action.delete", systemImage: "trash")
-                    }
+            HStack(spacing: 6) {
+                Label(folder.name, systemImage: "folder")
+                Spacer(minLength: 0)
+                SidebarDragHandle(id: folder.id, isFolder: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())   // whole row selectable, incl. the text
+            .tag(SidebarItem.folder(folder))
+            .background(dragModel.intoFolderId == folder.id ? Color.accentColor.opacity(0.18) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            // Insertion line above the folder (reorder within its level)
+            .overlay(alignment: .top) {
+                if dragModel.insertBeforeId == folder.id { InsertionLine() }
+            }
+            // Dropping ONTO a folder moves the item INTO it.
+            .onDrop(of: [.text], delegate: FolderIntoDropDelegate(
+                folderId: folder.id, vm: vm, model: dragModel))
+            // Double-click connects... folders aren't connectable, so just toggle expand.
+            .contextMenu {
+                Button {
+                    vm.addSessionParentFolderId = folder.id
+                    vm.showAddSession = true
+                } label: { Label("sidebar.add_session", systemImage: "plus.circle") }
+                Button {
+                    vm.addSessionParentFolderId = folder.id
+                    vm.showAddFolder = true
+                } label: { Label("sidebar.add_subfolder", systemImage: "folder.badge.plus") }
+                Divider()
+                Button { vm.editingFolder = folder } label: { Label("action.edit", systemImage: "pencil") }
+                Button(role: .destructive) { vm.deleteFolder(folder) } label: {
+                    Label("action.delete", systemImage: "trash")
                 }
+            }
         }
     }
 }
 
-// MARK: - Session row (draggable)
+// MARK: - Session row
 
 struct SessionRow: View {
     let session: Session
+    let parentFolderId: UUID?
     @Environment(AppViewModel.self) private var vm
+    @Environment(SidebarDragModel.self) private var dragModel
 
     var body: some View {
         HStack(spacing: 8) {
@@ -287,12 +342,25 @@ struct SessionRow: View {
                 }
             }
             Spacer(minLength: 0)
+            SidebarDragHandle(id: session.id, isFolder: false)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())   // entire row (incl. text) is the click target
+        .contentShape(Rectangle())   // entire row (incl. text) is the single-click target
         .tag(SidebarItem.session(session))
-        // .onDrag (not .draggable) so a single click on the text still selects.
-        .onDrag { SidebarDragPayload.itemProvider(id: session.id, isFolder: false) }
+        // DOUBLE-CLICK: per-row gesture → always connects THIS session (never the
+        // previously-selected one). simultaneousGesture coexists with List single-click
+        // selection. This is the permanent fix for the recurring "wrong item" bug.
+        .simultaneousGesture(TapGesture(count: 2).onEnded {
+            vm.connect(to: session)
+        })
+        // Insertion line above this row (reorder within the level)
+        .overlay(alignment: .top) {
+            if dragModel.insertBeforeId == session.id { InsertionLine() }
+        }
+        // Dropping ONTO a session inserts the dragged item before it (reorder).
+        .onDrop(of: [.text], delegate: RowReorderDropDelegate(
+            targetId: session.id, targetIsFolder: false,
+            targetParentId: parentFolderId, vm: vm, model: dragModel))
         .contextMenu {
             Button { vm.connect(to: session) } label: {
                 Label("action.connect", systemImage: "play.fill")
@@ -308,37 +376,17 @@ struct SessionRow: View {
     }
 }
 
-// MARK: - Double-click detector
+// MARK: - Insertion line indicator (the visible "STRICH")
 
-private struct SidebarDoubleClickMonitor: NSViewRepresentable {
-    let onDoubleClick: () -> Void
-    func makeNSView(context: Context) -> NSView { context.coordinator.placeholder }
-    func updateNSView(_ nsView: NSView, context: Context) {
-        context.coordinator.onDoubleClick = onDoubleClick
-    }
-    func makeCoordinator() -> Coordinator { Coordinator(onDoubleClick: onDoubleClick) }
-
-    final class Coordinator {
-        let placeholder = NSView()
-        var onDoubleClick: (() -> Void)?
-        private var monitor: Any?
-
-        init(onDoubleClick: @escaping () -> Void) {
-            self.onDoubleClick = onDoubleClick
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-                guard event.clickCount == 2,
-                      let host = self?.placeholder,
-                      let win  = host.window,
-                      event.window === win else { return event }
-                let click = event.locationInWindow
-                let frame = host.convert(host.bounds, to: nil)
-                if frame.contains(click) {
-                    DispatchQueue.main.async { self?.onDoubleClick?() }
-                }
-                return event
+private struct InsertionLine: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color.accentColor)
+            .frame(height: 2)
+            .overlay(alignment: .leading) {
+                Circle().fill(Color.accentColor).frame(width: 6, height: 6).offset(x: -2)
             }
-        }
-        deinit { if let m = monitor { NSEvent.removeMonitor(m) } }
+            .allowsHitTesting(false)
     }
 }
 

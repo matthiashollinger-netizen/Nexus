@@ -683,3 +683,6 @@
 "server.note.sftp" = "SFTP is provided by macOS Remote Login. Enable it in System Settings → General → Sharing → Remote Login.";
 "server.note.ftp" = "FTP requires an external library and is not bundled. Use HTTP or SFTP instead.";
 "server.note.telnet" = "A Telnet server would expose an unauthenticated shell and is intentionally not shipped for security reasons.";
+
+// MARK: - Sidebar drag
+"sidebar.drag_hint" = "Drag to move or reorder";

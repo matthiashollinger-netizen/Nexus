@@ -683,3 +683,6 @@
 "server.note.sftp" = "SFTP wird über die macOS-Remoteanmeldung bereitgestellt. Aktiviere sie unter Systemeinstellungen → Allgemein → Freigabe → Entfernte Anmeldung.";
 "server.note.ftp" = "FTP benötigt eine externe Bibliothek und ist nicht enthalten. Nutze stattdessen HTTP oder SFTP.";
 "server.note.telnet" = "Ein Telnet-Server würde eine nicht authentifizierte Shell freigeben und wird aus Sicherheitsgründen bewusst nicht ausgeliefert.";
+
+// MARK: - Sidebar Drag
+"sidebar.drag_hint" = "Ziehen zum Verschieben oder Sortieren";

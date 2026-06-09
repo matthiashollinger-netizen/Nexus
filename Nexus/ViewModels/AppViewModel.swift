@@ -315,26 +315,62 @@ final class AppViewModel {
 
     /// Moves a session or folder to a new parent folder (or root if `nil`).
     func moveSidebarItem(id: UUID, isFolder: Bool, toFolderId: UUID?) {
+        moveSidebarItem(id: id, isFolder: isFolder, toFolderId: toFolderId, before: nil)
+    }
+
+    /// Moves an item to `toFolderId` and, if `before` is given, positions it directly
+    /// before that target item within the level (so drag-to-reorder lands precisely).
+    func moveSidebarItem(id: UUID, isFolder: Bool, toFolderId: UUID?,
+                         before: (id: UUID, isFolder: Bool)?) {
         let snapshot = MoveSnapshot(sessionsBefore: sessions, foldersBefore: folders)
 
         if isFolder {
             guard let idx = folders.firstIndex(where: { $0.id == id }) else { return }
-            // Guard against circular nesting (can't move folder into itself or its descendant)
+            // Guard against circular nesting (can't move folder into itself or a descendant)
             guard !isFolderDescendant(potentialChild: toFolderId, of: id) else { return }
             folders[idx].parentId = toFolderId
-            // Append at end of target level
-            let maxOrder = folders.filter { $0.parentId == toFolderId }.map(\.sortOrder).max() ?? -1
-            folders[idx].sortOrder = maxOrder + 1
+            reorderLevelFolders(parentId: toFolderId, movedId: id,
+                                beforeId: (before?.isFolder == true) ? before?.id : nil)
         } else {
             guard let idx = sessions.firstIndex(where: { $0.id == id }) else { return }
             sessions[idx].folderId = toFolderId
-            let maxOrder = sessions.filter { $0.folderId == toFolderId }.map(\.sortOrder).max() ?? -1
-            sessions[idx].sortOrder = maxOrder + 1
+            reorderLevelSessions(folderId: toFolderId, movedId: id,
+                                 beforeId: (before?.isFolder == false) ? before?.id : nil)
         }
 
         db.saveSessions(sessions)
         db.saveFolders(folders)
         moveHistory.append(snapshot)
+    }
+
+    /// Renumbers sortOrder for sessions in `folderId`, placing `movedId` just before
+    /// `beforeId` (or at the end if `beforeId` is nil/not found).
+    private func reorderLevelSessions(folderId: UUID?, movedId: UUID, beforeId: UUID?) {
+        var level = sessions.filter { $0.folderId == folderId }.sorted { $0.sortOrder < $1.sortOrder }
+        level.removeAll { $0.id == movedId }
+        guard let moved = sessions.first(where: { $0.id == movedId }) else { return }
+        if let beforeId, let targetIdx = level.firstIndex(where: { $0.id == beforeId }) {
+            level.insert(moved, at: targetIdx)
+        } else {
+            level.append(moved)
+        }
+        for (i, s) in level.enumerated() {
+            if let idx = sessions.firstIndex(where: { $0.id == s.id }) { sessions[idx].sortOrder = i }
+        }
+    }
+
+    private func reorderLevelFolders(parentId: UUID?, movedId: UUID, beforeId: UUID?) {
+        var level = folders.filter { $0.parentId == parentId }.sorted { $0.sortOrder < $1.sortOrder }
+        level.removeAll { $0.id == movedId }
+        guard let moved = folders.first(where: { $0.id == movedId }) else { return }
+        if let beforeId, let targetIdx = level.firstIndex(where: { $0.id == beforeId }) {
+            level.insert(moved, at: targetIdx)
+        } else {
+            level.append(moved)
+        }
+        for (i, f) in level.enumerated() {
+            if let idx = folders.firstIndex(where: { $0.id == f.id }) { folders[idx].sortOrder = i }
+        }
     }
 
     /// Reorders sessions within the same folder level.

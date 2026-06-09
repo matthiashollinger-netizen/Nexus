@@ -45,3 +45,34 @@ Sessions inherit credentials from their parent folder chain if no direct credent
 - Xcode 26.5+
 - macOS 26.5+ deployment target
 - SwiftTerm resolves automatically via SPM on first build
+
+## Sidebar click & drag — why the current design is stable (v2.3.0)
+
+The single-click / double-click behaviour regressed THREE times. Root causes and the
+permanent fixes (do not revert these without understanding why):
+
+### Single-click only worked "beside the text"
+Cause: `.onDrag` / `.draggable` applied to the **row content**. On macOS this steals
+the `List` single-click selection on exactly the area the modifier covers, so only the
+leading inset still selected.
+Fix: the drag source (`.onDrag`) lives ONLY on a small trailing grip handle
+(`SidebarDragHandle`), never on the selectable text. The row content is a clean List
+selection target via `.contentShape(Rectangle())`.
+
+### Double-click opened the previously-selected item, not the clicked one
+Cause: a GLOBAL `NSEvent` monitor (`SidebarDoubleClickMonitor`) that connected
+`vm.selectedSidebarItem` — i.e. the already-selected item. Double-clicking a different,
+not-yet-selected row fired before the selection updated → wrong item.
+Fix: a per-row `simultaneousGesture(TapGesture(count: 2))` that captures THIS row's
+`session` value, so it is always the correct item. No global state, no monitor.
+`simultaneousGesture` coexists with List's single-click selection.
+
+### Drag had no visible insertion indicator
+Cause: `.onMove`'s native line was suppressed by the row `.onDrag`, and cross-folder
+`.onDrop` only highlighted the folder.
+Fix: each row is its own `.onDrop` target; while hovered it publishes itself to the
+shared `SidebarDragModel`, which draws an accent `InsertionLine` above the row
+(reorder) or a folder highlight (move-into). Fully under our control, no `.onMove`.
+
+RULE: never put `.onDrag`/`.draggable` on the row's selectable content again. Keep the
+grip handle as the only drag source.
