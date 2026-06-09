@@ -210,13 +210,16 @@ final class EmbeddedServerService {
     // MARK: - Helpers
 
     private func isPortInUse(_ port: Int) -> Bool {
+        // Guard the range first — UInt16(port) traps on overflow.
+        guard let port16 = UInt16(exactly: port) else { return false }
+
         let fd = socket(AF_INET, SOCK_STREAM, 0)
         guard fd >= 0 else { return false }
         defer { close(fd) }
 
         var addr = sockaddr_in()
         addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = UInt16(port).bigEndian
+        addr.sin_port = port16.bigEndian
         addr.sin_addr.s_addr = inet_addr("127.0.0.1")
 
         let result = withUnsafePointer(to: &addr) { ptr in

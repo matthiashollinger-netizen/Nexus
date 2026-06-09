@@ -436,8 +436,23 @@ final class AppViewModel {
     // MARK: - CSV Import (Termius format, legacy)
 
     func importCSV(_ content: String) {
-        let lines = content.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        guard lines.count > 1 else { return }
+        let result = Self.parseImportCSV(content, existingFolders: folders)
+        folders.append(contentsOf: result.newFolders)
+        sessions.append(contentsOf: result.sessions)
+        db.saveFolders(folders)
+        db.saveSessions(sessions)
+    }
+
+    /// Pure parser: turns Termius-format CSV into sessions + any new folders, without
+    /// touching the database. Extracted so it can be unit-tested in isolation.
+    static func parseImportCSV(_ content: String, existingFolders: [Folder])
+        -> (sessions: [Session], newFolders: [Folder]) {
+        let lines = content.components(separatedBy: .newlines)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        guard lines.count > 1 else { return ([], []) }
+
+        var newSessions: [Session] = []
+        var newFolders: [Folder] = []
 
         for line in lines.dropFirst() {
             let fields = parseCSVLine(line)
@@ -454,12 +469,12 @@ final class AppViewModel {
 
             var folderId: UUID? = nil
             if !groupName.isEmpty {
-                if let existing = folders.first(where: { $0.name == groupName && $0.parentId == nil }) {
+                if let existing = (existingFolders + newFolders).first(where: { $0.name == groupName && $0.parentId == nil }) {
                     folderId = existing.id
                 } else {
                     var folder = Folder()
                     folder.name = groupName
-                    folders.append(folder)
+                    newFolders.append(folder)
                     folderId = folder.id
                 }
             }
@@ -479,14 +494,12 @@ final class AppViewModel {
             s.username = user
             s.connectionType = connType
             s.folderId = folderId
-            sessions.append(s)
+            newSessions.append(s)
         }
-
-        db.saveFolders(folders)
-        db.saveSessions(sessions)
+        return (newSessions, newFolders)
     }
 
-    private func parseCSVLine(_ line: String) -> [String] {
+    private static func parseCSVLine(_ line: String) -> [String] {
         var fields: [String] = []
         var current = ""
         var inQuotes = false

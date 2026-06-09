@@ -18,7 +18,9 @@ final class NativeHTTPServer {
     var onLog: ((String) -> Void)?
 
     init?(rootDirectory: URL, port: Int) {
-        guard let p = NWEndpoint.Port(rawValue: UInt16(truncatingIfNeeded: port)), port > 0 else { return nil }
+        // Reject out-of-range ports outright (consistent with TFTP/FTP). The old
+        // `truncatingIfNeeded` silently wrapped e.g. 70000 → 4464.
+        guard port > 0, port <= 65535, let p = NWEndpoint.Port(rawValue: UInt16(port)) else { return nil }
         self.rootDirectory = rootDirectory
         self.port = p
     }
