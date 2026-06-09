@@ -20,4 +20,32 @@ struct AppSettings: Codable {
 
     // Theme
     var activeThemeId: String = "nexusDark"
+
+    init() {}
+}
+
+// Tolerant decoder — see Session.swift for the rationale. New settings added later
+// won't reset the whole settings object just because an old file lacks the key.
+extension AppSettings {
+    enum CodingKeys: String, CodingKey {
+        case language, sshLegacyAlgorithms, terminalFontName, terminalFontSize
+        case defaultSSHPort, defaultTelnetPort, masterPasswordEnabled, hasCompletedOnboarding
+        case preferredEditorApp, enabledHighlightRulesets, activeThemeId
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = AppSettings()
+        self.init()
+        language                 = try c.decodeIfPresent(String.self, forKey: .language) ?? d.language
+        sshLegacyAlgorithms      = try c.decodeIfPresent(Bool.self, forKey: .sshLegacyAlgorithms) ?? d.sshLegacyAlgorithms
+        terminalFontName         = try c.decodeIfPresent(String.self, forKey: .terminalFontName) ?? d.terminalFontName
+        terminalFontSize         = try c.decodeIfPresent(Double.self, forKey: .terminalFontSize) ?? d.terminalFontSize
+        defaultSSHPort           = try c.decodeIfPresent(Int.self, forKey: .defaultSSHPort) ?? d.defaultSSHPort
+        defaultTelnetPort        = try c.decodeIfPresent(Int.self, forKey: .defaultTelnetPort) ?? d.defaultTelnetPort
+        masterPasswordEnabled    = try c.decodeIfPresent(Bool.self, forKey: .masterPasswordEnabled) ?? d.masterPasswordEnabled
+        hasCompletedOnboarding   = try c.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? d.hasCompletedOnboarding
+        preferredEditorApp       = try c.decodeIfPresent(String.self, forKey: .preferredEditorApp) ?? d.preferredEditorApp
+        enabledHighlightRulesets = try c.decodeIfPresent([String].self, forKey: .enabledHighlightRulesets) ?? d.enabledHighlightRulesets
+        activeThemeId            = try c.decodeIfPresent(String.self, forKey: .activeThemeId) ?? d.activeThemeId
+    }
 }

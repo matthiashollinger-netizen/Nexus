@@ -91,6 +91,88 @@ struct Session: Identifiable, Codable, Hashable {
     // Behaviour
     var macroOnConnectId: UUID? = nil
     var autoConnectOnLaunch: Bool = false
+
+    // Default member-wise init (preserved because we add a custom Decodable init below).
+    init() {}
+}
+
+// MARK: - Tolerant Codable
+//
+// CRITICAL — DO NOT replace this with the synthesized Codable.
+//
+// Swift's *synthesized* `init(from:)` IGNORES property default values and requires
+// EVERY non-optional key to be present in the JSON, or the whole decode throws
+// `keyNotFound`. That caused real data loss (v2.2.0): a `sessions.json` written by an
+// older version lacked newly-added non-optional keys (e.g. `connectTimeout`), so
+// `JSONDecoder().decode([Session].self)` threw, `loadSessions()` returned `[]`, all
+// sessions appeared gone, and the empty array then overwrote the good file.
+//
+// This hand-written decoder uses `decodeIfPresent(...) ?? default` for EVERY field,
+// so missing keys fall back to their defaults and decoding NEVER fails on a schema
+// change. Adding a new field here is automatically backward/forward compatible.
+// (Encoding stays synthesized — it writes all current fields.)
+extension Session {
+    enum CodingKeys: String, CodingKey {
+        case id, name, host, port, username, connectionType, folderId, credentialId
+        case description, tags, sortOrder
+        case sshPrivateKeyPath, sshUseLegacyAlgorithms, sshStrictHostKeyChecking
+        case serialPort, serialBaudRate, serialDataBits, serialStopBits, serialParity, serialFlowControl
+        case jumpHost, portForwardings, socks5Proxy
+        case rdpUsername, rdpDomain, rdpWidth, rdpHeight, rdpColorDepth
+        case rdpFullscreen, rdpClipboardSharing, rdpDriveRedirection, rdpCredentialId
+        case connectTimeout, themeId, terminalFontSize, highlightRuleset
+        case macroOnConnectId, autoConnectOnLaunch
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = Session()   // holds the defaults
+        self.init()
+
+        id              = try c.decodeIfPresent(UUID.self, forKey: .id) ?? d.id
+        name            = try c.decodeIfPresent(String.self, forKey: .name) ?? d.name
+        host            = try c.decodeIfPresent(String.self, forKey: .host) ?? d.host
+        port            = try c.decodeIfPresent(Int.self, forKey: .port) ?? d.port
+        username        = try c.decodeIfPresent(String.self, forKey: .username) ?? d.username
+        connectionType  = try c.decodeIfPresent(ConnectionType.self, forKey: .connectionType) ?? d.connectionType
+        folderId        = try c.decodeIfPresent(UUID.self, forKey: .folderId)
+        credentialId    = try c.decodeIfPresent(UUID.self, forKey: .credentialId)
+        description     = try c.decodeIfPresent(String.self, forKey: .description) ?? d.description
+        tags            = try c.decodeIfPresent([String].self, forKey: .tags) ?? d.tags
+        sortOrder       = try c.decodeIfPresent(Int.self, forKey: .sortOrder) ?? d.sortOrder
+
+        sshPrivateKeyPath        = try c.decodeIfPresent(String.self, forKey: .sshPrivateKeyPath) ?? d.sshPrivateKeyPath
+        sshUseLegacyAlgorithms   = try c.decodeIfPresent(Bool.self, forKey: .sshUseLegacyAlgorithms)
+        sshStrictHostKeyChecking = try c.decodeIfPresent(Bool.self, forKey: .sshStrictHostKeyChecking) ?? d.sshStrictHostKeyChecking
+
+        serialPort        = try c.decodeIfPresent(String.self, forKey: .serialPort) ?? d.serialPort
+        serialBaudRate    = try c.decodeIfPresent(Int.self, forKey: .serialBaudRate) ?? d.serialBaudRate
+        serialDataBits    = try c.decodeIfPresent(Int.self, forKey: .serialDataBits) ?? d.serialDataBits
+        serialStopBits    = try c.decodeIfPresent(String.self, forKey: .serialStopBits) ?? d.serialStopBits
+        serialParity      = try c.decodeIfPresent(String.self, forKey: .serialParity) ?? d.serialParity
+        serialFlowControl = try c.decodeIfPresent(String.self, forKey: .serialFlowControl) ?? d.serialFlowControl
+
+        jumpHost        = try c.decodeIfPresent(JumpHost.self, forKey: .jumpHost)
+        portForwardings = try c.decodeIfPresent([PortForwarding].self, forKey: .portForwardings) ?? d.portForwardings
+        socks5Proxy     = try c.decodeIfPresent(SOCKS5Config.self, forKey: .socks5Proxy)
+
+        rdpUsername         = try c.decodeIfPresent(String.self, forKey: .rdpUsername) ?? d.rdpUsername
+        rdpDomain           = try c.decodeIfPresent(String.self, forKey: .rdpDomain) ?? d.rdpDomain
+        rdpWidth            = try c.decodeIfPresent(Int.self, forKey: .rdpWidth) ?? d.rdpWidth
+        rdpHeight           = try c.decodeIfPresent(Int.self, forKey: .rdpHeight) ?? d.rdpHeight
+        rdpColorDepth       = try c.decodeIfPresent(Int.self, forKey: .rdpColorDepth) ?? d.rdpColorDepth
+        rdpFullscreen       = try c.decodeIfPresent(Bool.self, forKey: .rdpFullscreen) ?? d.rdpFullscreen
+        rdpClipboardSharing = try c.decodeIfPresent(Bool.self, forKey: .rdpClipboardSharing) ?? d.rdpClipboardSharing
+        rdpDriveRedirection = try c.decodeIfPresent(Bool.self, forKey: .rdpDriveRedirection) ?? d.rdpDriveRedirection
+        rdpCredentialId     = try c.decodeIfPresent(UUID.self, forKey: .rdpCredentialId)
+
+        connectTimeout      = try c.decodeIfPresent(Int.self, forKey: .connectTimeout) ?? d.connectTimeout
+        themeId             = try c.decodeIfPresent(UUID.self, forKey: .themeId)
+        terminalFontSize    = try c.decodeIfPresent(Double.self, forKey: .terminalFontSize)
+        highlightRuleset    = try c.decodeIfPresent(String.self, forKey: .highlightRuleset)
+        macroOnConnectId    = try c.decodeIfPresent(UUID.self, forKey: .macroOnConnectId)
+        autoConnectOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .autoConnectOnLaunch) ?? d.autoConnectOnLaunch
+    }
 }
 
 // MARK: - SSH Gateway Models

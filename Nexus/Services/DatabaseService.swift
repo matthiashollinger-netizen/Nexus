@@ -25,6 +25,18 @@ final class DatabaseService {
     }
 
     func saveSessions(_ sessions: [Session]) {
+        // Safety net: if we're about to overwrite a non-empty sessions file with an
+        // EMPTY list, keep a copy first. This is the last line of defence against any
+        // future "load-failed → empty in memory → overwrite good file" cascade.
+        if sessions.isEmpty {
+            let url = appSupportURL.appendingPathComponent("sessions.json")
+            if let data = try? Data(contentsOf: url),
+               let existing = try? JSONDecoder().decode([Session].self, from: data),
+               !existing.isEmpty {
+                let safety = appSupportURL.appendingPathComponent("sessions.beforeempty.json")
+                try? data.write(to: safety, options: .atomic)
+            }
+        }
         // Throttled snapshot of the PRE-save state before we overwrite it.
         createBackup(force: false)
         save(sessions, to: "sessions.json")
@@ -244,8 +256,18 @@ final class DatabaseService {
 
     private func load<T: Decodable>(_ type: T.Type, from filename: String) -> T? {
         let url = appSupportURL.appendingPathComponent(filename)
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(type, from: data)
+        guard let data = try? Data(contentsOf: url) else { return nil }   // file missing → nil
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch {
+            // The file EXISTS but could not be decoded. With the tolerant model
+            // decoders this should never happen for a schema change — but if it ever
+            // does (genuinely corrupt JSON), preserve a copy so the data is not lost,
+            // then return nil. We do NOT want the caller's `?? []` to silently lead to
+            // overwriting the original (the v2.2.0 data-loss mechanism).
+            preserveCorruptCopy(of: url)
+            return nil
+        }
     }
 
     private func save<T: Encodable>(_ value: T, to filename: String) {
@@ -254,6 +276,15 @@ final class DatabaseService {
         // .atomic = write to a temp file, then rename — never leaves a half-written
         // file even if the app crashes mid-write.
         try? data.write(to: url, options: .atomic)
+    }
+
+    /// Copies a file that failed to decode to `<name>.corrupt-<timestamp>` so the user
+    /// can recover it manually. Best-effort, never throws.
+    private func preserveCorruptCopy(of url: URL) {
+        let stamp = Self.timestampFormatter.string(from: Date())
+        let dest = url.deletingPathExtension()
+            .appendingPathExtension("corrupt-\(stamp).json")
+        try? FileManager.default.copyItem(at: url, to: dest)
     }
 
     private func deriveKey(password: String, salt: some DataProtocol) -> SymmetricKey {
