@@ -214,6 +214,24 @@ if [ ! -d "$APP_PATH" ]; then
     cp -R "$ARCHIVE_APP" "$APP_PATH"
     warn "Developer ID cert not found — using development signature."
 fi
+
+# AD-HOC FIX (critical): the project builds with Hardened Runtime, which enables
+# *Library Validation* — that REQUIRES every loaded library to share the main app's
+# Team ID. An ad-hoc-signed app has no Team ID, so it cannot load the embedded
+# Sparkle.framework → "different Team IDs" dyld crash at launch (the beta wouldn't
+# even open). When ad-hoc signing, re-sign the WHOLE bundle (deep) WITHOUT the
+# runtime flag so Library Validation is not enforced and the frameworks load.
+# Proper long-term fix: restore a valid Apple signing certificate.
+if [ ${#SIGN_ARGS[@]} -gt 0 ]; then
+    info "Ad-hoc: re-signing bundle without Hardened Runtime (Library Validation off)…"
+    codesign --remove-signature "$APP_PATH" 2>/dev/null || true
+    codesign --force --deep --sign - "$APP_PATH" 2>/dev/null || die "Ad-hoc re-sign failed."
+    FLAGS="$(codesign -dvv "$APP_PATH" 2>&1 | grep -oE 'flags=0x[0-9a-f]+\([^)]*\)' | head -1)"
+    case "$FLAGS" in
+        *runtime*) die "Re-sign still has 'runtime' flag ($FLAGS) — would crash at launch." ;;
+        *) info "Re-signed: $FLAGS" ;;
+    esac
+fi
 success "Signed"
 
 # ─── 3. Create DMG ───────────────────────────────────────────────────────────
