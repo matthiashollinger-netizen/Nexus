@@ -2,6 +2,19 @@
 
 ---
 
+## [3.0.1] - 2026-06-12
+
+### Behoben — KRITISCH (Terminal)
+
+- **ncurses-Programme (nano, vim, top, htop, less) brachen über SSH mit
+  „Error opening terminal: unknown" ab.** Ursache: eine GUI-App besitzt keine
+  `TERM`-Umgebungsvariable, also übergab Nexus dem Remote-PTY `TERM=unknown` —
+  ncurses findet dafür keine Terminal-Beschreibung. Fix: SSH-Sitzungen setzen
+  jetzt `TERM=xterm-256color` und `COLORTERM=truecolor` (SwiftTerm ist
+  xterm-256color-kompatibel). An echter Hardware verifiziert: `nano` öffnet korrekt.
+
+---
+
 ## [3.0.0] - 2026-06-12
 
 ### Neu — Großes UI-Rework

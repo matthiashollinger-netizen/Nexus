@@ -114,6 +114,13 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
         var envDict = ProcessInfo.processInfo.environment
         let token = cs.id.uuidString
 
+        // A GUI macOS app has NO `TERM`, so ssh would hand the remote a `TERM=unknown`
+        // PTY and ncurses programs (nano, vim, top, htop, less) abort with
+        // "Error opening terminal: unknown". SwiftTerm is xterm-256color-compatible,
+        // so advertise that (and truecolor) to the remote.
+        envDict["TERM"] = "xterm-256color"
+        envDict["COLORTERM"] = "truecolor"
+
         if let pwd = cs.sshPassword, !pwd.isEmpty {
             if let askpassEnv = NexusAskPassService.prepare(password: pwd, token: token) {
                 envDict.merge(askpassEnv) { _, new in new }

@@ -2,6 +2,16 @@
 
 ---
 
+## [3.0.1] - 2026-06-12
+
+### Behoben — KRITISCH
+
+- **ncurses-Programme (nano, vim, top, less) brachen über SSH mit „Error opening
+  terminal: unknown" ab.** Nexus übergab dem Remote kein `TERM`. Fix:
+  `TERM=xterm-256color` wird gesetzt — nano/vim & Co. funktionieren jetzt.
+
+---
+
 ## [3.0.0] - 2026-06-12
 
 ### Neu — Großes UI-Rework
