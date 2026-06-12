@@ -234,7 +234,7 @@ actor SFTPService {
                 try? stdin.fileHandleForWriting.close()
             }
 
-            process.terminationHandler = { _ in
+            process.terminationHandler = { proc in
                 // Clean up temp askpass script — always, regardless of success/failure
                 if let p = askpassScriptPath {
                     try? FileManager.default.removeItem(atPath: p)
@@ -245,14 +245,20 @@ actor SFTPService {
                 let output   = String(data: outData, encoding: .utf8) ?? ""
                 let errStr   = String(data: errData, encoding: .utf8) ?? ""
                 let combined = output + errStr
-                let low      = errStr.lowercased()
+                let low      = combined.lowercased()
+                let status   = proc.terminationStatus
 
                 if low.contains("permission denied") || low.contains("authentication failed") ||
-                   low.contains("publickey") && low.contains("failed") {
+                   (low.contains("publickey") && low.contains("failed")) {
                     continuation.resume(throwing: SFTPError.authenticationFailed)
                 } else if low.contains("connection refused") || low.contains("no route to host") ||
-                          low.contains("could not resolve") || low.contains("timed out") {
-                    continuation.resume(throwing: SFTPError.connectionFailed(errStr))
+                          low.contains("could not resolve") || low.contains("timed out") ||
+                          low.contains("connection closed") || low.contains("connection reset") {
+                    continuation.resume(throwing: SFTPError.connectionFailed(errStr.isEmpty ? combined : errStr))
+                } else if status == 255 {
+                    // 255 is ssh's reserved exit code for a connection/auth failure with
+                    // no clearer message (e.g. the server just dropped the connection).
+                    continuation.resume(throwing: SFTPError.connectionFailed(combined))
                 } else {
                     continuation.resume(returning: combined)
                 }
