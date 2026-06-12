@@ -765,3 +765,16 @@
 // MARK: - v3.0 — Mitteilungen
 "notify.disconnected.body" = "Die Verbindung wurde geschlossen.";
 "notify.failed.body" = "Die Verbindung ist fehlgeschlagen.";
+
+// MARK: - v3.0 — Server-Hosting / Syslog
+"action.copy" = "Kopieren";
+"servers.subtitle" = "Betreibe einen TFTP-, FTP-, HTTP- oder Syslog-Server für deine Geräte.";
+"server.open_in_finder" = "Im Finder zeigen";
+"syslog.filter.placeholder" = "Meldungen filtern…";
+"syslog.severity.floor" = "Mindest-Schweregrad";
+"syslog.alerts" = "Alarme (Error und schlimmer)";
+"syslog.export" = "Als CSV exportieren";
+"syslog.clear" = "Log leeren";
+"syslog.waiting.title" = "Warte auf Meldungen";
+"syslog.waiting.hint" = "Richte den Logging-Host eines Geräts auf die IP und den Port dieses Macs.";
+"syslog.start_to_view" = "Server starten, um Meldungen zu empfangen.";

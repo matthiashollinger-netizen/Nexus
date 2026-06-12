@@ -14,8 +14,9 @@ struct EmbeddedServer: Identifiable, Codable {
     enum ServerType: String, Codable, CaseIterable, Identifiable {
         case http   = "HTTP"
         case tftp   = "TFTP"
-        case sftp   = "SFTP"
         case ftp    = "FTP"
+        case syslog = "Syslog"
+        case sftp   = "SFTP"
         case telnet = "Telnet"
 
         var id: String { rawValue }
@@ -24,8 +25,9 @@ struct EmbeddedServer: Identifiable, Codable {
             switch self {
             case .http:   return "globe"
             case .tftp:   return "arrow.up.arrow.down.circle"
-            case .sftp:   return "folder.badge.gearshape"
             case .ftp:    return "server.rack"
+            case .syslog: return "doc.text.magnifyingglass"
+            case .sftp:   return "folder.badge.gearshape"
             case .telnet: return "terminal"
             }
         }
@@ -33,8 +35,9 @@ struct EmbeddedServer: Identifiable, Codable {
             switch self {
             case .http:   return 8080
             case .tftp:   return 6969   // 69 needs root → default to a high port
-            case .sftp:   return 22
             case .ftp:    return 2121
+            case .syslog: return 5514   // 514 needs root → default to a high port
+            case .sftp:   return 22
             case .telnet: return 23
             }
         }
@@ -43,12 +46,21 @@ struct EmbeddedServer: Identifiable, Codable {
         /// - HTTP: native NativeHTTPServer ✅
         /// - TFTP: native NativeTFTPServer ✅ (the Cisco/HP standard; high port avoids root)
         /// - FTP:  native NativeFTPServer ✅ (passive mode)
+        /// - Syslog: native NativeSyslogServer ✅ (receive switch logs; high port avoids root)
         /// - SFTP: requires a full SSH server → not shippable without system sshd → off
         /// - Telnet: not needed (user) and would expose a shell → off
         var isAvailable: Bool {
             switch self {
-            case .http, .tftp, .ftp: return true
-            case .sftp, .telnet:     return false
+            case .http, .tftp, .ftp, .syslog: return true
+            case .sftp, .telnet:              return false
+            }
+        }
+
+        /// Syslog has no served root directory (it receives, not serves).
+        var usesRootDirectory: Bool {
+            switch self {
+            case .syslog: return false
+            default:      return true
             }
         }
 
@@ -74,7 +86,13 @@ final class EmbeddedServerService {
     private var httpServers: [UUID: NativeHTTPServer] = [:]
     private var tftpServers: [UUID: NativeTFTPServer] = [:]
     private var ftpServers: [UUID: NativeFTPServer] = [:]
+    private var syslogServers: [UUID: NativeSyslogServer] = [:]
     private var serverLogs: [UUID: [String]] = [:]
+
+    /// The live syslog collector for a server (for the structured log view).
+    func syslogServer(for server: EmbeddedServer) -> NativeSyslogServer? {
+        syslogServers[server.id]
+    }
 
     private var appSupportURL: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -155,6 +173,14 @@ final class EmbeddedServerService {
             try s.start()
             ftpServers[server.id] = s
 
+        case .syslog:
+            guard let s = NativeSyslogServer(port: server.port) else {
+                throw EmbeddedServerError.portInUse(server.port)
+            }
+            s.onLog = log
+            try s.start()
+            syslogServers[server.id] = s
+
         case .sftp, .telnet:
             throw EmbeddedServerError.notAvailable(server.type.displayName)
         }
@@ -168,6 +194,7 @@ final class EmbeddedServerService {
         httpServers[server.id]?.stop(); httpServers.removeValue(forKey: server.id)
         tftpServers[server.id]?.stop(); tftpServers.removeValue(forKey: server.id)
         ftpServers[server.id]?.stop(); ftpServers.removeValue(forKey: server.id)
+        syslogServers[server.id]?.stop(); syslogServers.removeValue(forKey: server.id)
         if let idx = servers.firstIndex(where: { $0.id == server.id }) {
             servers[idx].isRunning = false
         }

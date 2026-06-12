@@ -1,0 +1,146 @@
+{
+  "summary": "Plan feasible MobaXterm-grade features + server-hosting upgrades for Nexus, with concrete Swift specs",
+  "agentCount": 5,
+  "logs": [],
+  "result": {
+    "buildPlan": [
+      {
+        "feature": "Native Syslog server (UDP 514/5514, RFC 3164 + 5424)",
+        "priority": "must",
+        "effort": "M",
+        "spec": "Add NativeSyslogServer using Network.framework NWListener over .udp on a configurable port (default 514, fallback 5514 since binding <1024 needs root and the app runs un-sandboxed-but-not-root). Mirror the existing NativeTFTPServer pattern. On each datagram, parse the PRI header <PRI> -> facility = PRI/8, severity = PRI%8 (0 Emergency .. 7 Debug); branch on RFC 5424 (starts with '1 ') vs RFC 3164 (legacy '<PRI>Mmm dd hh:mm:ss host tag: msg'). Emit a SyslogEntry struct { id, receivedAt: Date, deviceTimestamp: Date?, sourceIP: String, severity: SyslogSeverity (enum w/ DS color: emergency/alert/critical/error -> DS.Color.stateFailed, warning -> stateConnecting/orange, notice/info -> stateConnected, debug -> secondary), facility, hostname, tag, message }. Store in a bounded ring buffer (e.g. last 5000) on the server instance, exposed @Observable for live UI. Add `.syslog` to ServerType enum (defaultPort 514, systemImage 'doc.text.magnifyingglass', isAvailable true). Wire into EmbeddedServerService lifecycle (start/stop/autoStart/port-in-use). UI: a SyslogLogView (separate from the generic 50-line log box) = a Table with columns [severity StateBadge | time | sourceIP | hostname | tag | message], severity filter chips, a free-text filter TextField, a '3 critical alerts' counter badge, copy-row + 'Export CSV' (writes to Downloads via FileManager). Persist nothing by default; honor the persistent-log upgrade in a later increment.",
+        "files": "NEW Nexus/Services/Servers/NativeSyslogServer.swift, NEW Nexus/Models/SyslogEntry.swift, EDIT Nexus/Services/EmbeddedServerService.swift (ServerType enum + start/stop dispatch), NEW Nexus/Views/Servers/SyslogLogView.swift, EDIT EmbeddedServersView.swift (route .syslog cards to SyslogLogView)"
+      },
+      {
+        "feature": "Server Manager onto DS design system",
+        "priority": "must",
+        "effort": "M",
+        "spec": "Refactor EmbeddedServersView and its card subview to use DS tokens exclusively. Replace raw Circle() status with StatusDot bound to ConnectionState (.connected/.idle/.failed mapping the server's running/stopped/errored state via ConnectionState.tint/symbol). Swap hardcoded .green/.gray/.orange state text for StateBadge. Card container -> NexusCard (DS.Radius.lg = 12, dsPadding(DS.Space.xl=16)). Section titles -> SectionHeader. All .font(.headline/.caption) -> DS.Font.headline/.body/.caption; log box text -> DS.Font.mono / MonoText. Spacing literals (14, 10, 8) -> DS.Space.*. Add per-card toolbar: 'Open in Finder' (NSWorkspace.shared.activateFileViewerSelecting([rootURL])), a folder drop-zone on the root-directory row using .onDrop(of:[.fileURL]) that calls serverService.setRoot(_:for:) + saveServers(). Add a compact insights strip per running server (Connections / Bytes transferred / Last activity) reading counters you add to each native server. No new external deps.",
+        "files": "EDIT Nexus/Views/Servers/EmbeddedServersView.swift (full DS pass), EDIT Nexus/Services/EmbeddedServerService.swift (add counters: activeConnections, bytesTransferred, lastActivity per server; setRoot helper), reuse Nexus/DesignSystem/* components"
+      },
+      {
+        "feature": "MultiExec / broadcast input to selected terminals",
+        "priority": "must",
+        "effort": "M",
+        "spec": "PREREQUISITE: TabContentView currently renders only the selected tab (TerminalTabsView.swift:112) and re-creates it on switch — convert to a ZStack over ALL vm.activeSessions with .opacity/.allowsHitTesting on the selected one so every NexusTerminalView NSView stays alive (required for broadcast and for not killing background SSH on tab switch). Also wire terminalSendHandler for SSH: in NexusSSHTerminalView.init set cs.terminalSendHandler = { [weak self] bytes in self?.send(bytes) } (send(_:[UInt8]) is public on TerminalView). Add to AppViewModel: `var multiExecMode = false`, `var selectedExecTabs: Set<UUID> = []`, and `func broadcast(_ text: String)` / `func broadcastKey(_ bytes: [UInt8])` iterating activeSessions where selectedExecTabs.contains(id) and calling cs.terminalSendHandler?(bytes). Add a MultiExec toolbar toggle; when on, TabItemView shows a selection ring/checkbox and tap toggles membership in selectedExecTabs instead of switching. Add a bottom 'broadcast bar' TextField (sends line + \\r to all selected) AND an optional live NSEvent.addLocalMonitorForEvents(.keyDown) monitor (same pattern as MacroService) that fans live keystrokes to selected tabs while multiExecMode is on. Show a persistent banner 'Broadcasting to N sessions' (DS.Color.stateConnecting) so users can't accidentally mass-push.",
+        "files": "EDIT Nexus/Views/Terminal/TerminalTabsView.swift (ZStack tab content, TabItemView selection UI, toolbar toggle, broadcast bar), EDIT Nexus/ViewModels/AppViewModel.swift (multiExec props + broadcast methods + key monitor), EDIT Nexus/ViewModels/ConnectionSession.swift / NexusTerminalView.swift (wire SSH terminalSendHandler)"
+      },
+      {
+        "feature": "Local shell terminal tab",
+        "priority": "must",
+        "effort": "S",
+        "spec": "Add `.localShell` to ConnectionType (defaultPort 0, systemImage 'apple.terminal' or 'terminal.fill'). In NexusTerminalView.makeNSView add a case routing .localShell to a new NexusLocalTerminalView: LocalProcessTerminalView. Its init calls startProcess(executable: ProcessInfo.processInfo.environment[\"SHELL\"] ?? \"/bin/zsh\", args: [\"-i\",\"-l\"], environment: Terminal.getEnvironmentVariables(termName:\"xterm-256color\"), currentDirectory: FileManager.default.homeDirectoryForCurrentUser.path). Reuse the dataReceived override for session logging; set cs.state=.connected immediately and .disconnected in processTerminated. Add an AppViewModel.openLocalShell() that builds an ephemeral Session(connectionType:.localShell, name:\"Local Shell\") and appends a ConnectionSession (no credential). Surface via Command Palette (⌘K) action and a Dashboard QuickActionTile. ConnectionSession.init needs a no-op branch for .localShell (no SSH/telnet/serial setup).",
+        "files": "EDIT Nexus/Models/Session.swift (enum case + defaultPort/systemImage), EDIT Nexus/Views/Terminal/NexusTerminalView.swift (dispatch case + NexusLocalTerminalView class), EDIT Nexus/ViewModels/ConnectionSession.swift (init branch), EDIT Nexus/ViewModels/AppViewModel.swift (openLocalShell), EDIT Command Palette + Dashboard for entry points"
+      },
+      {
+        "feature": "Network Toolbox (ping/traceroute/DNS/port-check/WoL)",
+        "priority": "must",
+        "effort": "L",
+        "spec": "New NetworkToolService running system binaries via Process with piped stdout/stderr, streaming lines back on the main actor. Tools: ping = /sbin/ping -c N -t timeout host (parse 'time=Xms' for a live latency sparkline + loss%); traceroute = /usr/sbin/traceroute -n -w 2 -q 1 host (stream hops); DNS = /usr/bin/dig +short / dig ANY and /usr/bin/nslookup; whois = /usr/bin/whois; port-check = /usr/bin/nc -z -G timeout host port (loop a port list, mark open/closed) plus optional banner grab via nc -w; arp = /usr/sbin/arp -a; ifconfig = /sbin/ifconfig; netstat = /usr/sbin/netstat (NOTE: lives in /usr/sbin not /usr/bin). Wake-on-LAN = pure Network.framework: build the 6x0xFF + 16x MAC magic packet, send as UDP broadcast to 255.255.255.255:9 via NWConnection (no binary). Each tool gets a small SwiftUI form (host/port/MAC inputs) + a MonoText output pane with a Stop button (Process.terminate). Build NetworkToolboxView as a tabbed/segmented sheet or a left-nav surface, fully DS-styled (NexusCard, SectionHeader, DS.Font.mono). Add a 'Send to Toolbox' context action from a Session (prefill host). All processes are cancel-on-close and time-bounded.",
+        "files": "NEW Nexus/Services/NetworkToolService.swift, NEW Nexus/Services/WakeOnLANService.swift, NEW Nexus/Views/Toolbox/NetworkToolboxView.swift (+ per-tool subviews), EDIT AppViewModel (showToolbox state), EDIT ContentView/menu + Command Palette entry"
+      },
+      {
+        "feature": "Session logging to file",
+        "priority": "must",
+        "effort": "S",
+        "spec": "New SessionLogService singleton: append-only writer to ~/Library/Application Support/Nexus/logs/<session-name>-<uuid>-<yyyyMMdd>.log via a cached FileHandle per session, with a date header on first write and lazy directory creation (reuse DatabaseService.appSupportURL pattern). API: append(sessionId: UUID, name: String, bytes: ArraySlice<UInt8>) and close(sessionId:). Tap the existing data hooks: in NexusSSHTerminalView.dataReceived and NexusLocalTerminalView.dataReceived call append(...) ; for Telnet/Serial, tap inside cs.terminalReceiveCallback in NexusNetTerminalView.startConnection (it already wraps incoming bytes at line 97-99). Optionally also log outbound (terminalSendHandler) for full transcript. Gate on a new Session.loggingEnabled: Bool (default false) — MUST be added to the hand-written tolerant init(from:) per the project's data-loss rule (decodeIfPresent ?? false). Add an editor toggle in AddSessionView + a 'Reveal Logs in Finder' button (NSWorkspace selecting the log file). Call close on closeSession/disconnect.",
+        "files": "NEW Nexus/Services/SessionLogService.swift, EDIT Nexus/Views/Terminal/NexusTerminalView.swift (append calls at SSH/local/net hooks), EDIT Nexus/Models/Session.swift (loggingEnabled + tolerant decoder), EDIT Nexus/Views/Sidebar/AddSessionView.swift (toggle + reveal), EDIT AppViewModel.closeSession (call close)"
+      },
+      {
+        "feature": "SFTP browser: drag-drop upload + non-blocking transfers",
+        "priority": "must",
+        "effort": "M",
+        "spec": "Add .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) on the SFTPBrowserView file-list area; resolve dropped NSItemProvider URLs and enqueue them through the existing SFTPService.upload(localURL:to:) (sftp batch 'put'). Show a drop highlight overlay (DS.Color accent border). Replace the blocking TransferProgressOverlay (full-screen Color.black.opacity(0.5)) with a compact, non-modal transfer chip/toast docked in the toolbar that keeps the list interactive, supports a queue of multiple files, and has a Cancel button (terminate the sftp Process). Parse sftp's 'put'/'get' progress lines (it prints a 'NN%  X.XMB  YY.YKB/s  ETA' carriage-return line) from the child's stdout to drive real fraction + speed + ETA, extending TransferProgress with bytesTransferred/totalBytes/bytesPerSec.",
+        "files": "EDIT Nexus/Views/SFTP/SFTPBrowserView.swift (onDrop, drop overlay, non-blocking toast), EDIT Nexus/Services/SFTPService.swift (multi-file queue, stdout progress parse, cancel/terminate), EDIT TransferProgress model"
+      },
+      {
+        "feature": "SFTP browser: refresh + mkdir/rename/delete + recursive delete",
+        "priority": "must",
+        "effort": "S",
+        "spec": "Wire/confirm toolbar Refresh (loadDirectory(currentPath)). Ensure a right-click context menu on rows exposes Rename (sftp 'rename old new'), Delete (sftp 'rm' for files, 'rmdir' for empty dirs), and New Folder (sftp 'mkdir'). For non-empty directories, catch SFTPError.directoryNotEmpty and offer 'Delete folder and contents?' -> SFTPService.deleteRecursive(path) which walks the tree via repeated sftp 'ls -la'/'rm'/'rmdir' batches (no external rm -rf needed; pure sftp commands). Add destructive-action confirmation dialogs. Auto-refresh after every mutating op (already done for upload; extend to rename/delete/mkdir).",
+        "files": "EDIT Nexus/Views/SFTP/SFTPBrowserView.swift (context menu items + confirmations + refresh), EDIT Nexus/Services/SFTPService.swift (deleteRecursive walk, rename/mkdir confirmations)"
+      },
+      {
+        "feature": "SFTP browser: follow terminal CWD (best-effort)",
+        "priority": "should",
+        "effort": "M",
+        "spec": "Implement OSC 7 based CWD follow. NexusSSHTerminalView already inherits the SwiftTerm delegate; override hostCurrentDirectoryUpdate(source:directory:) (TerminalViewDelegate) — SwiftTerm parses OSC 7 file://host/path into Terminal.hostCurrentDirectory. Publish the path onto ConnectionSession (var remoteCWD: String?) and have the SFTP pane, when 'Follow Terminal' is toggled on, observe remoteCWD and call loadDirectory(newPath). To make Linux bash/zsh emit OSC 7, inject a PROMPT_COMMAND/precmd on connect when the session is SSH to a Unix host: optionally append a here-doc that defines PROMPT_COMMAND='printf \"\\033]7;file://%s%s\\033\\\\\" \"$HOSTNAME\" \"$PWD\"' (user-opt-in, since it mutates the remote shell). HONEST CAVEAT: works on Linux interactive shells only; Cisco/HP/embedded devices have no shell CWD — gate the toggle to .ssh sessions and show 'Unavailable for this device' otherwise. No polling of /proc (fragile) — OSC 7 only.",
+        "files": "EDIT Nexus/Views/Terminal/NexusTerminalView.swift (override hostCurrentDirectoryUpdate, set cs.remoteCWD), EDIT Nexus/ViewModels/ConnectionSession.swift (remoteCWD property), EDIT Nexus/Views/SFTP/SFTPBrowserView.swift (Follow Terminal toggle observing remoteCWD)"
+      },
+      {
+        "feature": "SFTP browser: keyboard nav + sortable columns + filter + permissions",
+        "priority": "should",
+        "effort": "M",
+        "spec": "Add @State selection: Set<UUID> with ⌘-click/Shift multi-select. Keyboard: ⬆⬇ move selection, Return opens dir/edits file, ⌘↑ parent, ⌘R refresh, ⌘D download, ⌘U upload, Delete deletes (.onKeyPress / NSEvent monitor while pane focused). Replace the bare list with a header row whose buttons sort by Name/Size/Modified/Perms (toggle asc/desc, persist in AppViewModel). Render the already-parsed SFTPItem.permissions inline (small MonoText, color-coded rwx) and add a filter TextField that narrows displayedItems by name. Add a chmod sheet (9 rwx checkboxes -> octal) calling SFTPService.chmod(path, mode) wrapping sftp 'chmod NNN path'. These reuse existing parsed fields (owner/group/permissions/isSymlink) already present in SFTPItem.",
+        "files": "EDIT Nexus/Views/SFTP/SFTPBrowserView.swift (selection, key handling, sort header, filter, perms column, chmod sheet), EDIT Nexus/Services/SFTPService.swift (chmod), EDIT AppViewModel (sort preference)"
+      },
+      {
+        "feature": "Quick Connect via Command Palette",
+        "priority": "should",
+        "effort": "S",
+        "spec": "Extend the existing ⌘K PaletteModel to detect connection-string input (user@host:port or host). When the query matches a host pattern and no saved session matches, offer a 'Connect to <host>' action that builds an ephemeral Session (parse user/host/port, connectionType .ssh default; ':23' -> telnet heuristic optional) and routes through AppViewModel.connect(to:). Pure UI/logic, reuses connect path. No persistence unless user clicks 'Save as Session'.",
+        "files": "EDIT Nexus/Views/CommandPalette/* (parse + action), EDIT AppViewModel (quickConnect(parsing:) helper)"
+      },
+      {
+        "feature": "SSH jump host + keep-alive + auto-reconnect",
+        "priority": "should",
+        "effort": "S",
+        "spec": "Extend SSHArgumentBuilder.build(): add -J user@bastion when session.sshJumpHost set; always add -o ServerAliveInterval=30 -o ServerAliveCountMax=3 (keep-alive). Add Session fields sshJumpHost: String and autoReconnect: Bool (both via tolerant decoder). Auto-reconnect: in NexusSSHTerminalView.processTerminated, if session.autoReconnect and exit was not user-initiated, relaunch startProcess after a backoff (1s,2s,4s, cap 30s, max ~5 tries) and feed a '*** reconnecting… ***' banner via feed(text:). Editor UI in AddSessionView for jump host + auto-reconnect toggles.",
+        "files": "EDIT Nexus/Services/SSHService.swift (SSHArgumentBuilder -J + keepalive), EDIT Nexus/Models/Session.swift (fields + tolerant decoder), EDIT Nexus/Views/Terminal/NexusTerminalView.swift (reconnect backoff), EDIT AddSessionView.swift"
+      },
+      {
+        "feature": "Find-in-terminal (⌘F)",
+        "priority": "should",
+        "effort": "S",
+        "spec": "SwiftTerm exposes PUBLIC findNext(_:options:scrollToResult:), findPrevious(...), clearSearch() on TerminalView (verified in TerminalViewSearch.swift) — no regex fallback needed. Add a FindInTerminalOverlay (SearchField + prev/next + match toggle + close) pinned top-trailing of TabContentView; ⌘F shows it and focuses the field, Esc calls clearSearch() and hides. Add find(term:forward:) wrapper on NexusTerminalView/its NSViews delegating to the active tab's view. DS-styled overlay.",
+        "files": "EDIT Nexus/Views/Terminal/TerminalTabsView.swift (overlay + ⌘F state), EDIT Nexus/Views/Terminal/NexusTerminalView.swift (find wrapper calling findNext/findPrevious/clearSearch)"
+      },
+      {
+        "feature": "Auto-open SFTP pane per SSH session + SFTP bookmarks",
+        "priority": "nice",
+        "effort": "S",
+        "spec": "When an .ssh ConnectionSession connects, optionally auto-instantiate the SFTP browser in the detail inspector using the same resolved credential/host/port (reuse SFTPService auth path which already mirrors SSHArgumentBuilder options). Add a per-session or global 'auto-open file browser' setting. Add SFTP bookmarks: persist a [SFTPBookmark{host,path}] list (JSON via DatabaseService) surfaced as quick-access rows, mirroring SSH favorites.",
+        "files": "EDIT ContentView/TerminalTabsView (inspector binding), EDIT SFTPBrowserView (bookmarks UI), EDIT DatabaseService (bookmarks load/save), EDIT AppSettings (autoOpenSFTP)"
+      },
+      {
+        "feature": "In-app text editor for remote files (minimal)",
+        "priority": "nice",
+        "effort": "M",
+        "spec": "Double-click a text-class file (.txt/.sh/.cfg/.conf/.yaml/.json/.log) -> SFTPService downloads to a temp file, open NexusTextEditorView (NSTextView/TextEditor, MonoText, DS-styled) editable, with a 'Push to remote' button re-running sftp 'put'. Optional FSEvents/DispatchSource watch on the temp file for auto-upload-on-save (the same mechanism enables MobaXterm-style auto-sync). Non-text files keep current NSWorkspace.open behavior.",
+        "files": "NEW Nexus/Views/SFTP/NexusTextEditorView.swift, EDIT Nexus/Services/SFTPService.swift (download-to-temp/put helpers), EDIT SFTPBrowserView (double-click dispatch), optional NEW FileWatchService.swift (DispatchSource)"
+      },
+      {
+        "feature": "Persistent server logs + transfer progress + autostart failure banner",
+        "priority": "nice",
+        "effort": "M",
+        "spec": "Write each server's ring-buffer to ~/Library/Application Support/Nexus/ServerLogs/<serverId>/<timestamp>.log; load last N on start; add 'View Full Log' + 'Export'. Add per-transfer progress for FTP STOR/RETR and TFTP WRQ/RRQ (block count vs file size -> ProgressView with MB + bytes/sec + ETA) using counters already added in the Server Manager DS pass. Surface autoStart failures: replace silent Task{ try? await start } with a captured error queue and a dismissible DS banner atop EmbeddedServersView ('HTTP failed on :8080 — in use').",
+        "files": "EDIT Nexus/Services/EmbeddedServerService.swift (persistence + error queue + autostart capture), EDIT native TFTP/FTP servers (progress counters), EDIT EmbeddedServersView.swift (full-log/export buttons, failure banner, progress UI)"
+      }
+    ],
+    "serverHosting": "Native Syslog server is the flagship add: NativeSyslogServer on Network.framework NWListener(.udp) mirroring the existing NativeTFTPServer (same EmbeddedServerService lifecycle: start/stop/autoStart/port-in-use/logging). Default port 514 with automatic fallback/suggestion to 5514 because binding <1024 needs root and the app is un-sandboxed-but-not-root — many devices already target a high port, so port is configurable per server. Parse both RFC 3164 (legacy '<PRI>Mmm dd hh:mm:ss host tag: msg') and RFC 5424 ('1 ' version prefix), deriving facility=PRI/8 and severity=PRI%8 into a SyslogEntry with a DS-colored SyslogSeverity enum (emergency/alert/critical/error -> DS.Color.stateFailed badges, warning -> orange, notice/info -> green, debug -> secondary). Live UI is a structured Table (severity StateBadge | time | sourceIP | hostname | tag | message) with severity filter chips, free-text filter, a 'N critical alerts' counter, per-row copy, and CSV export to Downloads — exactly the missing 'critical data source during firmware upgrades' the audit calls out. Add `.syslog` to ServerType (defaultPort 514, isAvailable true). Server Manager redesign: full DS pass on EmbeddedServersView — NexusCard containers (DS.Radius.lg/DS.Space.xl), StatusDot+StateBadge bound to ConnectionState.tint/symbol instead of raw Circle()/.green/.gray/.orange, SectionHeader titles, DS.Font.* and MonoText logs. Add per-card 'Open in Finder' (NSWorkspace.activateFileViewerSelecting), a folder drop-zone on the root row (.onDrop fileURL -> setRoot + saveServers), a live insights strip (active connections / bytes transferred / last activity) backed by counters added to each native server, improved pre-start port-in-use detection (test-bind TCP or UDP per server type before launch with a 'next free port' suggestion), and a dismissible failure banner replacing the silent autoStart Task{ try? }. Persistent server logs to ~/Library/Application Support/Nexus/ServerLogs/ and FTP/TFTP transfer progress (MB/speed/ETA) follow as the 'nice' increment.",
+    "sftpUpgrades": "Ship in three waves against the existing SFTPBrowserView + SFTPService (which shells out to /usr/bin/sftp). WAVE 1 (must): (1) Drag-drop upload — .onDrop(of:[.fileURL]) on the list area, resolve provider URLs, enqueue via SFTPService 'put', with a drop-highlight overlay; (2) replace the blocking full-screen TransferProgressOverlay with a non-modal toolbar transfer chip that keeps the list interactive, supports a multi-file queue, and Cancel (Process.terminate); parse sftp's CR progress line ('NN% X.XMB YY.Y KB/s ETA') from child stdout for real fraction/speed/ETA; (3) wire Refresh + context-menu Rename/Delete/New Folder, plus recursive delete (SFTPService.deleteRecursive walking the tree with sftp ls/rm/rmdir, no external rm -rf) with destructive confirmations and auto-refresh after every mutation. WAVE 2 (should): (4) Follow-terminal-CWD via OSC 7 — override TerminalViewDelegate.hostCurrentDirectoryUpdate in NexusSSHTerminalView (SwiftTerm parses OSC 7 into Terminal.hostCurrentDirectory), publish ConnectionSession.remoteCWD, and a 'Follow Terminal' toggle reloads the pane on change; opt-in PROMPT_COMMAND/precmd injection makes Linux bash/zsh emit OSC 7. HONEST CAVEAT: Unix interactive shells only — Cisco/HP/embedded gear has no shell CWD, so the toggle is gated to .ssh and shows 'Unavailable for this device'; no /proc polling. (5) Keyboard nav (⬆⬇/Return/⌘↑/⌘R/⌘D/⌘U/Delete), sortable Name/Size/Modified/Perms header, name filter TextField, inline color-coded rwx permissions (SFTPItem.permissions is already parsed but never shown), and a chmod sheet (9 checkboxes -> octal -> sftp 'chmod'). WAVE 3 (nice): SFTP bookmarks persisted via DatabaseService, auto-open SFTP pane per SSH session reusing the resolved credential, and a minimal in-app text editor (download-to-temp -> NSTextView -> sftp put, optional FSEvents auto-upload-on-save).",
+    "infeasible": [
+      "RDP client (in-tab): no native macOS RDP engine ships; protocol+codec stack from scratch or bundling FreeRDP both out of scope. Mitigation: deep-link to Microsoft 'Windows App' if installed (out-of-process).",
+      "VNC embedded in a tab: RFB framebuffer decode would be a from-scratch implementation. Mitigation: launch macOS built-in Screen Sharing via vnc://host URL (out-of-process, zero deps).",
+      "X11 server: macOS no longer ships X11; XQuartz is a barred Homebrew-class install and writing an X server is out of scope.",
+      "Embedded SFTP server (inbound): requires an sshd subsystem / SSH transport stack — not a bundleable in-process server. TFTP/FTP/HTTP cover the push-to-device need.",
+      "Embedded NFS server: needs privileged kernel nfsd + mountd/portmap system daemons (sudo), not in-process.",
+      "Zmodem/Xmodem (rz/sz) in-terminal transfer: macOS doesn't ship lrzsz and external binaries are barred; native Zmodem-over-PTY is a large niche build. SFTP/TFTP/FTP cover transfers.",
+      "Package manager / plugin add-ons: would mean shipping/installing external binaries — the exact thing the self-contained constraint forbids; macOS already provides the Unix userland.",
+      "Split panes (true side-by-side terminals in one tab): SwiftTerm's heavyweight NSView terminals have no compositing API for parallel PTY tiling. Mitigation provided instead: keep-all-tabs-alive ZStack + MultiExec broadcast for synchronized multi-terminal work."
+    ],
+    "buildOrder": [
+      "1. Server Manager DS refactor (unblocks/standardizes the Syslog UI and is low-regression)",
+      "2. Native Syslog server + structured SyslogLogView (flagship, high audience value)",
+      "3. Keep-all-tabs-alive ZStack + wire SSH terminalSendHandler (prerequisite plumbing for MultiExec & logging)",
+      "4. Local shell terminal tab (small, self-contained, exercises the new dispatch + logging hook)",
+      "5. Session logging to file (taps the now-wired data hooks across SSH/local/telnet/serial)",
+      "6. MultiExec / broadcast input (builds on steps 3-4)",
+      "7. Network Toolbox (ping/traceroute/dns/port-check/WoL) — independent, high value",
+      "8. SFTP Wave 1: drag-drop upload + non-blocking transfers + mkdir/rename/delete/recursive + refresh",
+      "9. SFTP Wave 2: follow-CWD (OSC 7), keyboard nav, sortable columns, filter, permissions/chmod",
+      "10. Quick Connect (⌘K), SSH jump host + keep-alive + auto-reconnect, Find-in-terminal (⌘F)",
+      "11. Nice-to-haves: persistent server logs + FTP/TFTP transfer progress + autostart banner; SFTP bookmarks + auto-open pane + in-app text editor"
+    ]
+  }
+}

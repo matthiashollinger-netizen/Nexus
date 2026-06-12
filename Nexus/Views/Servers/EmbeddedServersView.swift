@@ -1,51 +1,48 @@
 import SwiftUI
 import AppKit
 
-// MARK: - Embedded Servers Window
+// MARK: - Embedded Servers Window  (DS v3.0)
 
 struct EmbeddedServersView: View {
     @State private var serverService = EmbeddedServerService.shared
     @State private var configuringServer: EmbeddedServer? = nil
     @State private var errorMessage: String? = nil
 
-    private let columns = [GridItem(.flexible()), GridItem(.flexible())]
+    private let columns = [GridItem(.flexible(), spacing: DS.Space.md), GridItem(.flexible(), spacing: DS.Space.md)]
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Image(systemName: "server.rack").foregroundStyle(.secondary)
-                Text("servers.title").font(.headline)
+            HStack(spacing: DS.Space.md) {
+                IconBadge(systemImage: "server.rack", pointSize: 18)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("servers.title").font(DS.Font.title)
+                    Text("servers.subtitle").font(DS.Font.caption).foregroundStyle(.secondary)
+                }
                 Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(DS.Space.xl)
 
             Divider()
 
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 12) {
+                LazyVGrid(columns: columns, spacing: DS.Space.md) {
                     ForEach(EmbeddedServer.ServerType.allCases) { type in
                         cardForType(type)
                     }
                 }
-                .padding(16)
+                .padding(DS.Space.xl)
             }
 
             if let err = errorMessage {
                 HStack {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    Text(err).font(.caption)
-                    Spacer()
+                    InfoCard(style: .danger, message: LocalizedStringKey(err))
                     Button { errorMessage = nil } label: { Image(systemName: "xmark") }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.plain).foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.orange.opacity(0.1))
+                .padding(DS.Space.md)
             }
         }
-        .frame(minWidth: 560, minHeight: 460)
+        .frame(minWidth: 620, minHeight: 500)
         .onAppear {
             serverService.loadServers()
             ensureDefaultInstances()
@@ -60,13 +57,12 @@ struct EmbeddedServersView: View {
         }
     }
 
-    // MARK: - One card per server type
-
     @ViewBuilder
     private func cardForType(_ type: EmbeddedServer.ServerType) -> some View {
         if type.isAvailable, let idx = serverService.servers.firstIndex(where: { $0.type == type }) {
             ServerCard(server: $serverService.servers[idx],
                        logs: serverService.logs(for: serverService.servers[idx]),
+                       syslogServer: type == .syslog ? serverService.syslogServer(for: serverService.servers[idx]) : nil,
                        onStart: { Task { await startServer(serverService.servers[idx]) } },
                        onStop: { serverService.stop(serverService.servers[idx]) },
                        onConfigure: { configuringServer = serverService.servers[idx] })
@@ -75,7 +71,6 @@ struct EmbeddedServersView: View {
         }
     }
 
-    /// Ensures a persisted instance exists for each startable server type.
     private func ensureDefaultInstances() {
         var changed = false
         for type in EmbeddedServer.ServerType.allCases where type.isAvailable {
@@ -88,11 +83,8 @@ struct EmbeddedServersView: View {
     }
 
     private func startServer(_ server: EmbeddedServer) async {
-        do {
-            try await serverService.start(server)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+        do { try await serverService.start(server) }
+        catch { errorMessage = error.localizedDescription }
     }
 }
 
@@ -102,23 +94,22 @@ private struct DeactivatedServerCard: View {
     let type: EmbeddedServer.ServerType
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Image(systemName: type.systemImage).font(.title2).foregroundStyle(.tertiary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(type.displayName).fontWeight(.semibold).foregroundStyle(.secondary)
-                    Text("server.coming_soon").font(.caption).foregroundStyle(.tertiary)
+        NexusCard(hoverLift: false) {
+            VStack(alignment: .leading, spacing: DS.Space.md) {
+                HStack(spacing: DS.Space.sm) {
+                    Image(systemName: type.systemImage).font(.title3).foregroundStyle(.tertiary)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(type.displayName).font(DS.Font.headline).foregroundStyle(.secondary)
+                        Text("server.coming_soon").font(DS.Font.caption).foregroundStyle(.tertiary)
+                    }
+                    Spacer()
                 }
-                Spacer()
+                Text(LocalizedStringKey(type.noteKey))
+                    .font(DS.Font.caption).foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Text(LocalizedStringKey(type.noteKey))
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(14)
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
-        .opacity(0.7)
+        .opacity(0.75)
     }
 }
 
@@ -127,13 +118,15 @@ private struct DeactivatedServerCard: View {
 struct ServerCard: View {
     @Binding var server: EmbeddedServer
     let logs: [String]
+    var syslogServer: NativeSyslogServer? = nil
     let onStart: () -> Void
     let onStop: () -> Void
     let onConfigure: () -> Void
 
     @State private var showLogs = false
 
-    /// The address a client/switch should use, e.g. "tftp://192.168.90.10:6969".
+    private var state: ConnectionState { server.isRunning ? .connected : .idle }
+
     private var reachableAddress: String {
         let ip = EmbeddedServerService.localIPAddress() ?? "127.0.0.1"
         let scheme: String
@@ -141,122 +134,116 @@ struct ServerCard: View {
         case .http:   scheme = "http"
         case .tftp:   scheme = "tftp"
         case .ftp:    scheme = "ftp"
+        case .syslog: scheme = "udp"
         case .sftp:   scheme = "sftp"
         case .telnet: scheme = "telnet"
         }
         return "\(scheme)://\(ip):\(server.port)"
     }
 
+    private var rootURL: URL {
+        URL(fileURLWithPath: server.rootDirectory.isEmpty
+            ? FileManager.default.homeDirectoryForCurrentUser.path : server.rootDirectory)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Header
-            HStack {
-                Image(systemName: server.type.systemImage)
-                    .font(.title2)
-                    .foregroundStyle(server.isRunning ? .green : .secondary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(server.type.displayName)
-                        .fontWeight(.semibold)
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(server.isRunning ? Color.green : Color.gray)
-                            .frame(width: 6, height: 6)
-                        Text(server.isRunning ? String(localized: "server.status.running") : String(localized: "server.status.stopped"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Spacer()
-            }
-
-            // Info
-            HStack {
-                Label(":\(server.port)", systemImage: "number")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-
-            // Reachable address (what to type on the switch) — shown while running.
-            if server.isRunning {
-                Label(reachableAddress, systemImage: "antenna.radiowaves.left.and.right")
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.green)
-                    .textSelection(.enabled)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-
-            if !server.rootDirectory.isEmpty {
-                Text(server.rootDirectory)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-
-            Divider()
-
-            // Privileged-port warning (ports < 1024 need root)
-            if server.port < 1024 {
-                Label("server.privileged_port_warning", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
-
-            // Actions
-            HStack(spacing: 8) {
+        NexusCard(hoverLift: false) {
+            VStack(alignment: .leading, spacing: DS.Space.md) {
+                header
+                info
                 if server.isRunning {
-                    Button("server.stop") { onStop() }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .tint(.red)
-                } else {
-                    Button("server.start") { onStart() }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
+                    Label(reachableAddress, systemImage: "antenna.radiowaves.left.and.right")
+                        .font(DS.Font.mono)
+                        .foregroundStyle(DS.Color.stateConnected)
+                        .textSelection(.enabled).lineLimit(1).truncationMode(.middle)
                 }
-
-                Button("server.configure") { onConfigure() }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-
-                Spacer()
-
-                Button {
-                    showLogs.toggle()
-                } label: {
-                    Image(systemName: showLogs ? "chevron.up" : "list.bullet.rectangle")
-                }
-                .buttonStyle(.borderless)
-                .help("server.logs")
-            }
-
-            // Logs (expandable)
-            if showLogs {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(logs.suffix(50), id: \.self) { line in
-                            Text(line)
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(.green)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        if logs.isEmpty {
-                            Text("–")
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                        }
+                if server.type.usesRootDirectory && !server.rootDirectory.isEmpty {
+                    Button { NSWorkspace.shared.activateFileViewerSelecting([rootURL]) } label: {
+                        Label(server.rootDirectory, systemImage: "folder")
+                            .font(DS.Font.caption).foregroundStyle(.tertiary)
+                            .lineLimit(1).truncationMode(.middle)
                     }
-                    .padding(8)
+                    .buttonStyle(.plain).help("server.open_in_finder")
                 }
-                .frame(height: 80)
-                .background(Color.black.opacity(0.85))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                Divider()
+
+                if server.port < 1024 {
+                    Label("server.privileged_port_warning", systemImage: "exclamationmark.triangle.fill")
+                        .font(DS.Font.caption).foregroundStyle(DS.Color.stateConnecting)
+                }
+
+                actions
+
+                if showLogs { logSection }
             }
         }
-        .padding(14)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var header: some View {
+        HStack(spacing: DS.Space.sm) {
+            Image(systemName: server.type.systemImage)
+                .font(.title3).symbolRenderingMode(.hierarchical)
+                .foregroundStyle(server.isRunning ? DS.Color.accent : .secondary)
+            Text(server.type.displayName).font(DS.Font.headline)
+            Spacer()
+            StateBadge(state: state)
+        }
+    }
+
+    private var info: some View {
+        HStack {
+            Label(":\(server.port)", systemImage: "number")
+                .font(DS.Font.caption).foregroundStyle(.secondary)
+            Spacer()
+        }
+    }
+
+    private var actions: some View {
+        HStack(spacing: DS.Space.sm) {
+            if server.isRunning {
+                Button("server.stop") { onStop() }
+                    .buttonStyle(.bordered).controlSize(.small).tint(.red)
+            } else {
+                Button("server.start") { onStart() }
+                    .buttonStyle(.borderedProminent).controlSize(.small)
+            }
+            Button("server.configure") { onConfigure() }
+                .buttonStyle(.bordered).controlSize(.small)
+            Spacer()
+            Button { showLogs.toggle() } label: {
+                Image(systemName: showLogs ? "chevron.up" : "list.bullet.rectangle")
+            }
+            .buttonStyle(.borderless).help("server.logs")
+        }
+    }
+
+    @ViewBuilder private var logSection: some View {
+        if server.type == .syslog, let syslog = syslogServer {
+            SyslogLogView(server: syslog)
+                .frame(height: 240)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).strokeBorder(DS.Color.hairline, lineWidth: 0.5))
+        } else if server.type == .syslog {
+            Text("syslog.start_to_view").font(DS.Font.caption).foregroundStyle(.secondary)
+                .padding(.vertical, DS.Space.sm)
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    if logs.isEmpty {
+                        MonoText("–")
+                    } else {
+                        ForEach(logs.suffix(50), id: \.self) { line in
+                            MonoText(line).frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+                .padding(DS.Space.sm)
+            }
+            .frame(height: 90)
+            .background(DS.Color.surface, in: RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).strokeBorder(DS.Color.hairline, lineWidth: 0.5))
+        }
     }
 }
 
@@ -266,44 +253,42 @@ struct ServerConfigSheet: View {
     @Binding var server: EmbeddedServer
     let onDone: () -> Void
 
-    @State private var rootDir: String = ""
-
     var body: some View {
-        VStack(spacing: 16) {
-            Text("server.configure")
-                .font(.headline)
+        VStack(spacing: DS.Space.lg) {
+            HStack(spacing: DS.Space.md) {
+                IconBadge(systemImage: server.type.systemImage, pointSize: 18)
+                Text(server.type.displayName).font(DS.Font.title)
+                Spacer()
+            }
 
             Form {
                 LabeledContent("server.port") {
-                    TextField("", value: $server.port, format: .number)
-                        .frame(width: 80)
+                    TextField("", value: $server.port, format: .number).frame(width: 80)
                 }
-
-                LabeledContent("server.root") {
-                    HStack {
-                        Text(server.rootDirectory.isEmpty ? "~/" : server.rootDirectory)
-                            .foregroundStyle(server.rootDirectory.isEmpty ? .secondary : .primary)
-                            .lineLimit(1)
-                        Button("action.edit") {
-                            let panel = NSOpenPanel()
-                            panel.canChooseFiles = false
-                            panel.canChooseDirectories = true
-                            if panel.runModal() == .OK {
-                                server.rootDirectory = panel.url?.path ?? ""
+                if server.type.usesRootDirectory {
+                    LabeledContent("server.root") {
+                        HStack {
+                            Text(server.rootDirectory.isEmpty ? "~/" : server.rootDirectory)
+                                .foregroundStyle(server.rootDirectory.isEmpty ? .secondary : .primary)
+                                .lineLimit(1)
+                            Button("action.edit") {
+                                let panel = NSOpenPanel()
+                                panel.canChooseFiles = false
+                                panel.canChooseDirectories = true
+                                if panel.runModal() == .OK { server.rootDirectory = panel.url?.path ?? "" }
                             }
+                            .controlSize(.small)
                         }
-                        .controlSize(.small)
                     }
                 }
-
                 Toggle("server.autostart", isOn: $server.autoStart)
             }
             .formStyle(.grouped)
 
             Button("action.save") { onDone() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.borderedProminent).controlSize(.large)
         }
-        .padding(24)
-        .frame(width: 380)
+        .padding(DS.Space.xxl)
+        .frame(width: 420)
     }
 }
