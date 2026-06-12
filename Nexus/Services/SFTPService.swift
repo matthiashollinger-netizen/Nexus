@@ -63,6 +63,16 @@ actor SFTPService {
 
     /// Builds the `/usr/bin/sftp` argument list for `conn`. Note the port flag is
     /// `-P` (UPPERCASE) — sftp differs from ssh which uses `-p`.
+    ///
+    /// CRITICAL — do NOT add sftp's `-b` batch flag. `-b` implies ssh `BatchMode=yes`,
+    /// which DISABLES SSH_ASKPASS password authentication (ssh then only attempts key
+    /// auth, fails, and returns "Permission denied (publickey,password)" without ever
+    /// prompting). That made the SFTP browser fail "Authentication failed" on every
+    /// password-auth host even though the identical password worked in the SSH
+    /// terminal (the terminal masks it by *typing* the password as a fallback; SFTP
+    /// has none). Instead we feed the command list through the process's stdin pipe,
+    /// which sftp reads non-interactively while still allowing askpass password auth.
+    /// Verified against a real host (publickey → password → askpass invoked).
     nonisolated func buildArguments(_ conn: SFTPConnection) -> [String] {
         // Split "user@host" if present.
         var effectiveUser = conn.username
@@ -74,7 +84,7 @@ actor SFTPService {
             effectiveHost = parsedHost
         }
 
-        var args = ["-b", "-"]
+        var args: [String] = []
         args += conn.options.commonOptionFlags()   // ConnectTimeout, legacy algos, StrictHostKey
         args += ["-P", "\(conn.port)"]              // UPPERCASE -P for sftp
         args += conn.options.jumpHostFlag()         // -J jump host (same as ssh)
@@ -321,6 +331,14 @@ actor SFTPService {
             if let arrowRange = name.range(of: " -> ") {
                 name = String(name[..<arrowRange.lowerBound])
             }
+        }
+
+        // sftp's `ls -la <path>` lists entries PREFIXED with the directory
+        // ("/home/pi/node/bin"), unlike `ls -la` of the CWD which yields basenames.
+        // Keep only the basename so rows read cleanly and item.path stays correct.
+        // (Filenames can't contain "/", so this is always safe.)
+        if name.contains("/") {
+            name = (name as NSString).lastPathComponent
         }
 
         let isDirectory = permStr.hasPrefix("d")
