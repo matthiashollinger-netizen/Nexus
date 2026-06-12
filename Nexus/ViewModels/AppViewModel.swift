@@ -54,6 +54,9 @@ final class AppViewModel {
     // Theme Editor
     var showThemeEditor: Bool = false
 
+    // Command Palette (⌘K)
+    var showCommandPalette: Bool = false
+
     // Unlock state
     var isUnlocked: Bool = false
     var masterPassword: String = ""
@@ -80,6 +83,9 @@ final class AppViewModel {
         MacroService.shared.installHotkeyMonitor { [weak self] in
             self?.activeSessions ?? []
         }
+        // Disconnect notifications (native macOS Notification Center).
+        NotificationService.shared.enabled = settings.notifyOnDisconnect
+        NotificationService.shared.requestAuthorizationIfNeeded()
         // SEC-6: remove temp private-key / askpass files orphaned by a previous crash.
         Self.cleanupOrphanedTempFiles()
     }
@@ -119,6 +125,7 @@ final class AppViewModel {
 
     func saveSettings() {
         db.saveSettings(settings)
+        NotificationService.shared.enabled = settings.notifyOnDisconnect
     }
 
     // MARK: - Folders
@@ -197,6 +204,7 @@ final class AppViewModel {
         }
         activeSessions.append(cs)
         selectedTabId = cs.id
+        recordRecent(session)
         // Run on-connect macros and refresh schedules for new session count
         MacroService.shared.runOnConnectMacros(for: cs)
         MacroService.shared.scheduleAllMacros(activeSessions: activeSessions)
@@ -247,10 +255,101 @@ final class AppViewModel {
     /// Replaces the disconnected/failed session with a fresh one at the same tab position.
     func reconnect(cs: ConnectionSession) {
         guard let idx = activeSessions.firstIndex(where: { $0.id == cs.id }) else { return }
+        // Fully orphan the old session FIRST so a lingering macro/snippet send or a
+        // late processTerminated callback can't reach the replaced terminal.
+        cs.terminalSendHandler = nil
+        cs.terminalNSView = nil
         cs.disconnect()
         let newCs = ConnectionSession(session: cs.session, credential: credential(for: cs.session), settings: settings)
         activeSessions[idx] = newCs
         selectedTabId = newCs.id
+    }
+
+    // MARK: - Live status / Recents / Favorites
+
+    /// The live connection state for a session if it currently has an open tab.
+    /// Drives the sidebar status dots, dashboard badges and palette rows.
+    func liveState(for session: Session) -> ConnectionState? {
+        activeSessions.first(where: { $0.session.id == session.id })?.state
+    }
+
+    /// Records a session as recently used (most-recent first, de-duped, capped).
+    private func recordRecent(_ session: Session) {
+        settings.recentSessionIds.removeAll { $0 == session.id }
+        settings.recentSessionIds.insert(session.id, at: 0)
+        if settings.recentSessionIds.count > 8 {
+            settings.recentSessionIds = Array(settings.recentSessionIds.prefix(8))
+        }
+        saveSettings()
+    }
+
+    /// Recently-connected sessions, most-recent first (stale ids are dropped).
+    var recentSessions: [Session] {
+        settings.recentSessionIds.compactMap { id in sessions.first { $0.id == id } }
+    }
+
+    /// Sessions the user has starred.
+    var favoriteSessions: [Session] {
+        sessions.filter { $0.isFavorite }.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    func toggleFavorite(_ session: Session) {
+        guard let idx = sessions.firstIndex(where: { $0.id == session.id }) else { return }
+        sessions[idx].isFavorite.toggle()
+        db.saveSessions(sessions)
+    }
+
+    // MARK: - Snippets
+
+    /// Session whose snippets are being edited (drives the SnippetEditor sheet).
+    var editingSnippetsSession: Session? = nil
+
+    /// The connection session shown in the foreground tab, if any.
+    var activeConnection: ConnectionSession? {
+        activeSessions.first { $0.id == selectedTabId }
+    }
+
+    /// Sends a snippet's command into the live terminal of `cs`.
+    func sendSnippet(_ snippet: Snippet, to cs: ConnectionSession) {
+        let text = snippet.command + (snippet.sendReturn ? "\n" : "")
+        cs.terminalSendHandler?(Array(text.utf8))
+    }
+
+    // MARK: - URL scheme (nexus://)
+    //
+    // Deep links to open/connect a session from a browser, wiki or chat:
+    //   nexus://open/<session-uuid>          — connect a saved session by id
+    //   nexus://open?name=<name>             — connect a saved session by name
+    //   nexus://connect?host=H&port=P&user=U&type=ssh|telnet|serial — ad-hoc connect
+    func handleURL(_ url: URL) {
+        guard url.scheme?.lowercased() == "nexus", isUnlocked else { return }
+        let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let items = comps?.queryItems ?? []
+        func q(_ name: String) -> String? { items.first { $0.name == name }?.value }
+
+        switch url.host?.lowercased() {
+        case "open":
+            let idString = url.pathComponents.dropFirst().first ?? q("id")
+            if let idString, let uuid = UUID(uuidString: idString),
+               let session = sessions.first(where: { $0.id == uuid }) {
+                connect(to: session)
+            } else if let name = q("name"),
+                      let session = sessions.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+                connect(to: session)
+            }
+        case "connect":
+            guard let host = q("host"), !host.isEmpty else { return }
+            var session = Session()
+            session.host = host
+            session.name = q("name") ?? host
+            session.username = q("user") ?? q("username") ?? ""
+            let type = (q("type") ?? "ssh").lowercased()
+            session.connectionType = (type == "telnet") ? .telnet : (type == "serial" ? .serial : .ssh)
+            session.port = Int(q("port") ?? "") ?? session.connectionType.defaultPort
+            connect(to: session)
+        default:
+            break
+        }
     }
 
     // MARK: - Credentials

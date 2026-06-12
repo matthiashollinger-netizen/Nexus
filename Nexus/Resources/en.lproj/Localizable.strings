@@ -690,3 +690,78 @@
 // MARK: - Server Manager (v2.3.0 native servers)
 "server.privileged_port_warning" = "Ports below 1024 require root. Use a higher port (e.g. 6969 for TFTP).";
 "server.note.sftp" = "An SFTP server needs a full SSH server and cannot be shipped self-contained. Use TFTP or FTP for device uploads — TFTP is the Cisco/HP standard.";
+
+// MARK: - v3.0 — Connection status
+"status.connected" = "Connected";
+"status.connecting" = "Connecting";
+"status.failed" = "Failed";
+"status.disconnected" = "Disconnected";
+"status.idle" = "Idle";
+
+// MARK: - v3.0 — Favorites & sidebar empty state
+"action.favorite" = "Add to Favorites";
+"action.unfavorite" = "Remove from Favorites";
+"sidebar.empty.title" = "No connections yet";
+"sidebar.empty.message" = "Create your first session or import them from a CSV.";
+
+// MARK: - v3.0 — Dashboard
+"dashboard.greeting.morning" = "Good morning";
+"dashboard.greeting.afternoon" = "Good afternoon";
+"dashboard.greeting.evening" = "Good evening";
+"dashboard.greeting.night" = "Working late";
+"dashboard.subtitle" = "%lld sessions · %lld folders";
+"dashboard.quickconnect.placeholder" = "Connect to a host or search everything…";
+"dashboard.action.new_session" = "New Session";
+"dashboard.action.new_folder" = "New Folder";
+"dashboard.action.import" = "Import CSV";
+"dashboard.action.passwords" = "Passwords";
+"dashboard.action.servers" = "Servers";
+"dashboard.action.themes" = "Themes";
+"dashboard.stat.sessions" = "Sessions";
+"dashboard.stat.folders" = "Folders";
+"dashboard.stat.servers" = "Servers running";
+"dashboard.favorites" = "Favorites";
+"dashboard.recent" = "Recent";
+"dashboard.recent.empty.title" = "No recent connections";
+"dashboard.recent.empty.message" = "Sessions you connect to appear here for one-click access.";
+"dashboard.servers" = "Embedded Servers";
+"dashboard.servers.manage" = "Manage";
+"dashboard.servers.idle" = "No servers running. Open the Server Manager to start a TFTP, FTP or HTTP server for device uploads.";
+
+// MARK: - v3.0 — Command Palette
+"menu.command_palette" = "Command Palette…";
+"palette.placeholder" = "Search sessions, actions…";
+"palette.no_results" = "No matches";
+"palette.group.tabs" = "Open Tabs";
+"palette.group.sessions" = "Sessions";
+"palette.group.folders" = "Folders";
+"palette.group.actions" = "Actions";
+"palette.footer.navigate" = "Navigate";
+"palette.footer.open" = "Open";
+"palette.footer.stay" = "Connect & stay";
+"palette.footer.close" = "Close";
+"palette.action.new_session" = "New Session";
+"palette.action.new_folder" = "New Folder";
+"palette.action.import" = "Import CSV…";
+"palette.action.passwords" = "Open Password Manager";
+"palette.action.servers" = "Open Server Manager";
+"palette.action.themes" = "Open Theme Editor";
+"palette.action.editor" = "Open Text Editor";
+"palette.action.macros" = "Open Macro Manager";
+"palette.action.help" = "Open Help";
+
+// MARK: - v3.0 — Snippets
+"toolbar.snippets" = "Snippets";
+"snippets.title" = "Snippets";
+"snippets.none" = "No snippets for this session";
+"snippets.edit" = "Edit Snippets…";
+"snippets.add" = "Add Snippet";
+"snippets.empty.title" = "No snippets yet";
+"snippets.empty.message" = "Add reusable commands like “show running-config” to fire into this session with one click.";
+"snippets.field.title" = "Label (optional)";
+"snippets.field.command" = "Command";
+"snippets.field.send_return" = "Send Return after the command";
+
+// MARK: - v3.0 — Notifications
+"notify.disconnected.body" = "The connection was closed.";
+"notify.failed.body" = "The connection failed.";

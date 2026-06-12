@@ -13,6 +13,8 @@ struct NexusApp: App {
                 // Explicit minimum prevents the window from shrinking when sheets
                 // open/close as attached panels, which causes the "sliding" position drift.
                 .frame(minWidth: 900, minHeight: 600)
+                // nexus:// deep links (open/connect a session from a link).
+                .onOpenURL { appViewModel.handleURL($0) }
         }
         .commands {
             NexusCommands(vm: appViewModel, updaterVM: updaterViewModel)
@@ -83,6 +85,13 @@ struct NexusCommands: Commands {
 
         CommandMenu("menu.tools") {
             ToolsMenuItems()
+        }
+
+        CommandGroup(after: .toolbar) {
+            Button("menu.command_palette") {
+                vm.showCommandPalette = true
+            }
+            .keyboardShortcut("k", modifiers: [.command])
         }
 
         CommandGroup(after: .newItem) {

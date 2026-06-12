@@ -26,6 +26,17 @@
 	<string>https://raw.githubusercontent.com/matthiashollinger-netizen/Nexus/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>yx+eogSSO+AT8UZZJi31SnJXk/F+94Q4rNDbOgJ40Pc=</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.hollinger.Nexus.url</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>nexus</string>
+			</array>
+		</dict>
+	</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>

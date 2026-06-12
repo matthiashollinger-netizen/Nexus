@@ -21,6 +21,16 @@ struct AppSettings: Codable {
     // Theme
     var activeThemeId: String = "nexusDark"
 
+    // Recently connected sessions (most-recent first, capped) — powers the
+    // Dashboard "Recent" section and the Command Palette empty-query list.
+    var recentSessionIds: [UUID] = []
+
+    // Sidebar row density (compact = 28pt rows, comfortable = 32pt).
+    var sidebarCompact: Bool = true
+
+    // Notify (macOS UserNotifications) when a session disconnects/fails.
+    var notifyOnDisconnect: Bool = true
+
     init() {}
 }
 
@@ -31,6 +41,7 @@ extension AppSettings {
         case language, sshLegacyAlgorithms, terminalFontName, terminalFontSize
         case defaultSSHPort, defaultTelnetPort, masterPasswordEnabled, hasCompletedOnboarding
         case preferredEditorApp, enabledHighlightRulesets, activeThemeId
+        case recentSessionIds, sidebarCompact, notifyOnDisconnect
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -47,5 +58,8 @@ extension AppSettings {
         preferredEditorApp       = try c.decodeIfPresent(String.self, forKey: .preferredEditorApp) ?? d.preferredEditorApp
         enabledHighlightRulesets = try c.decodeIfPresent([String].self, forKey: .enabledHighlightRulesets) ?? d.enabledHighlightRulesets
         activeThemeId            = try c.decodeIfPresent(String.self, forKey: .activeThemeId) ?? d.activeThemeId
+        recentSessionIds         = try c.decodeIfPresent([UUID].self, forKey: .recentSessionIds) ?? d.recentSessionIds
+        sidebarCompact           = try c.decodeIfPresent(Bool.self, forKey: .sidebarCompact) ?? d.sidebarCompact
+        notifyOnDisconnect       = try c.decodeIfPresent(Bool.self, forKey: .notifyOnDisconnect) ?? d.notifyOnDisconnect
     }
 }

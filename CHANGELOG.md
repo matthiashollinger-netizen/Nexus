@@ -2,6 +2,67 @@
 
 ---
 
+## [3.0.0] - 2026-06-12
+
+### Neu — Großes UI-Rework
+
+- **Design-System (DS):** ein einheitliches Token-System für Abstände, Radien,
+  Typografie und semantische Farben ersetzt die zuvor 8 verschiedenen Eckenradien,
+  ~149 Ad-hoc-Schriftgrößen und verstreuten, hartkodierten Farben. Die ganze App
+  wirkt jetzt wie ein zusammenhängendes, natives macOS-Werkzeug. Neue
+  wiederverwendbare Bausteine: StatusDot, StateBadge, NexusCard, EmptyState,
+  SectionHeader, KeyHint, MonoText, IconBadge, QuickActionTile.
+- **Dashboard / Start-Bildschirm:** ersetzt den faden „Willkommen"-Platzhalter durch
+  einen echten Launchpad — zeitabhängige Begrüßung, Schnell-Verbinden-Leiste (⌘K),
+  Schnellaktionen, Statistik (Sessions/Ordner/aktive Server), zuletzt verwendete und
+  favorisierte Verbindungen sowie Live-Status der eingebetteten Server.
+- **Befehlspalette (⌘K):** Spotlight-artige Fuzzy-Suche über Sessions, offene Tabs,
+  Ordner und Aktionen. Drei Buchstaben, ⏎ — verbunden, ganz ohne Maus. Volle
+  Tastatur-Navigation (↑/↓/⏎/esc, ⌥⏎ = verbinden & offen lassen), Live-Hervorhebung
+  der Treffer.
+- **Status-auf-einen-Blick-Seitenleiste:** jede aktive Session zeigt einen
+  farbcodierten, „atmenden" Status-Punkt (farbenblind-sicher: Farbe + Symbol). Beim
+  Überfahren erscheinen Verbinden/Bearbeiten direkt in der Zeile; eine leere
+  Seitenleiste lädt jetzt mit einem klaren Erst-Schritt ein.
+- **Favoriten:** Sessions mit Stern markieren; eigener Bereich im Dashboard.
+- **Snippets:** wiederverwendbare Befehle pro Session (z. B. „show running-config"),
+  per Menü mit einem Klick in das laufende Terminal gesendet (SSH/Telnet/Serial).
+- **Mitteilungen:** native macOS-Benachrichtigung, wenn eine Verbindung unerwartet
+  abbricht (abschaltbar; reguläres Schließen löst keine Mitteilung aus).
+- **nexus:// Deep-Links:** `nexus://open/<id>` und `nexus://connect?host=…&type=ssh`
+  öffnen/verbinden eine Session aus Browser, Wiki oder Chat.
+
+### Behoben
+
+- **Makros auf SSH-Sessions:** SSH hatte zuvor keinen Sende-Kanal, sodass Makros
+  SSH-Terminals nie erreichten — jetzt einheitlich für SSH/Telnet/Serial verkabelt
+  (dieselbe Mechanik trägt auch die neuen Snippets).
+- Tab-Status nutzt jetzt den gemeinsamen Status-Punkt statt der „…/✕"-Emoji-Suffixe;
+  Tab-Schließen-Button mit Hover-Hervorhebung.
+- Reconnect-Overlay nutzt System-Material statt hartem Schwarz, respektiert
+  Hell/Dunkel und bietet „Schließen" (esc) neben „Neu verbinden" (⏎).
+
+### Technisch
+
+- Neue Modellfelder (`isFavorite`, `snippets`, `recentSessionIds`, …) verwenden
+  dieselben toleranten Decoder wie v2.3 — alte Daten laden unverändert, kein
+  Datenverlust.
+- Tastenkürzel ⌘K (Palette) kollidiert nicht mit ⌘⇧K (Passwort-Manager).
+- Alle neuen Strings vollständig zweisprachig (de + en).
+
+### Bewusst offen / nicht machbar
+
+- **RDP:** weiterhin nicht einbettbar (keine native Bibliothek; FreeRDP bräuchte
+  XQuartz/Homebrew → widerspricht dem self-contained-Ziel).
+- **SFTP-/Telnet-Server:** bräuchten einen vollständigen SSH-Server bzw. würden eine
+  unauthentifizierte Shell exponieren — bewusst nicht ausgeliefert (TFTP/FTP decken
+  Geräte-Uploads ab).
+- Voller Token-Sweep über die restlichen Fenster (Einstellungen, Server-Manager,
+  Hilfe, Onboarding) folgt als separater Schritt; die zentralen Flächen (Seitenleiste,
+  Tabs, Dashboard, Palette) sind bereits umgestellt.
+
+---
+
 ## [2.3.0] - 2026-06-09
 
 ### Behoben — KRITISCH (Datenverlust)

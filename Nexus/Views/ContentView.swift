@@ -61,6 +61,28 @@ struct MainView: View {
                 .help("toolbar.sftp_browser")
             }
             ToolbarItem(placement: .automatic) {
+                Menu {
+                    if let cs = vm.activeConnection {
+                        let live = vm.sessions.first { $0.id == cs.session.id } ?? cs.session
+                        if live.snippets.isEmpty {
+                            Text("snippets.none")
+                        } else {
+                            ForEach(live.snippets) { snip in
+                                Button(snip.title.isEmpty ? snip.command : snip.title) {
+                                    vm.sendSnippet(snip, to: cs)
+                                }
+                            }
+                        }
+                        Divider()
+                        Button("snippets.edit") { vm.editingSnippetsSession = live }
+                    }
+                } label: {
+                    Label("toolbar.snippets", systemImage: "text.append")
+                }
+                .disabled(vm.activeConnection == nil)
+                .help("toolbar.snippets")
+            }
+            ToolbarItem(placement: .automatic) {
                 Button {
                     vm.showPasswordManager = true
                 } label: {
@@ -85,6 +107,18 @@ struct MainView: View {
         }
         .sheet(isPresented: $vm.showFeatureRequest) {
             FeatureRequestView()
+        }
+        .sheet(item: $vm.editingSnippetsSession) { session in
+            SnippetEditorView(session: session).environment(vm)
+        }
+        // ⌘K Command Palette — a floating overlay (not a sheet) so it hovers over
+        // the whole split view, Spotlight-style.
+        .overlay {
+            if vm.showCommandPalette {
+                CommandPaletteView(isPresented: $vm.showCommandPalette)
+                    .environment(vm)
+                    .zIndex(100)
+            }
         }
         .focusedValue(\.macroExecutorVM, vm.activeSessions)
         .onAppear {

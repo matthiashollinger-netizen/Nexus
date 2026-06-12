@@ -37,8 +37,14 @@ extension ConnectionSession {
 final class ConnectionSession: Identifiable {
     let id: UUID = UUID()
     let session: Session
-    var state: ConnectionState = .idle
+    var state: ConnectionState = .idle {
+        didSet { notifyIfUnexpectedlyDropped(from: oldValue) }
+    }
     var title: String
+
+    /// Set before a user-initiated `disconnect()` so the resulting `.disconnected`
+    /// state does NOT fire a "connection lost" notification.
+    private var isClosing = false
 
     // SSH parameters (resolved at init)
     var sshArgs: [String] = []
@@ -164,7 +170,26 @@ final class ConnectionSession: Identifiable {
 
     // MARK: - Disconnect
 
+    /// Posts a macOS notification when a *live* session drops without the user
+    /// closing it. `.failed` always notifies; `.disconnected` only when it wasn't
+    /// a user-initiated close.
+    private func notifyIfUnexpectedlyDropped(from old: ConnectionState) {
+        // Only an ESTABLISHED session counts — a failed connect attempt (still
+        // `.connecting`) is shown by the reconnect overlay and must not notify.
+        let wasLive: Bool = { if case .connected = old { return true }; return false }()
+        guard wasLive else { return }
+        switch state {
+        case .failed(let msg):
+            NotificationService.shared.sessionDropped(name: title, failed: true, reason: msg)
+        case .disconnected where !isClosing:
+            NotificationService.shared.sessionDropped(name: title, failed: false, reason: nil)
+        default:
+            break
+        }
+    }
+
     func disconnect() {
+        isClosing = true
         telnetService?.disconnect()
         serialService?.disconnect()
         if let path = tempKeyPath {
@@ -175,11 +200,7 @@ final class ConnectionSession: Identifiable {
         state = .disconnected
     }
 
-    var tabTitle: String {
-        switch state {
-        case .connecting: return "\(title)…"
-        case .failed: return "\(title) ✕"
-        default: return title
-        }
-    }
+    /// Plain title — the live `StatusDot` in the tab now carries the state, so the
+    /// title no longer needs the "…"/"✕" emoji suffixes.
+    var tabTitle: String { title }
 }

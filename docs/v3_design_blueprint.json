@@ -1,0 +1,193 @@
+{
+  "summary": "Lock an award-grade visual identity + design-system blueprint and prioritized feature plan for Nexus v3.0",
+  "agentCount": 4,
+  "logs": [],
+  "result": {
+    "identityStatement": "Nexus v3.0 is a precision instrument for the rack room: a calm, dense, status-first native macOS app where the health of 60 switches reads in a single glance. It is built entirely from system materials — `.regularMaterial`/`.ultraThinMaterial` sidebars and palettes over an `NSColor.windowBackgroundColor` canvas, real vibrancy, SF Symbols, the unmistakable continuous-corner curve of system sheets — so it disappears into macOS and only the craft remains; it never invents Electron-style custom chrome. The whole surface is near-monochrome graphite + the user's system accent, and color is rationed almost entirely to connection state, so one green pulse means \"this switch is live,\" one amber breath means \"connecting,\" and a single red dot pops against a wall of calm. Depth comes from layered materials and hairline (0.5–1px) borders rather than heavy shadows; motion is fast (120–180ms), physical, and purposeful — a breathing status dot, a Spotlight-grade ⌘K that springs from 96% scale with a material blur-in, a dashboard that greets you instead of a blank \"Welcome.\" A rigorous token system (one 4pt spacing grid, one radius scale, one type ramp with a dedicated tabular monospace, semantic state colors) snaps every pixel to a grid, erasing the current 8-radii / 149-font-call sprawl, and every state is encoded as color + SF Symbol so it stays colorblind-safe and award-grade while shipping in one build cycle.",
+    "finalTokens": "LOCKED SYSTEM — namespace `enum DS` (DesignSystem), all values CGFloat/Color statics. Terminal NexusTheme (ANSI colors + per-session Menlo/13 font) is EXEMPT and untouched.\n\nSPACING — `enum DS.Space` (4pt grid): xxs=2, xs=4, sm=6, md=8, lg=12, xl=16, xxl=24, xxxl=32. Rules: row vertical padding=sm(6); row horizontal inset=lg(12); card inner padding=xl(16); Dashboard section gap=xxl(24); window/Dashboard outer margin=xxxl(32). Sidebar row height: 28 compact / 32 comfortable (user toggle, default compact). Never pass a raw number — add `View.dsPadding(_ edges:_ token:)`. Replaces all ad-hoc .padding(8/10/12/20).\n\nRADIUS — `enum DS.Radius`: sm=5 (status pills, tags, key-hint chips, small buttons), md=8 (rows, tab items, list-row selection, text fields), lg=12 (cards, palette, popovers, dashboard panels), xl=16 (sheets/large modals), pill=999 (capsule state badges, segmented toggles). Collapses the 8 ad-hoc radii to 5. ALWAYS continuous: `.clipShape(.rect(cornerRadius: DS.Radius.lg, style: .continuous))`.\n\nTYPOGRAPHY — `enum DS.Font` (explicit pt for tabular alignment; maps to system SF). display = .system(size:20, weight:.semibold) (dashboard hero); title = .system(size:15, weight:.semibold) (sheet/panel headers); headline = .system(size:13, weight:.semibold) (section headers, selected/active row); body = .system(size:13) (primary row text, default control — the MobaXterm-grade baseline); callout = .system(size:12) (secondary row text); caption = .system(size:11, weight:.medium) (tags, badges, metadata); mono = .system(size:11, weight:.medium, design:.monospaced).monospacedDigit() (IP/port/latency/baud — anything tabular); eyebrow = .system(size:10, weight:.semibold) uppercased, tracking 0.5 (section eyebrows RECENT/FAVORITES). Replaces all ~149 ad-hoc .font() calls; zero literal sizes outside this enum and the terminal theme.\n\nSEMANTIC COLORS — `enum DS.Color`, NSColor/material-backed so light/dark + accent + increase-contrast resolve free. Surfaces: surface=Color(nsColor:.windowBackgroundColor), surfaceRaised=Color(nsColor:.controlBackgroundColor), sidebar=.ultraThinMaterial, command-surface=.regularMaterial. Content: textPrimary=Color(nsColor:.labelColor), textSecondary=.secondary, textTertiary=Color(nsColor:.tertiaryLabelColor). Lines: hairline=Color(nsColor:.separatorColor) (0.5–1px). accent=Color.accentColor. rowHover=Color.primary.opacity(0.06), rowSelected=Color.accentColor.opacity(0.14). The `Color.black` terminal fallback at TabContentView line 121 becomes DS.Color.surface.\n\nCONNECTION-STATE PALETTE — the ONLY saturated color; colorblind-safe (every state = color + SF Symbol, never color alone). Resolved in Assets.xcassets with light/dark variants: stateConnected = emerald (light #248A3D / dark #34C759) + `circle.fill`; stateConnecting = amber #FF9F0A + `circle.dotted` (animated); stateFailed = rose (light #D70015 / dark #FF453A) + `exclamationmark.triangle.fill`; stateIdle = textTertiary + `circle` (hollow); stateDisconnected = textSecondary + `pause.circle.fill`. SINGLE SOURCE OF TRUTH: because the existing `ConnectionState` enum has an associated value (`.failed(String)`) and is NOT Equatable, add an extension exposing computed `tint: Color`, `symbol: String`, and `label: LocalizedStringKey` via a switch (the `.failed` case ignores its String). TabItemView.stateColor and the new sidebar dot both read this — kills every scattered .green/.orange/.red.\n\nICON SIZES — SF Symbols only, fixed grid: statusDot=8 (sidebar inline); rowIcon=16 (protocol glyph, ALWAYS .frame(width:16) so SSH/Telnet/Serial baselines align); tabIcon=13; toolbarIcon=15; dashboardCardIcon=22; emptyStateGlyph=44 (hierarchical). Global `.symbolRenderingMode(.hierarchical)` for depth, EXCEPT status glyphs use `.palette`/default so the dot stays pure. RATIONALE: every value derives from AppKit conventions, so native-feel is satisfied by construction, the system is a few hundred lines of enums + ViewModifiers landing in one cycle, and color+symbol+label encoding satisfies HIG \"don't rely on color alone.\"",
+    "finalComponents": [
+      {
+        "name": "ConnectionState (extension on existing enum)",
+        "api": "extension ConnectionState { var tint: Color; var symbol: String; var label: LocalizedStringKey } — switch over .idle/.connecting/.connected/.disconnected/.failed(_); the .failed case ignores its associated String. The ONLY place state colors are read.",
+        "purpose": "Single source of truth for state→(color,symbol,label). Must be built FIRST; everything else depends on it. Note the enum is non-Equatable with an associated value, so this is a computed switch, not a dictionary."
+      },
+      {
+        "name": "StatusDot",
+        "api": "StatusDot(state: ConnectionState, size: CGFloat = 8, animated: Bool = true) — Circle().fill(state.tint); when .connecting && animated && !reduceMotion, a halo Circle scales 1.0→1.6 + opacity 0.6→0 on .easeInOut(0.9).repeatForever(autoreverses:false). .help(state.label). Honors @Environment(\\.accessibilityReduceMotion).",
+        "purpose": "Breathing live-status indicator. Used by SessionRow (leading), TabItemView, dashboard recents/cards, server panel."
+      },
+      {
+        "name": "StateBadge",
+        "api": "StateBadge(state: ConnectionState, showLabel: Bool = true) — Capsule (Radius.pill): StatusDot + optional Text(state.label) in DS.Font.caption, background state.tint.opacity(0.12), foreground state.tint. Localized DE/EN.",
+        "purpose": "Pill state display. Tab bar, dashboard recent cards, session detail header."
+      },
+      {
+        "name": "KeyHint",
+        "api": "KeyHint(_ keys: [String]) — renders ⌘ K / ⏎ as DS.Font.mono chips, each .padding(.xs) .background(DS.Color.surfaceRaised, in: RoundedRectangle(cornerRadius: DS.Radius.sm)) .overlay(stroke hairline 0.5).",
+        "purpose": "Inline shortcut teaching. Palette footer + rows, dashboard ⌘K hint, empty-state hints."
+      },
+      {
+        "name": "SectionHeader",
+        "api": "SectionHeader(_ titleKey: LocalizedStringKey, count: Int? = nil, action: (() -> Void)? = nil, actionLabel: LocalizedStringKey? = nil) — DS.Font.eyebrow uppercased + optional count pill + optional trailing text-button.",
+        "purpose": "Standardizes scattered section labels. Dashboard sections + sidebar group headers + palette groups."
+      },
+      {
+        "name": "NexusCard",
+        "api": "NexusCard<Content: View>(padding: CGFloat = DS.Space.xl, @ViewBuilder content: () -> Content) — content.padding(padding).background(DS.Color.surfaceRaised, in: .rect(cornerRadius: DS.Radius.lg, style:.continuous)).overlay(RoundedRectangle.strokeBorder(DS.Color.hairline, lineWidth: 1)). On hover: scale 1.0→1.012 + shadow radius 8→14, .spring(response:0.3, dampingFraction:0.8), gated by reduceMotion.",
+        "purpose": "Standard panel/tile container. Every dashboard panel, server strip, empty-state container, settings group."
+      },
+      {
+        "name": "MonoText",
+        "api": "MonoText(_ string: String, tint: Color = DS.Color.textSecondary) — Text in DS.Font.mono (monospacedDigit).",
+        "purpose": "Tabular IP/port/latency/baud so columns align vertically for fast diffing. Row trailing, cards, tab subtitle."
+      },
+      {
+        "name": "EmptyStateView",
+        "api": "EmptyStateView(symbol: String, title: LocalizedStringKey, message: LocalizedStringKey, primary: (LocalizedStringKey, () -> Void)? = nil, secondary: (LocalizedStringKey, () -> Void)? = nil) — on macOS 14+ wraps ContentUnavailableView; else centered VStack(spacing:.lg) with 44pt hierarchical glyph in accent-tinted circle, DS.Font.title title, secondary message, up to two .borderedProminent/.bordered CTAs. All strings DE/EN.",
+        "purpose": "Replaces every blank/weak placeholder — empty sidebar, empty search, empty recents, empty favorites, locked store. Turns dead screens into launchpads."
+      },
+      {
+        "name": "QuickActionTile",
+        "api": "QuickActionTile(symbol: String, title: LocalizedStringKey, tint: Color = .accentColor, action: () -> Void) — Button(.plain) VStack{ Image(systemName:).imageScale(.large).foregroundStyle(tint); Text(title).font(DS.Font.caption) }, ~88×72, NexusCard styling, onHover lifts background to rowHover.",
+        "purpose": "Dashboard quick-actions grid (New SSH/Telnet/Serial, Import CSV, Password Manager, Settings)."
+      },
+      {
+        "name": "SidebarRowContent (refactor of existing SessionRow body only)",
+        "api": "Inline refactor of SessionRow's HStack: leading StatusDot(state: vm.liveState(for: session) ?? .idle) + rowIcon(16) protocol glyph + VStack{ Text(name).font(DS.Font.body); MonoText(host) } + trailing on-hover-only play.fill/pencil ghost buttons fading in .easeOut(0.12). PRESERVES the existing `.tag(SidebarItem.session)`, List(selection:), and double-tap connect — zero regression.",
+        "purpose": "Status-at-a-glance sidebar without touching the List selection model. Add vm.liveState(for:) that cross-refs activeSessions by session.id/host+port."
+      },
+      {
+        "name": "ServerStatusPanel (stub-safe)",
+        "api": "ServerStatusPanel() — HStack of 3 NexusCards (TFTP/FTP/HTTP): dashboardCardIcon(22) + name + StatusDot(.idle for now) + MonoText(bound addr:port) + a .bordered Start/Stop toggle that is disabled/stubbed until servers exist. Renders 'idle' cleanly.",
+        "purpose": "Gives the unique embedded-server feature a visible home on the Dashboard. Safe to ship before the servers are built."
+      },
+      {
+        "name": "CommandPaletteView + PaletteModel",
+        "api": "CommandPaletteView(isPresented: Binding<Bool>) reading @Environment(AppViewModel.self); state in @Observable PaletteModel(vm:) { query, results:[PaletteResult], selectedIndex, scope }. PaletteResult { id, symbol, title, subtitle?, group, shortcut?, run: () -> Void }. Pure SwiftUI overlay, no AppKit required for nav.",
+        "purpose": "⌘K Spotlight palette. Unit-testable model; rendered as MainView .overlay."
+      },
+      {
+        "name": "PaletteResultRow",
+        "api": "PaletteResultRow(result: PaletteResult, isHighlighted: Bool, query: String) — HStack{ Image(systemName:).imageScale(.medium); VStack{ HighlightedText(result.title, match: query); if let s=result.subtitle { MonoText(s) } }; Spacer(); if let sc=result.shortcut { KeyHint(sc) } }.padding(.sm).background(isHighlighted ? DS.Color.rowSelected : .clear, in: .rect(cornerRadius: DS.Radius.md)).",
+        "purpose": "Palette result list rows with live bolded match highlighting."
+      },
+      {
+        "name": "DashboardView",
+        "api": "DashboardView() reading @Environment(AppViewModel.self); shown by TerminalTabsView when vm.activeSessions.isEmpty. ScrollView over DS.Color.surface, content max-width 920, outer margin xxxl. Cards stagger-reveal (opacity + 8pt rise, 40ms stagger, spring; gated by reduceMotion).",
+        "purpose": "Replaces WelcomeView. The greeting/launchpad home."
+      }
+    ],
+    "dashboardSpec": "DashboardView replaces WelcomeView inside TerminalTabsView — exactly the existing `if vm.activeSessions.isEmpty` branch at TerminalTabsView.swift line 10–11. When activeSessions is non-empty, the existing TabBarView + Divider + TabContentView path renders UNCHANGED — zero regression to the working terminal. Layout: ScrollView on DS.Color.surface, content .frame(maxWidth: 920) centered, outer margin DS.Space.xxxl(32), vertical sections separated by DS.Space.xxl(24), cards stagger-reveal on appear (gated by reduceMotion).\n\n(1) HERO / GREETING — top. Left: DS.Font.eyebrow 'NEXUS' + time-aware DS.Font.display greeting from Calendar hour ('Good evening' / 'Guten Abend', localized) + a DS.Font.callout secondary line 'N sessions · M folders'. Right: a full-width QUICK-CONNECT bar styled as a search field inside a NexusCard (leading magnifyingglass + placeholder 'dashboard.quickconnect.placeholder' = 'Connect to host or search… (⌘K for everything)') with a trailing KeyHint(['⌘','K']). Tapping it OR pressing ⌘K opens the Command Palette pre-focused (sets vm.showCommandPalette = true). One control, zero ambiguity — no giant centered icon (the weak part of the old WelcomeView is gone).\n\n(2) QUICK ACTIONS — LazyVGrid(columns: adaptive(min:88)) of QuickActionTile, each wired to existing VM flags: New SSH (terminal → showAddSession, type ssh), New Telnet (network), New Serial (cable.connector), Import CSV (square.and.arrow.down → showImportCSV), Password Manager (key.horizontal → showPasswordManager), Settings (gearshape). No new model needed.\n\n(3) STATS ROW — 3 compact NexusCards: vm.sessions.count Sessions, vm.folders.count Folders, live 'Servers running' (0 until embedded servers ship). DS.Font.display number (monospacedDigit) over DS.Font.caption secondary label. Pure derived data.\n\n(4) RECENT SESSIONS — SectionHeader('dashboard.recent', count:). Reads a NEW persisted `vm.recentSessionIds: [UUID]` stored in AppSettings (currently AppSettings has no such field — add it; append session.id on vm.connect, cap 8, de-dup, move-to-front). Up to 6 rows, each: rowIcon protocol glyph + name + MonoText(host:port) + StateBadge (live state if currently in activeSessions, else .idle) + trailing play.fill on hover → vm.connect(to:). Empty → EmptyStateView(symbol:'clock.arrow.circlepath', title:'dashboard.recent.empty.title', message:'dashboard.recent.empty.message', primary:('action.new_session', { vm.showAddSession = true })).\n\n(5) SERVERS PANEL — SectionHeader('dashboard.servers') + ServerStatusPanel (the stub-safe component): 3 NexusCards for TFTP/FTP/HTTP, each StatusDot(.idle) + MonoText(addr:port) + a disabled .bordered Start/Stop toggle. Renders cleanly as 'idle' so it ships safely before the servers are built; becomes live when the server layer lands.\n\nNOTE ON FAVORITES: proposal-3's Favorites grid requires a new `Session.isFavorite: Bool` field. It is a clean, low-risk model add but is a NICE-TO-HAVE for v3.0 — ship Recents (which needs only the AppSettings array) first; add the Favorites grid as section (4b) once isFavorite exists. Do not block the Dashboard on it.",
+    "commandPaletteSpec": "Spotlight-style ⌘K palette. CRITICAL CORRECTION to two of the three proposals: ⌘K is ALREADY FREE — the existing shortcut in NexusCommands (NexusApp.swift line 54) is ⌘⇧K (command+shift) for the Password Manager. NO REBIND is needed; keep ⌘⇧K as-is.\n\nTRIGGER — in NexusCommands add a new CommandGroup (or after .newItem): Button('menu.command_palette') { vm.showCommandPalette = true }.keyboardShortcut('k', modifiers: .command). Add `var showCommandPalette = false` to AppViewModel.\n\nRENDERING — a centered .overlay on MainView gated by vm.showCommandPalette, NOT a .sheet (so it floats over the NavigationSplitView). ZStack: dimmed scrim (.ultraThinMaterial or Color.black.opacity(0.18), .ignoresSafeArea, tap-to-dismiss) + centered card 620pt wide, max 60% height, top-aligned ~120pt from top, DS.Radius.lg, .regularMaterial, hairline stroke, subtle shadow. Entrance: .scaleEffect(0.96) + .opacity(0) → in via .spring(response:0.28, dampingFraction:0.86) (~140–280ms material blur-in); respect reduceMotion (fade only).\n\nLAYOUT — top: borderless TextField (DS.Font.title) with leading magnifyingglass, @FocusState auto-focused .onAppear. Middle: scrollable LazyVStack of grouped results (PaletteResultRow, DS.Radius.md). Bottom: a ~22pt footer bar with KeyHint chips: ['↑','↓'] Navigate · ['⏎'] Open · ['⌥','⏎'] Connect & stay · ['esc'] Close.\n\nWHAT IT SEARCHES — one ranked list built each keystroke from real model data, bucketed by `group` with SectionHeaders in fixed priority: (1) SESSIONS — fuzzy over name+host+username+tags; ⏎ runs vm.connect(to:), row shows StatusDot + MonoText host:port. (2) OPEN TABS — from vm.activeSessions → 'Switch to <tabTitle>' sets vm.selectedTabId. (3) FOLDERS — reveal/expand in sidebar. (4) ACTIONS — static [PaletteResult] registry: New SSH/Telnet/Serial Session, New Folder (⌘⇧N), Import CSV, Open Password Manager (⌘⇧K), Open Settings (⌘,), Toggle Language DE/EN. Each from existing VM flags. (Macros/Servers actions added when those layers exist.)\n\nFUZZY MATCH — subsequence scorer fuzzyScore(query, candidate) over title+subtitle: chars in order, bonuses for consecutive runs + word-boundary/CamelCase starts + prefix + shorter target; case-insensitive; recency tiebreaker. Matched chars bolded via HighlightedText. Empty query → open tabs first, then recents, then top actions.\n\nKEYBOARD — full no-mouse nav via .onKeyPress (macOS 14+, no AppKit): ↑/↓ move selectedIndex (wraps + auto-scroll), ⏎ runs result.run() then dismisses, ⌥⏎ runs without dismiss (batch connects), esc dismisses; mouse hover also sets selectedIndex and click runs. State in @Observable PaletteModel so it's unit-testable.\n\nCONNECT FLOW — selecting a Session result calls the existing vm.connect(to:) (which appends a ConnectionSession + sets selectedTabId UNCHANGED), appends to vm.recentSessionIds, dismisses; the new tab + terminal appear with zero changes to the connection layer.",
+    "signatureMoves": [
+      "Breathing connect pulse — while a session is .connecting its StatusDot doesn't sit static: a halo Circle scales 1.0→1.6 and fades (opacity 0.6→0) on a ~0.9s repeatForever loop, so an in-progress switch login visibly breathes in both the sidebar and the tab; the instant .connected fires it does one quick .symbolEffect(.bounce) and settles to steady emerald. Auto-stills under Reduce Motion. ~15 lines of pure SwiftUI, the tactile 'it's alive' beat unique to a connection manager.",
+      "Spotlight-grade ⌘K blur-in — the palette springs from 96% scale with the backdrop melting to material over ~280ms, the search field auto-focuses, and the first result is pre-selected so an engineer types three letters and hits ⏎ without ever touching the mouse; matched characters bold live as you type. Reads exactly like macOS Spotlight, which network engineers already trust.",
+      "Status-at-a-glance sidebar — every live session shows an 8pt state dot AND tints its hover-row background with a ~6% wash of the state color, so a folder of 30 switches reveals its health as a vertical color rhythm readable in peripheral vision, with zero extra labels. The dot+symbol+label encoding keeps it colorblind-safe.",
+      "On-hover row reveals — SessionRow surfaces trailing play.fill + pencil ghost buttons only on .onHover, fading in with .easeOut(0.12), keeping the dense list clean while making connect one click away without opening a context menu.",
+      "Crafted empty states as launchpads — every previously-blank screen (no sessions, empty recents, empty search, locked store) becomes an EmptyStateView with a 44pt hierarchical SF Symbol and a single prominent CTA that drops you straight into the flow (empty recents → New Session; empty search → 'Press ⏎ to SSH to <query>' directly), turning the app's weakest screens into its most inviting ones."
+    ],
+    "featurePlan": [
+      {
+        "feature": "Design-system foundation — DS.Space / DS.Radius / DS.Font / DS.Color enums + ConnectionState extension (tint/symbol/label) as the single state source of truth",
+        "priority": "must-have",
+        "effort": "M",
+        "note": "Everything depends on it. The ConnectionState extension must handle the associated value (.failed(String) is non-Equatable) via a switch. Replaces 8 radii / 149 fonts / scattered paddings."
+      },
+      {
+        "feature": "Core reusable components — StatusDot, StateBadge, KeyHint, SectionHeader, NexusCard, MonoText, EmptyStateView, QuickActionTile",
+        "priority": "must-have",
+        "effort": "M",
+        "note": "The vocabulary the dashboard, palette and sidebar all consume. Land before any screen work."
+      },
+      {
+        "feature": "Status dots in sidebar SessionRow + on-hover connect/edit reveals + StatusDot/StateBadge in TabItemView",
+        "priority": "must-have",
+        "effort": "M",
+        "note": "Add vm.liveState(for:). MUST preserve List(selection:), .tag(SidebarItem.session), double-tap connect — do not regress the working sidebar. Replaces TabItemView.stateColor with state.tint."
+      },
+      {
+        "feature": "DashboardView replacing WelcomeView (hero/quick-connect, quick actions, stats, recents, stub server panel)",
+        "priority": "must-have",
+        "effort": "L",
+        "note": "Swap only the vm.activeSessions.isEmpty branch in TerminalTabsView. Requires adding vm.recentSessionIds:[UUID] to AppSettings + append on connect."
+      },
+      {
+        "feature": "Command Palette (⌘K) — overlay, fuzzy search over sessions/tabs/folders/actions, full keyboard nav",
+        "priority": "must-have",
+        "effort": "L",
+        "note": "⌘K is already free (existing shortcut is ⌘⇧K) — no rebind. @Observable PaletteModel for testability. .onKeyPress (macOS 14+), no AppKit."
+      },
+      {
+        "feature": "Apply tokens app-wide — fix Color.black terminal fallback (TabContentView L121), normalize all .font()/.padding()/radii, hierarchical symbol rendering, light+dark audit",
+        "priority": "must-have",
+        "effort": "M",
+        "note": "The find-and-replace pass that actually cashes in the consistency win across all 24 files."
+      },
+      {
+        "feature": "Recent sessions persistence (recentSessionIds in AppSettings, capped/de-duped, appended on connect)",
+        "priority": "must-have",
+        "effort": "S",
+        "note": "Powers Dashboard recents + palette empty-query. Smallest persistence path; AppSettings is already Codable JSON."
+      },
+      {
+        "feature": "Session.isFavorite + Dashboard Favorites grid (NXSessionCard) + sidebar context-menu 'Add to Favorites'",
+        "priority": "nice-to-have",
+        "effort": "M",
+        "note": "Clean model add but not required for award-grade v3.0. Ship Recents first; add Favorites as a Dashboard section once the field exists."
+      },
+      {
+        "feature": "Comfortable/compact sidebar density toggle (28/32pt rows)",
+        "priority": "nice-to-have",
+        "effort": "S",
+        "note": "Power-user density control. Add to Settings; defaults compact."
+      },
+      {
+        "feature": "Live wiring of embedded TFTP/FTP/HTTP server status + Start/Stop in dashboard panel",
+        "priority": "nice-to-have",
+        "effort": "L",
+        "note": "No server model/service exists yet. Ship the panel as a clean 'idle' stub now; wire it when the server layer is built. Do not block v3.0 on it."
+      },
+      {
+        "feature": "Snippets / command-send to active session",
+        "priority": "nice-to-have",
+        "effort": "M",
+        "note": "Real value for switch config pushes but orthogonal to the visual identity. Defer past the design-system + palette + dashboard core."
+      },
+      {
+        "feature": "User notifications on connect/disconnect/failure (UNUserNotificationCenter)",
+        "priority": "nice-to-have",
+        "effort": "S",
+        "note": "Cheap polish; pairs well with the breathing-dot state model. Optional."
+      },
+      {
+        "feature": "nexus:// URL scheme to open/connect a session",
+        "priority": "nice-to-have",
+        "effort": "S",
+        "note": "Nice automation hook; independent of the redesign."
+      },
+      {
+        "feature": "PBKDF2 / stronger master-password KDF migration",
+        "priority": "nice-to-have",
+        "effort": "M",
+        "note": "Security hardening of the existing HKDF credential store. Belongs in its own security-focused change, not the visual v3.0."
+      },
+      {
+        "feature": "nexusWindowChrome() shared across 8 windows + matchedGeometry sliding tab underline + controlActiveState desaturation",
+        "priority": "cut",
+        "effort": "L",
+        "note": "HONEST CUT LINE. Only TWO scenes exist (Main + Settings) — the '8 windows' premise is false today, so the shared-chrome modifier and per-window rollout are unbuildable as scoped. The matchedGeometry underline and focus-dim are pure polish. Revisit if/when more windows are actually added."
+      }
+    ],
+    "buildOrder": [
+      "Phase 0 — Foundation: create DesignSystem.swift with enums DS.Space, DS.Radius, DS.Font, DS.Color (all NSColor/material-backed) and the View.dsPadding helper. Add the ConnectionState extension { tint, symbol, label } handling the .failed(String) associated value via switch. This is the single state source of truth and blocks everything.",
+      "Phase 1 — Core components: build StatusDot, StateBadge, KeyHint, SectionHeader, NexusCard, MonoText, EmptyStateView, QuickActionTile in a Components/ group. Verify each with #Preview in light + dark + Reduce Motion before consuming them.",
+      "Phase 2 — Sidebar + tabs (lowest-risk real screen, proves no regression): refactor SessionRow's body to use StatusDot + rowIcon(16) + MonoText + on-hover reveals while keeping List(selection:), .tag(SidebarItem.session), and double-tap connect intact. Add vm.liveState(for:). Replace TabItemView.stateColor with state.tint + StatusDot. Fix the Color.black terminal fallback (TabContentView L121 → DS.Color.surface).",
+      "Phase 3 — Recents persistence: add recentSessionIds:[UUID] to AppSettings, append (de-dup, cap 8, move-to-front) inside vm.connect(to:), and add vm.recentSessions computed lookup. Needed by both the Dashboard and the palette.",
+      "Phase 4 — Dashboard: build DashboardView (hero/quick-connect bar, quick actions, stats, recents, stub ServerStatusPanel) and swap it into the vm.activeSessions.isEmpty branch of TerminalTabsView, leaving the non-empty terminal path untouched.",
+      "Phase 5 — Command Palette: add vm.showCommandPalette, the @Observable PaletteModel, the fuzzy scorer, CommandPaletteView + PaletteResultRow as a MainView .overlay, and the ⌘K Button in NexusCommands (no rebind — ⌘K is free). Wire the Dashboard quick-connect bar to open it pre-focused.",
+      "Phase 6 — Token sweep + polish: find-and-replace all remaining ad-hoc .font()/.padding()/cornerRadius across the 24 files to DS tokens, apply .symbolRenderingMode(.hierarchical) globally, add stagger-reveal + hover-lift motion (reduceMotion-gated), and audit light/dark/increase-contrast.",
+      "Phase 7 — Localization + verification: add all new keys (dashboard.*, menu.command_palette, palette.*, state.*) to BOTH de and en Localizable strings, run an adversarial DE/EN string review, then build + run + screenshot to confirm zero sidebar/terminal regression.",
+      "Phase 8 — Deferred (post-core, each independent): Session.isFavorite + Favorites grid, sidebar density toggle, snippets, connect/disconnect notifications, nexus:// URL scheme, PBKDF2 KDF migration, and live server wiring — ship as separate follow-ups, NOT gating v3.0."
+    ]
+  }
+}

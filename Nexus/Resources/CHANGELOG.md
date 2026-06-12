@@ -2,6 +2,40 @@
 
 ---
 
+## [3.0.0] - 2026-06-12
+
+### Neu — Großes UI-Rework
+
+- **Design-System (DS):** ein einheitliches Token-System für Abstände, Radien,
+  Typografie und semantische Farben — die ganze App wirkt jetzt wie ein
+  zusammenhängendes, natives macOS-Werkzeug.
+- **Dashboard / Start-Bildschirm:** echter Launchpad statt fadem „Willkommen" —
+  Begrüßung, Schnell-Verbinden (⌘K), Schnellaktionen, Statistik, zuletzt verwendete
+  und favorisierte Verbindungen, Live-Server-Status.
+- **Befehlspalette (⌘K):** Spotlight-artige Fuzzy-Suche über Sessions, Tabs, Ordner
+  und Aktionen. Drei Buchstaben, ⏎ — verbunden, ganz ohne Maus.
+- **Status-auf-einen-Blick-Seitenleiste:** „atmende", farbenblind-sichere
+  Status-Punkte; Verbinden/Bearbeiten beim Überfahren direkt in der Zeile.
+- **Favoriten** mit eigenem Dashboard-Bereich.
+- **Snippets:** wiederverwendbare Befehle pro Session, per Klick ins Terminal.
+- **Mitteilungen** bei unerwartetem Verbindungsabbruch (abschaltbar).
+- **nexus:// Deep-Links** zum Öffnen/Verbinden einer Session aus Browser/Wiki/Chat.
+
+### Behoben
+
+- **Makros auf SSH-Sessions:** erreichen jetzt das SSH-Terminal (einheitlicher
+  Sende-Kanal für SSH/Telnet/Serial).
+- Tab-Status über gemeinsamen Status-Punkt; Reconnect-Overlay mit System-Material
+  (Hell/Dunkel) und „Schließen" (esc) neben „Neu verbinden" (⏎).
+
+### Bewusst offen / nicht machbar
+
+- **RDP** sowie **SFTP-/Telnet-Server** bleiben aus den bekannten Gründen außen vor
+  (keine native RDP-Bibliothek; SFTP/Telnet-Server wären nicht self-contained bzw.
+  ein Sicherheitsrisiko). TFTP/FTP decken Geräte-Uploads ab.
+
+---
+
 ## [2.3.0] - 2026-06-09
 
 ### Behoben — KRITISCH (Datenverlust)

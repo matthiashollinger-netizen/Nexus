@@ -690,3 +690,78 @@
 // MARK: - Server-Manager (v2.3.0 native Server)
 "server.privileged_port_warning" = "Ports unter 1024 benötigen Root. Höheren Port verwenden (z. B. 6969 für TFTP).";
 "server.note.sftp" = "Ein SFTP-Server benötigt einen vollständigen SSH-Server und ist nicht self-contained ausliefer­bar. Für Geräte-Uploads TFTP oder FTP nutzen — TFTP ist der Cisco/HP-Standard.";
+
+// MARK: - v3.0 — Verbindungsstatus
+"status.connected" = "Verbunden";
+"status.connecting" = "Verbinde…";
+"status.failed" = "Fehlgeschlagen";
+"status.disconnected" = "Getrennt";
+"status.idle" = "Bereit";
+
+// MARK: - v3.0 — Favoriten & leere Seitenleiste
+"action.favorite" = "Zu Favoriten hinzufügen";
+"action.unfavorite" = "Aus Favoriten entfernen";
+"sidebar.empty.title" = "Noch keine Verbindungen";
+"sidebar.empty.message" = "Lege deine erste Session an oder importiere sie aus einer CSV.";
+
+// MARK: - v3.0 — Dashboard
+"dashboard.greeting.morning" = "Guten Morgen";
+"dashboard.greeting.afternoon" = "Guten Tag";
+"dashboard.greeting.evening" = "Guten Abend";
+"dashboard.greeting.night" = "Spät unterwegs";
+"dashboard.subtitle" = "%lld Sessions · %lld Ordner";
+"dashboard.quickconnect.placeholder" = "Mit Host verbinden oder alles durchsuchen…";
+"dashboard.action.new_session" = "Neue Session";
+"dashboard.action.new_folder" = "Neuer Ordner";
+"dashboard.action.import" = "CSV importieren";
+"dashboard.action.passwords" = "Passwörter";
+"dashboard.action.servers" = "Server";
+"dashboard.action.themes" = "Themes";
+"dashboard.stat.sessions" = "Sessions";
+"dashboard.stat.folders" = "Ordner";
+"dashboard.stat.servers" = "Server aktiv";
+"dashboard.favorites" = "Favoriten";
+"dashboard.recent" = "Zuletzt verwendet";
+"dashboard.recent.empty.title" = "Keine letzten Verbindungen";
+"dashboard.recent.empty.message" = "Sessions, mit denen du dich verbindest, erscheinen hier für Ein-Klick-Zugriff.";
+"dashboard.servers" = "Integrierte Server";
+"dashboard.servers.manage" = "Verwalten";
+"dashboard.servers.idle" = "Keine Server aktiv. Öffne den Server-Manager, um einen TFTP-, FTP- oder HTTP-Server für Geräte-Uploads zu starten.";
+
+// MARK: - v3.0 — Befehlspalette
+"menu.command_palette" = "Befehlspalette…";
+"palette.placeholder" = "Sessions, Aktionen durchsuchen…";
+"palette.no_results" = "Keine Treffer";
+"palette.group.tabs" = "Offene Tabs";
+"palette.group.sessions" = "Sessions";
+"palette.group.folders" = "Ordner";
+"palette.group.actions" = "Aktionen";
+"palette.footer.navigate" = "Navigieren";
+"palette.footer.open" = "Öffnen";
+"palette.footer.stay" = "Verbinden & offen lassen";
+"palette.footer.close" = "Schließen";
+"palette.action.new_session" = "Neue Session";
+"palette.action.new_folder" = "Neuer Ordner";
+"palette.action.import" = "CSV importieren…";
+"palette.action.passwords" = "Passwort-Manager öffnen";
+"palette.action.servers" = "Server-Manager öffnen";
+"palette.action.themes" = "Theme-Editor öffnen";
+"palette.action.editor" = "Texteditor öffnen";
+"palette.action.macros" = "Makro-Manager öffnen";
+"palette.action.help" = "Hilfe öffnen";
+
+// MARK: - v3.0 — Snippets
+"toolbar.snippets" = "Snippets";
+"snippets.title" = "Snippets";
+"snippets.none" = "Keine Snippets für diese Session";
+"snippets.edit" = "Snippets bearbeiten…";
+"snippets.add" = "Snippet hinzufügen";
+"snippets.empty.title" = "Noch keine Snippets";
+"snippets.empty.message" = "Füge wiederverwendbare Befehle wie „show running-config“ hinzu, um sie mit einem Klick in diese Session zu senden.";
+"snippets.field.title" = "Bezeichnung (optional)";
+"snippets.field.command" = "Befehl";
+"snippets.field.send_return" = "Return nach dem Befehl senden";
+
+// MARK: - v3.0 — Mitteilungen
+"notify.disconnected.body" = "Die Verbindung wurde geschlossen.";
+"notify.failed.body" = "Die Verbindung ist fehlgeschlagen.";

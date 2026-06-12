@@ -193,6 +193,11 @@ struct SidebarView: View {
                     .allowsHitTesting(false)
             }
         }
+        .overlay {
+            if vm.folders.isEmpty && vm.sessions.isEmpty {
+                SidebarEmptyState()
+            }
+        }
         .onDeleteCommand { deleteSelected() }
         .toolbar {
             ToolbarItem(placement: .automatic) {
@@ -238,6 +243,47 @@ struct SidebarView: View {
         .sheet(isPresented: $vm.showImportCSV) { ImportCSVView() }
         // ⌘Z undo for drag moves
         .focusedValue(\.sidebarUndoVM, vm.canUndoMove ? vm : nil)
+    }
+}
+
+// MARK: - Sidebar empty state (compact, fits the narrow column)
+
+private struct SidebarEmptyState: View {
+    @Environment(AppViewModel.self) private var vm
+
+    var body: some View {
+        VStack(spacing: DS.Space.lg) {
+            Image(systemName: "point.3.connected.trianglepath.dotted")
+                .font(.system(size: 34, weight: .regular))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(DS.Color.accent)
+            VStack(spacing: DS.Space.xs) {
+                Text("sidebar.empty.title")
+                    .font(DS.Font.headline)
+                    .multilineTextAlignment(.center)
+                Text("sidebar.empty.message")
+                    .font(DS.Font.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            VStack(spacing: DS.Space.sm) {
+                Button {
+                    vm.addSessionParentFolderId = nil
+                    vm.showAddSession = true
+                } label: {
+                    Label("sidebar.add_session", systemImage: "plus.circle.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                Button { vm.showImportCSV = true } label: {
+                    Label("toolbar.import", systemImage: "square.and.arrow.down")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding(DS.Space.xl)
+        .frame(maxWidth: 240)
     }
 }
 
@@ -325,24 +371,38 @@ struct SessionRow: View {
     let parentFolderId: UUID?
     @Environment(AppViewModel.self) private var vm
     @Environment(SidebarDragModel.self) private var dragModel
+    @State private var hovering = false
+
+    private var displayName: String { session.name.isEmpty ? session.host : session.name }
+    private var liveState: ConnectionState? { vm.liveState(for: session) }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DS.Space.md) {
+            // Leading: a live status dot lights up only when this session has an
+            // open tab, so a folder of switches reads as a vertical health rhythm.
+            ZStack {
+                if let liveState {
+                    StatusDot(state: liveState)
+                } else {
+                    Color.clear.frame(width: DS.Icon.statusDot, height: DS.Icon.statusDot)
+                }
+            }
             Image(systemName: session.connectionType.systemImage)
+                .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.secondary)
-                .frame(width: 16)
+                .frame(width: DS.Icon.row)
             VStack(alignment: .leading, spacing: 1) {
-                Text(session.name.isEmpty ? session.host : session.name)
-                    .font(.body)
+                Text(displayName)
+                    .font(DS.Font.body)
                     .lineLimit(1)
                 if !session.description.isEmpty {
-                    Text(session.description).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                } else if !session.host.isEmpty && !session.name.isEmpty {
-                    Text(session.host).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    Text(session.description).font(DS.Font.caption).foregroundStyle(.secondary).lineLimit(1)
+                } else if !session.host.isEmpty && session.host != displayName {
+                    MonoText(session.host)
                 }
             }
             Spacer(minLength: 0)
-            SidebarDragHandle(id: session.id, isFolder: false)
+            trailingControls
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())   // entire row (incl. text) is the single-click target
@@ -353,6 +413,7 @@ struct SessionRow: View {
         .simultaneousGesture(TapGesture(count: 2).onEnded {
             vm.connect(to: session)
         })
+        .onHover { h in withAnimation(DS.Motion.quick) { hovering = h } }
         // Insertion line above this row (reorder within the level)
         .overlay(alignment: .top) {
             if dragModel.insertBeforeId == session.id { InsertionLine() }
@@ -365,6 +426,13 @@ struct SessionRow: View {
             Button { vm.connect(to: session) } label: {
                 Label("action.connect", systemImage: "play.fill")
             }
+            Button { vm.toggleFavorite(session) } label: {
+                Label(session.isFavorite ? "action.unfavorite" : "action.favorite",
+                      systemImage: session.isFavorite ? "star.slash" : "star")
+            }
+            Button { vm.editingSnippetsSession = session } label: {
+                Label("snippets.edit", systemImage: "text.append")
+            }
             Divider()
             Button { vm.editingSession = session } label: {
                 Label("action.edit", systemImage: "pencil")
@@ -373,6 +441,31 @@ struct SessionRow: View {
                 Label("action.delete", systemImage: "trash")
             }
         }
+    }
+
+    // Trailing area: favorite star at rest; on hover, quick connect/edit + the
+    // drag grip (kept out of the row's selectable content — see file header).
+    @ViewBuilder private var trailingControls: some View {
+        HStack(spacing: DS.Space.xs) {
+            if hovering {
+                Button { vm.connect(to: session) } label: {
+                    Image(systemName: "play.fill").font(.caption2)
+                }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+                .help("action.connect")
+                Button { vm.editingSession = session } label: {
+                    Image(systemName: "pencil").font(.caption2)
+                }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+                .help("action.edit")
+                SidebarDragHandle(id: session.id, isFolder: false)
+            } else if session.isFavorite {
+                Image(systemName: "star.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.yellow.opacity(0.8))
+            }
+        }
+        .transition(.opacity)
     }
 }
 

@@ -91,6 +91,10 @@ struct Session: Identifiable, Codable, Hashable {
     // Behaviour
     var macroOnConnectId: UUID? = nil
     var autoConnectOnLaunch: Bool = false
+    var isFavorite: Bool = false
+
+    // Reusable quick commands sent to the live terminal (snippets).
+    var snippets: [Snippet] = []
 
     // Default member-wise init (preserved because we add a custom Decodable init below).
     init() {}
@@ -121,7 +125,7 @@ extension Session {
         case rdpUsername, rdpDomain, rdpWidth, rdpHeight, rdpColorDepth
         case rdpFullscreen, rdpClipboardSharing, rdpDriveRedirection, rdpCredentialId
         case connectTimeout, themeId, terminalFontSize, highlightRuleset
-        case macroOnConnectId, autoConnectOnLaunch
+        case macroOnConnectId, autoConnectOnLaunch, isFavorite, snippets
     }
 
     init(from decoder: Decoder) throws {
@@ -172,6 +176,25 @@ extension Session {
         highlightRuleset    = try c.decodeIfPresent(String.self, forKey: .highlightRuleset)
         macroOnConnectId    = try c.decodeIfPresent(UUID.self, forKey: .macroOnConnectId)
         autoConnectOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .autoConnectOnLaunch) ?? d.autoConnectOnLaunch
+        isFavorite          = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? d.isFavorite
+        snippets            = try c.decodeIfPresent([Snippet].self, forKey: .snippets) ?? d.snippets
+    }
+}
+
+// MARK: - Snippet
+//
+// A reusable command a user can fire into the live terminal for this session
+// (e.g. "show running-config", "show version"). Sent verbatim followed by a
+// newline. Optional `sendReturn = false` lets a snippet just prefill text.
+struct Snippet: Identifiable, Codable, Hashable {
+    var id: UUID = UUID()
+    var title: String = ""
+    var command: String = ""
+    var sendReturn: Bool = true
+
+    init() {}
+    init(title: String, command: String, sendReturn: Bool = true) {
+        self.title = title; self.command = command; self.sendReturn = sendReturn
     }
 }
 

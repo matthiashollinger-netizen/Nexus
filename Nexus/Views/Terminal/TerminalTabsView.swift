@@ -8,33 +8,13 @@ struct TerminalTabsView: View {
     var body: some View {
         VStack(spacing: 0) {
             if vm.activeSessions.isEmpty {
-                WelcomeView()
+                DashboardView()
             } else {
                 TabBarView()
                 Divider()
                 TabContentView()
             }
         }
-    }
-}
-
-// MARK: - Welcome
-
-struct WelcomeView: View {
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "terminal")
-                .font(.system(size: 64))
-                .foregroundStyle(.secondary)
-            Text("nexus.welcome.title")
-                .font(.title2)
-                .fontWeight(.semibold)
-            Text("nexus.welcome.subtitle")
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.background)
     }
 }
 
@@ -173,20 +153,24 @@ struct TabItemView: View {
     let cs: ConnectionSession
     let isSelected: Bool
     @Environment(AppViewModel.self) private var vm
+    @State private var closeHover = false
 
     var body: some View {
         HStack(spacing: 0) {
             // ── Label — tapping switches to this tab ──────────────────────
-            HStack(spacing: 6) {
+            HStack(spacing: DS.Space.sm) {
+                StatusDot(state: cs.state, size: 7)
                 Image(systemName: cs.session.connectionType.systemImage)
-                    .font(.caption)
-                    .foregroundStyle(stateColor)
+                    .font(.system(size: DS.Icon.tab))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
                 Text(cs.tabTitle)
-                    .font(.system(size: 12))
+                    .font(DS.Font.callout)
+                    .foregroundStyle(isSelected ? DS.Color.textPrimary : DS.Color.textSecondary)
                     .lineLimit(1)
             }
-            .padding(.leading, 12)
-            .padding(.trailing, 6)
+            .padding(.leading, DS.Space.lg)
+            .padding(.trailing, DS.Space.sm)
             .frame(height: 36)
             .contentShape(Rectangle())
             .onTapGesture {
@@ -197,35 +181,29 @@ struct TabItemView: View {
                 }
             }
 
-            // ── Close button — separate hit area ─────────────────────────
+            // ── Close button — separate hit area, highlights on hover ─────
             Button {
                 vm.closeSession(cs)
             } label: {
                 Image(systemName: "xmark")
                     .font(.caption2)
-                    .padding(6)
+                    .foregroundStyle(closeHover ? DS.Color.textPrimary : DS.Color.textSecondary)
+                    .frame(width: 18, height: 18)
+                    .background(closeHover ? DS.Color.rowHover : .clear,
+                                in: RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous))
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .padding(.trailing, 4)
+            .onHover { h in withAnimation(DS.Motion.quick) { closeHover = h } }
+            .padding(.trailing, DS.Space.sm)
         }
-        .background(isSelected ? Color(nsColor: .controlBackgroundColor) : .clear)
+        .background(isSelected ? DS.Color.surfaceRaised : .clear)
         .overlay(alignment: .bottom) {
             if isSelected {
                 Rectangle()
                     .frame(height: 2)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(DS.Color.accent)
             }
-        }
-    }
-
-    private var stateColor: Color {
-        switch cs.state {
-        case .connected:  return .green
-        case .connecting: return .orange
-        case .failed:     return .red
-        default:          return .secondary
         }
     }
 }
@@ -303,26 +281,33 @@ struct ReconnectOverlayView: View {
         return String(localized: "connection.terminated")
     }
 
+    private var isFailed: Bool { if case .failed = cs.state { return true }; return false }
+
     var body: some View {
         ZStack {
-            Color.black.opacity(0.65)
-            VStack(spacing: 20) {
-                Image(systemName: "bolt.slash.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.secondary)
+            Rectangle().fill(.ultraThinMaterial)
+            VStack(spacing: DS.Space.lg) {
+                Image(systemName: isFailed ? "exclamationmark.triangle.fill" : "bolt.slash.fill")
+                    .font(.system(size: DS.Icon.emptyState))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(isFailed ? DS.Color.stateFailed : .secondary)
                 Text(statusMessage)
-                    .font(.callout)
+                    .font(DS.Font.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-                Button("action.reconnect") {
-                    vm.reconnect(cs: cs)
+                    .frame(maxWidth: 360)
+                HStack(spacing: DS.Space.md) {
+                    Button("action.close") { vm.closeSession(cs) }
+                        .buttonStyle(.bordered)
+                    Button("action.reconnect") { vm.reconnect(cs: cs) }
+                        .buttonStyle(.borderedProminent)
                 }
-                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 Text("connection.reconnect_hint")
-                    .font(.caption2)
+                    .font(DS.Font.caption)
                     .foregroundStyle(.tertiary)
             }
+            .padding(DS.Space.xxxl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { installKeyMonitor() }
@@ -331,8 +316,14 @@ struct ReconnectOverlayView: View {
 
     private func installKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [self] event in
+            // Enter / Cmd+R → reconnect
             if event.keyCode == 15 || event.keyCode == 36 || event.keyCode == 76 {
                 DispatchQueue.main.async { vm.reconnect(cs: cs) }
+                return nil
+            }
+            // Escape → close the dead tab
+            if event.keyCode == 53 {
+                DispatchQueue.main.async { vm.closeSession(cs) }
                 return nil
             }
             return event

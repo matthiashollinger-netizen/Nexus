@@ -49,6 +49,7 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
     private var capturingPassword = false
     private var captureBuffer = ""
     private var keyMonitor: Any?
+    private var didSignalConnected = false
     private let highlighter: TerminalHighlighter
 
     init(cs: ConnectionSession, fontName: String, fontSize: Double) {
@@ -57,6 +58,13 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
         super.init(frame: .zero)
         // Store weak reference so TabItemView can give us keyboard focus on tab switch
         cs.terminalNSView = self
+        // Unified injection channel: lets macros AND snippets feed text into the SSH
+        // process the same way they do for telnet/serial (previously SSH had no
+        // terminalSendHandler, so macros never reached SSH sessions).
+        cs.terminalSendHandler = { [weak self] bytes in
+            guard let text = String(bytes: bytes, encoding: .utf8) else { return }
+            self?.send(txt: text)
+        }
         let f = NSFont(name: fontName, size: CGFloat(fontSize)) ?? NSFont.monospacedSystemFont(ofSize: CGFloat(fontSize), weight: .regular)
         self.font = f
         startSSH()
@@ -102,7 +110,10 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
         let envArray = envDict.map { "\($0.key)=\($0.value)" }
 
         startProcess(executable: "/usr/bin/ssh", args: cs.sshArgs, environment: envArray)
-        cs.state = .connected
+        // NB: state stays `.connecting` until the first bytes arrive (see
+        // dataReceived). Setting `.connected` eagerly here meant an SSH process that
+        // exits immediately (bad host / auth) passed through `.connected` and fired a
+        // false "connection lost" notification.
     }
 
     private func installKeyMonitor() {
@@ -150,6 +161,14 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
         // Feed highlighted bytes to the terminal
         let highlighted = highlighter.process(originalBytes)
         super.dataReceived(slice: ArraySlice(highlighted))
+
+        // First bytes from the remote = the SSH pipe is live (banner / prompt /
+        // password prompt). This is the reliable "connected" signal for any endpoint,
+        // including switches with non-standard prompts.
+        if !didSignalConnected {
+            didSignalConnected = true
+            DispatchQueue.main.async { [weak self] in self?.cs.state = .connected }
+        }
 
         // Auto-send stored password on password prompt
         if !passwordSent, let pwd = cs.sshPassword {
