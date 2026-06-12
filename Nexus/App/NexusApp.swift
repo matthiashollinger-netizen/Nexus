@@ -65,6 +65,12 @@ struct NexusApp: App {
         }
         .defaultSize(width: 860, height: 600)
         .windowResizability(.contentMinSize)
+
+        Window("toolbox.title", id: "toolbox") {
+            NetworkToolboxView()
+        }
+        .defaultSize(width: 720, height: 500)
+        .windowResizability(.contentMinSize)
     }
 }
 
@@ -166,6 +172,11 @@ private struct ToolsMenuItems: View {
             openWindow(id: "servers")
         }
         .keyboardShortcut("s", modifiers: [.command, .shift, .option])
+
+        Button("menu.toolbox") {
+            openWindow(id: "toolbox")
+        }
+        .keyboardShortcut("t", modifiers: [.command, .shift, .option])
 
         Divider()
 

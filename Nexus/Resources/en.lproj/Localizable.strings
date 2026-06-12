@@ -778,3 +778,31 @@
 "syslog.waiting.title" = "Waiting for messages";
 "syslog.waiting.hint" = "Point a device's logging host at this Mac's IP and port.";
 "syslog.start_to_view" = "Start the server to receive messages.";
+
+// MARK: - v3.0 — MultiExec / Find
+"toolbar.multiexec" = "MultiExec (broadcast)";
+"multiexec.banner" = "Broadcasting to %lld sessions";
+"multiexec.placeholder" = "Type a command to send to all selected tabs…";
+"multiexec.send" = "Send to all";
+"multiexec.include" = "Include in broadcast";
+"find.placeholder" = "Find in terminal";
+"sftp.drop_hint" = "Drop to upload here";
+
+// MARK: - v3.0 — Network Toolbox
+"toolbox.title" = "Network Toolbox";
+"menu.toolbox" = "Network Toolbox…";
+"palette.action.toolbox" = "Open Network Toolbox";
+"toolbox.ping" = "Ping";
+"toolbox.traceroute" = "Traceroute";
+"toolbox.dns" = "DNS Lookup";
+"toolbox.port" = "Port Check";
+"toolbox.wol" = "Wake-on-LAN";
+"toolbox.host" = "Host";
+"toolbox.port_field" = "Port";
+"toolbox.mac" = "MAC address";
+"toolbox.run" = "Run";
+"toolbox.running" = "Running…";
+"toolbox.stop" = "Stop";
+"toolbox.wol.sent" = "Magic packet sent to the broadcast address.";
+"toolbox.wol.invalid" = "Invalid MAC address — use AA:BB:CC:DD:EE:FF.";
+"toolbox.wol.failed" = "Could not send the packet.";

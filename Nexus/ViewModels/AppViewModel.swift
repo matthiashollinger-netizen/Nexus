@@ -299,6 +299,35 @@ final class AppViewModel {
         db.saveSessions(sessions)
     }
 
+    // MARK: - MultiExec (broadcast input to several terminals at once)
+
+    /// When on, a command typed in the broadcast bar is sent to every selected tab.
+    var multiExecMode = false
+    /// Tabs that receive broadcast input.
+    var selectedExecTabs: Set<UUID> = []
+
+    func toggleMultiExec() {
+        multiExecMode.toggle()
+        // Default to broadcasting to every open tab; clear when leaving the mode.
+        selectedExecTabs = multiExecMode ? Set(activeSessions.map { $0.id }) : []
+    }
+
+    func toggleExecMembership(_ id: UUID) {
+        if selectedExecTabs.contains(id) { selectedExecTabs.remove(id) }
+        else { selectedExecTabs.insert(id) }
+    }
+
+    /// The tabs that will actually receive a broadcast (selected ∩ still open).
+    var broadcastTargets: [ConnectionSession] {
+        activeSessions.filter { selectedExecTabs.contains($0.id) }
+    }
+
+    /// Sends `text` followed by a newline to every selected, still-open tab.
+    func broadcast(_ text: String) {
+        let bytes = Array((text + "\n").utf8)
+        for cs in broadcastTargets { cs.terminalSendHandler?(bytes) }
+    }
+
     // MARK: - Snippets
 
     /// Session whose snippets are being edited (drives the SnippetEditor sheet).

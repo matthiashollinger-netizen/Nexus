@@ -61,6 +61,17 @@ struct MainView: View {
                 .help("toolbar.sftp_browser")
             }
             ToolbarItem(placement: .automatic) {
+                Button {
+                    vm.toggleMultiExec()
+                } label: {
+                    Label("toolbar.multiexec", systemImage: vm.multiExecMode
+                          ? "dot.radiowaves.left.and.right" : "rectangle.on.rectangle")
+                }
+                .disabled(vm.activeSessions.isEmpty)
+                .help("toolbar.multiexec")
+                .tint(vm.multiExecMode ? DS.Color.stateConnecting : nil)
+            }
+            ToolbarItem(placement: .automatic) {
                 Menu {
                     if let cs = vm.activeConnection {
                         let live = vm.sessions.first { $0.id == cs.session.id } ?? cs.session

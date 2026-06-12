@@ -4,6 +4,9 @@ import SwiftUI
 
 struct TerminalTabsView: View {
     @Environment(AppViewModel.self) private var vm
+    @State private var findVisible = false
+    @State private var findTerm = ""
+    @FocusState private var findFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -12,9 +15,104 @@ struct TerminalTabsView: View {
             } else {
                 TabBarView()
                 Divider()
-                TabContentView()
+                ZStack(alignment: .top) {
+                    TabContentView()
+                    if findVisible {
+                        FindBar(term: $findTerm, focused: $findFocused,
+                                onNext: { _ = terminalFind(vm.activeConnection, term: findTerm, forward: true) },
+                                onPrev: { _ = terminalFind(vm.activeConnection, term: findTerm, forward: false) },
+                                onClose: closeFind)
+                            .padding(DS.Space.sm)
+                    }
+                }
+                if vm.multiExecMode { BroadcastBar() }
             }
         }
+        // ⌘F find — a key equivalent fires before the terminal's own NSTextFinder.
+        .background {
+            Button("") { toggleFind() }
+                .keyboardShortcut("f", modifiers: .command)
+                .opacity(0).frame(width: 0, height: 0)
+        }
+    }
+
+    private func toggleFind() {
+        guard !vm.activeSessions.isEmpty else { return }
+        findVisible.toggle()
+        if findVisible { findFocused = true } else { terminalClearSearch(vm.activeConnection) }
+    }
+
+    private func closeFind() {
+        findVisible = false
+        terminalClearSearch(vm.activeConnection)
+    }
+}
+
+// MARK: - Find bar (⌘F)
+
+private struct FindBar: View {
+    @Binding var term: String
+    @FocusState.Binding var focused: Bool
+    let onNext: () -> Void
+    let onPrev: () -> Void
+    let onClose: () -> Void
+
+    var body: some View {
+        HStack(spacing: DS.Space.sm) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("find.placeholder", text: $term)
+                .textFieldStyle(.plain)
+                .focused($focused)
+                .frame(width: 220)
+                .onSubmit(onNext)
+            Button(action: onPrev) { Image(systemName: "chevron.up") }.buttonStyle(.borderless)
+            Button(action: onNext) { Image(systemName: "chevron.down") }.buttonStyle(.borderless)
+            Button(action: onClose) { Image(systemName: "xmark") }.buttonStyle(.borderless)
+                .keyboardShortcut(.cancelAction)
+        }
+        .font(DS.Font.body)
+        .padding(.horizontal, DS.Space.md).padding(.vertical, DS.Space.sm)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(DS.Color.hairline, lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.15), radius: 8, y: 3)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+}
+
+// MARK: - MultiExec broadcast bar
+
+private struct BroadcastBar: View {
+    @Environment(AppViewModel.self) private var vm
+    @State private var command = ""
+
+    private var targetCount: Int { vm.broadcastTargets.count }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack(spacing: DS.Space.sm) {
+                Image(systemName: "dot.radiowaves.left.and.right")
+                    .foregroundStyle(DS.Color.stateConnecting)
+                Text(String(format: String(localized: "multiexec.banner"), targetCount))
+                    .font(DS.Font.caption.weight(.semibold))
+                    .foregroundStyle(DS.Color.stateConnecting)
+                TextField("multiexec.placeholder", text: $command)
+                    .textFieldStyle(.roundedBorder)
+                    .font(DS.Font.mono)
+                    .onSubmit(send)
+                Button("multiexec.send", action: send)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(targetCount == 0 || command.isEmpty)
+            }
+            .padding(.horizontal, DS.Space.lg).padding(.vertical, DS.Space.sm)
+            .background(DS.Color.stateConnecting.opacity(0.10))
+        }
+    }
+
+    private func send() {
+        guard !command.isEmpty, targetCount > 0 else { return }
+        vm.broadcast(command)
+        command = ""
     }
 }
 
@@ -157,6 +255,17 @@ struct TabItemView: View {
 
     var body: some View {
         HStack(spacing: 0) {
+            // ── MultiExec selection checkbox (only while broadcasting) ─────
+            if vm.multiExecMode {
+                Button { vm.toggleExecMembership(cs.id) } label: {
+                    Image(systemName: vm.selectedExecTabs.contains(cs.id) ? "checkmark.circle.fill" : "circle")
+                        .font(.caption)
+                        .foregroundStyle(vm.selectedExecTabs.contains(cs.id) ? DS.Color.stateConnecting : .secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.leading, DS.Space.sm)
+                .help("multiexec.include")
+            }
             // ── Label — tapping switches to this tab ──────────────────────
             HStack(spacing: DS.Space.sm) {
                 StatusDot(state: cs.state, size: 7)

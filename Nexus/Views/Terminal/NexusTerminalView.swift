@@ -2,6 +2,20 @@ import SwiftUI
 import SwiftTerm
 import AppKit
 
+// MARK: - Terminal find helpers (⌘F)
+//
+// Operate on the live SwiftTerm view behind a ConnectionSession. Kept here because
+// only this file imports SwiftTerm; the find overlay in TerminalTabsView calls these.
+
+@MainActor func terminalFind(_ cs: ConnectionSession?, term: String, forward: Bool) -> Bool {
+    guard !term.isEmpty, let tv = cs?.terminalNSView as? TerminalView else { return false }
+    return forward ? tv.findNext(term) : tv.findPrevious(term)
+}
+
+@MainActor func terminalClearSearch(_ cs: ConnectionSession?) {
+    (cs?.terminalNSView as? TerminalView)?.clearSearch()
+}
+
 // MARK: - SwiftUI wrapper
 
 struct NexusTerminalView: NSViewRepresentable {

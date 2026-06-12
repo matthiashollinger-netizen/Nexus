@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 // MARK: - SFTP Browser View
 
@@ -16,6 +17,7 @@ struct SFTPBrowserView: View {
     @State private var renameText = ""
     @State private var showNewFolderDialog = false
     @State private var newFolderName = ""
+    @State private var isDropTargeted = false
 
     private var currentPath: String {
         vm.sftpCurrentPath
@@ -150,6 +152,24 @@ struct SFTPBrowserView: View {
         .onChange(of: cs.id) { _, _ in
             items = []
             Task { await loadHome() }
+        }
+        // Drag-and-drop upload: drop files from Finder onto the pane to upload them
+        // to the current directory.
+        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { handleDrop($0) }
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                    .strokeBorder(DS.Color.accent, lineWidth: 2)
+                    .background(DS.Color.accent.opacity(0.06))
+                    .overlay {
+                        VStack(spacing: DS.Space.sm) {
+                            Image(systemName: "square.and.arrow.down.fill").font(.largeTitle)
+                            Text("sftp.drop_hint").font(DS.Font.callout)
+                        }
+                        .foregroundStyle(DS.Color.accent)
+                    }
+                    .allowsHitTesting(false)
+            }
         }
         // Transfer progress overlay
         .overlay {
@@ -287,6 +307,46 @@ struct SFTPBrowserView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: - Drag-and-drop upload
+
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        let group = DispatchGroup()
+        var urls: [URL] = []
+        let lock = NSLock()
+        for provider in providers where provider.canLoadObject(ofClass: URL.self) {
+            group.enter()
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                if let url, url.isFileURL { lock.lock(); urls.append(url); lock.unlock() }
+                group.leave()
+            }
+        }
+        group.notify(queue: .main) {
+            guard !urls.isEmpty else { return }
+            Task { await uploadFiles(urls) }
+        }
+        return true
+    }
+
+    /// Uploads each dropped/picked file to the current directory, then refreshes.
+    private func uploadFiles(_ urls: [URL]) async {
+        guard let conn = sftpConnection() else { return }
+        let base = currentPath.hasSuffix("/") ? currentPath : currentPath + "/"
+        for url in urls {
+            // sftp 'put' doesn't recurse; skip directories rather than fail silently.
+            var isDir: ObjCBool = false
+            FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+            if isDir.boolValue { continue }
+            transferProgress = TransferProgress(filename: url.lastPathComponent, type: .upload, fraction: 0)
+            do {
+                try await SFTPService.shared.uploadFile(conn, from: url, remotePath: base + url.lastPathComponent)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+        transferProgress = nil
+        await loadDirectory(path: currentPath)
     }
 
     private func openFilePicker() {

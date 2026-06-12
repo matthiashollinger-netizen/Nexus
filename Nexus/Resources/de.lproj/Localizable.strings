@@ -778,3 +778,31 @@
 "syslog.waiting.title" = "Warte auf Meldungen";
 "syslog.waiting.hint" = "Richte den Logging-Host eines Geräts auf die IP und den Port dieses Macs.";
 "syslog.start_to_view" = "Server starten, um Meldungen zu empfangen.";
+
+// MARK: - v3.0 — MultiExec / Suche
+"toolbar.multiexec" = "MultiExec (Broadcast)";
+"multiexec.banner" = "Sendet an %lld Sessions";
+"multiexec.placeholder" = "Befehl an alle ausgewählten Tabs senden…";
+"multiexec.send" = "An alle senden";
+"multiexec.include" = "Zum Broadcast hinzufügen";
+"find.placeholder" = "Im Terminal suchen";
+"sftp.drop_hint" = "Zum Hochladen hier ablegen";
+
+// MARK: - v3.0 — Netzwerk-Toolbox
+"toolbox.title" = "Netzwerk-Toolbox";
+"menu.toolbox" = "Netzwerk-Toolbox…";
+"palette.action.toolbox" = "Netzwerk-Toolbox öffnen";
+"toolbox.ping" = "Ping";
+"toolbox.traceroute" = "Traceroute";
+"toolbox.dns" = "DNS-Abfrage";
+"toolbox.port" = "Port-Check";
+"toolbox.wol" = "Wake-on-LAN";
+"toolbox.host" = "Host";
+"toolbox.port_field" = "Port";
+"toolbox.mac" = "MAC-Adresse";
+"toolbox.run" = "Ausführen";
+"toolbox.running" = "Läuft…";
+"toolbox.stop" = "Stopp";
+"toolbox.wol.sent" = "Magic Packet an die Broadcast-Adresse gesendet.";
+"toolbox.wol.invalid" = "Ungültige MAC-Adresse — Format AA:BB:CC:DD:EE:FF.";
+"toolbox.wol.failed" = "Paket konnte nicht gesendet werden.";
