@@ -252,6 +252,16 @@ struct CommandPaletteView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
+            // Escape-to-close. A `.cancelAction` key equivalent fires via
+            // performKeyEquivalent BEFORE the focused NSTextField's field editor can
+            // swallow Escape — the field editor only forwards navigation commands
+            // (arrows/return) through its delegate, never cancelOperation.
+            Button("") { dismiss() }
+                .keyboardShortcut(.cancelAction)
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+
             // Dimmed, tap-to-dismiss scrim.
             Rectangle()
                 .fill(Color.black.opacity(0.18))
@@ -324,7 +334,11 @@ struct CommandPaletteView: View {
                         }
                         PaletteResultRow(result: result, isHighlighted: index == model.selectedIndex,
                                          query: model.query)
-                            .id(index)
+                            // Identify each row by its RESULT id (matching the ForEach's
+                            // \.element.id). Using the positional index here pinned rows
+                            // by slot and left reused rows showing a previous result's
+                            // content while the count tracked the query.
+                            .id(result.id)
                             .onTapGesture {
                                 model.selectedIndex = index
                                 model.run(result); dismiss()
@@ -336,7 +350,8 @@ struct CommandPaletteView: View {
             }
             .frame(maxHeight: 380)
             .onChange(of: model.selectedIndex) { _, idx in
-                withAnimation(DS.Motion.quick) { proxy.scrollTo(idx, anchor: .center) }
+                guard model.results.indices.contains(idx) else { return }
+                withAnimation(DS.Motion.quick) { proxy.scrollTo(model.results[idx].id, anchor: .center) }
             }
         }
     }
@@ -471,13 +486,19 @@ struct PaletteTextField: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSTextField, context: Context) {
+        // Refresh the coordinator's captured callbacks every update. Without this the
+        // coordinator keeps the closures from makeCoordinator() — so onCancel()/onSubmit()
+        // run against a stale view snapshot and their @State mutations never propagate
+        // (this is why Escape didn't dismiss while the arrow keys, which mutate the
+        // reference-typed model, did).
+        context.coordinator.parent = self
         if nsView.stringValue != text { nsView.stringValue = text }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     final class Coordinator: NSObject, NSTextFieldDelegate {
-        let parent: PaletteTextField
+        var parent: PaletteTextField
         init(_ parent: PaletteTextField) { self.parent = parent }
 
         func controlTextDidChange(_ obj: Notification) {
