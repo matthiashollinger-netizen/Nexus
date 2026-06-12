@@ -21,6 +21,22 @@
 - **Mitteilungen** bei unerwartetem Verbindungsabbruch (abschaltbar).
 - **nexus:// Deep-Links** zum Öffnen/Verbinden einer Session aus Browser/Wiki/Chat.
 
+### Neu — MobaXterm-Features & Server-Hosting
+
+- **Syslog-Server** (nativ, RFC 3164/5424): Switch-Logs live mitlesen, farbcodiert,
+  filterbar, CSV-Export.
+- **Netzwerk-Toolbox:** Ping, Traceroute, DNS, Port-Check, Wake-on-LAN.
+- **MultiExec:** ein Befehl an mehrere Terminals gleichzeitig.
+- **Find-in-Terminal (⌘F)** und **SFTP-Drag-&-Drop-Upload**.
+- **Server-Manager** im neuen Design.
+
+### Behoben — SFTP
+
+- **„Authentication failed" im SFTP-Browser** bei passwortbasierten Hosts behoben
+  (sftp lief im Batch-Modus, der die Passwort-Auth abschaltete) — an echter Hardware
+  verifiziert. Unterordner zeigen jetzt Dateinamen statt voller Pfade;
+  Verbindungsabbrüche werden sauber als Fehler angezeigt.
+
 ### Behoben
 
 - **Makros auf SSH-Sessions:** erreichen jetzt das SSH-Terminal (einheitlicher

@@ -32,6 +32,32 @@
 - **nexus:// Deep-Links:** `nexus://open/<id>` und `nexus://connect?host=…&type=ssh`
   öffnen/verbinden eine Session aus Browser, Wiki oder Chat.
 
+### Neu — MobaXterm-Features & Server-Hosting
+
+- **Syslog-Server:** nativer UDP-Empfänger (RFC 3164 + 5424) im Server-Manager —
+  Switch-Logs live mitlesen (farbcodierte Severity, Freitext-Filter, Alarm-Zähler,
+  CSV-Export). Der wichtigste fehlende Server fürs Firmware-Update.
+- **Netzwerk-Toolbox:** Ping, Traceroute, DNS, Port-Check und Wake-on-LAN (eigenes
+  Fenster, ⌘K + Werkzeuge-Menü) — alles über macOS-Systemtools, keine Installation.
+- **MultiExec:** denselben Befehl an mehrere Terminals gleichzeitig senden
+  (Tab-Auswahl per Checkbox + Broadcast-Leiste).
+- **Find-in-Terminal (⌘F).**
+- **SFTP-Browser:** Drag-&-Drop-Upload direkt aus dem Finder.
+- **Server-Manager** komplett auf das neue Design-System umgestellt (Status-Punkte,
+  „Im Finder zeigen").
+
+### Behoben — SFTP (durch Live-Test an echter Hardware gefunden)
+
+- **SFTP-Browser-Authentifizierung:** schlug bei passwortbasierten Hosts immer fehl
+  („Authentication failed"), obwohl dasselbe gespeicherte Passwort im SSH-Terminal
+  funktionierte. Ursache: `sftp` lief im Batch-Modus (`-b`), der ssh `BatchMode=yes`
+  erzwingt und damit die Passwort-Auth (SSH_ASKPASS) komplett abschaltet — nur das
+  Terminal maskierte es, weil es das Passwort als Fallback *tippt*. Behoben (Kommandos
+  über stdin statt `-b`), gegen ein echtes Gerät verifiziert.
+- **Unterordner** zeigten volle Pfade statt Dateinamen — behoben (Basename).
+- Verbindungsabbrüche bzw. ssh-Exit-Code 255 werden jetzt sauber als Fehler
+  angezeigt statt als (leeres) Listing.
+
 ### Behoben
 
 - **Makros auf SSH-Sessions:** SSH hatte zuvor keinen Sende-Kanal, sodass Makros
