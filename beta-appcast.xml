@@ -6,16 +6,16 @@
         <description>Beta releases for testing.</description>
         <language>en</language>
         <item>
-            <title>Nexus 2.3.0-beta.3 (Beta)</title>
-            <sparkle:releaseNotesLink>https://github.com/matthiashollinger-netizen/Nexus/releases/tag/v2.3.0-beta.3</sparkle:releaseNotesLink>
-            <pubDate>Wed, 10 Jun 2026 18:58:38 +0000</pubDate>
+            <title>Nexus 3.0.0-beta.1 (Beta)</title>
+            <sparkle:releaseNotesLink>https://github.com/matthiashollinger-netizen/Nexus/releases/tag/v3.0.0-beta.1</sparkle:releaseNotesLink>
+            <pubDate>Fri, 12 Jun 2026 05:02:40 +0000</pubDate>
             <enclosure
-                url="https://github.com/matthiashollinger-netizen/Nexus/releases/download/v2.3.0-beta.3/Nexus-2.3.0-beta.3.dmg"
-                sparkle:version="2.3.0"
-                sparkle:shortVersionString="2.3.0-beta.3"
-                length="3620215"
+                url="https://github.com/matthiashollinger-netizen/Nexus/releases/download/v3.0.0-beta.1/Nexus-3.0.0-beta.1.dmg"
+                sparkle:version="3.0.0"
+                sparkle:shortVersionString="3.0.0-beta.1"
+                length="3897914"
                 type="application/octet-stream"
-                sparkle:edSignature="fNdvD9niiSeM8zGWqG03qCOpa8x08ROL0eJuOqxasSmD1H43c7889P2P1IW/bUIh9uUt9Rda+GhsCieOM7b6Cw=="
+                sparkle:edSignature="FdmM5fplK4JOYKE58vg9wS+7CyKXXvOgnXNPLidSqNiibmQCXQDcm912+KyLCubTRQXcrVppq+7uJA5+zykQDw=="
             />
         </item>
     </channel>
