@@ -104,6 +104,40 @@ Datenverlust kann sich nicht wiederholen.
   Die Dimensionen Lokalisierung (642/642 Schlüssel in de+en), Persistenz (tolerante
   Decoder) und Concurrency kamen ohne bestätigte Befunde zurück.
 
+## Phase 2 — MobaXterm-Features, Server-Hosting & Live-Test (am echten Gerät)
+
+Getestet wurde gegen die echte SSH-Verbindung **homebridge (192.168.1.130,
+Raspberry Pi)** — der Live-Test fand zwei Bugs, die Build/Unit-Tests nie zeigen.
+
+### Live gefundene & behobene SFTP-Bugs
+- **„Authentication failed" im SFTP-Browser** trotz funktionierendem Passwort im
+  SSH-Terminal. Ursache: `sftp -b` (Batch-Modus) erzwingt ssh `BatchMode=yes` und
+  schaltet damit die SSH_ASKPASS-Passwort-Auth ab — nur Key-Auth, die scheitert.
+  Das Terminal maskierte das, weil es das Passwort als Fallback *tippt*. Fix: kein
+  `-b`, Kommandos über stdin. **Verifiziert: SFTP-Browser listet jetzt `/home/pi`.**
+- **Unterordner zeigten volle Pfade** statt Dateinamen (sftp präfixt `ls <pfad>`).
+  Fix: Basename. **Verifiziert: Navigation in `node-…/` zeigt bin/lib/… sauber.**
+- Verbindungsabbrüche / ssh-Exit-255 werden jetzt als Fehler gewertet (vorher als
+  leeres Listing). Der Wrong-Password-Integrationstest deckte diese Lücke auf.
+
+### Neue Features (alle self-contained, native)
+- **Syslog-Server** (UDP, RFC 3164+5424) im Server-Manager mit strukturierter,
+  farbcodierter, filterbarer Live-Ansicht + CSV-Export.
+- **Netzwerk-Toolbox:** Ping/Traceroute/DNS/Port-Check/Wake-on-LAN.
+  **Live verifiziert: Ping homebridge → 0 % Loss, ~5 ms.**
+- **MultiExec** (Broadcast an mehrere Terminals), **Find-in-Terminal ⌘F**
+  (**live verifiziert:** hebt „raspberry" hervor), **SFTP-Drag-&-Drop-Upload**,
+  **Server-Manager** auf das Design-System umgestellt.
+
+### Verifikation Phase 2
+- **114/114 Unit-Tests grün** (inkl. 6 neue Syslog-Parser-Tests).
+- Debug-Build grün; App startet; alle obigen Live-Tests bestanden.
+
+### Bewusst zurückgestellt (dokumentiert, nicht halb gebaut)
+Lokales Shell-Tab (invasiv für `ConnectionType`/Editor), Session-Logging, SFTP
+follow-CWD / Keyboard-Nav / chmod, SSH-Jump-Host-UI, In-App-Remote-Editor,
+persistente Server-Logs. Plan in `docs/mobaxterm_plan.json`.
+
 ## Ehrlich offen / nicht machbar
 
 - **RDP:** weiterhin nicht einbettbar (keine native Bibliothek; FreeRDP bräuchte
