@@ -818,3 +818,4 @@
 // MARK: - v3.0.2 — Remote editor
 "editor.save_upload" = "Save & upload";
 "editor.saved" = "Saved to server";
+"server.error.privileged_port" = "Port %lld requires admin privileges. Use a port \u2265 1024 (e.g. 6969 for TFTP, 2121 for FTP) and point your device at that port.";

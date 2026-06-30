@@ -818,3 +818,4 @@
 // MARK: - v3.0.2 — Remote-Editor
 "editor.save_upload" = "Speichern & hochladen";
 "editor.saved" = "Auf Server gespeichert";
+"server.error.privileged_port" = "Port %lld ben\u00f6tigt Admin-Rechte. Nutze einen Port \u2265 1024 (z. B. 6969 f\u00fcr TFTP, 2121 f\u00fcr FTP) und richte dein Ger\u00e4t auf diesen Port.";

@@ -152,6 +152,14 @@ final class EmbeddedServerService {
             throw EmbeddedServerError.notAvailable(server.type.displayName)
         }
 
+        // Pre-flight: a privileged port (<1024) or one already in use otherwise fails
+        // ASYNC inside the NWListener and the card would still show "running". Catch it
+        // up front and surface a clear error.
+        let isUDP = (server.type == .tftp || server.type == .syslog)
+        if let bindError = Self.bindCheck(port: server.port, udp: isUDP) {
+            throw bindError
+        }
+
         let rootURL = URL(fileURLWithPath: server.rootDirectory.isEmpty
             ? FileManager.default.homeDirectoryForCurrentUser.path
             : server.rootDirectory)
@@ -259,6 +267,33 @@ final class EmbeddedServerService {
 
     // MARK: - Helpers
 
+    /// Attempts to bind `port` (closing immediately). Returns a clear error if it
+    /// can't — EACCES (<1024 needs root) → privilegedPort, EADDRINUSE → portInUse.
+    /// `nil` means the port is bindable.
+    private static func bindCheck(port: Int, udp: Bool) -> EmbeddedServerError? {
+        guard let port16 = UInt16(exactly: port), port > 0 else { return .portInUse(port) }
+        let fd = socket(AF_INET, udp ? SOCK_DGRAM : SOCK_STREAM, 0)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
+        var reuse: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = port16.bigEndian
+        addr.sin_addr.s_addr = in_addr_t(0)   // INADDR_ANY
+        let r = withUnsafePointer(to: &addr) { p in
+            p.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        if r == 0 { return nil }
+        switch errno {
+        case EACCES: return .privilegedPort(port)
+        case EADDRINUSE: return .portInUse(port)
+        default: return nil   // unknown — let the listener try anyway
+        }
+    }
+
     private func isPortInUse(_ port: Int) -> Bool {
         // Guard the range first — UInt16(port) traps on overflow.
         guard let port16 = UInt16(exactly: port) else { return false }
@@ -297,6 +332,7 @@ enum EmbeddedServerError: LocalizedError {
     case binaryNotFound(String)
     case portInUse(Int)
     case notAvailable(String)
+    case privilegedPort(Int)
 
     var errorDescription: String? {
         switch self {
@@ -306,6 +342,8 @@ enum EmbeddedServerError: LocalizedError {
             return String(format: String(localized: "server.error.port_in_use"), port)
         case .notAvailable(let name):
             return String(format: String(localized: "server.error.not_available"), name)
+        case .privilegedPort(let port):
+            return String(format: String(localized: "server.error.privileged_port"), port)
         }
     }
 }

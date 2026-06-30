@@ -205,7 +205,9 @@ struct ServerCard: View {
 
     private var info: some View {
         HStack {
-            Label(":\(server.port)", systemImage: "number")
+            // Text(verbatim:) avoids the LocalizedStringKey number grouping that turned
+            // 8080 into "8.080" in German.
+            Label { Text(verbatim: ":\(server.port)") } icon: { Image(systemName: "number") }
                 .font(DS.Font.caption).foregroundStyle(.secondary)
             Spacer()
         }
