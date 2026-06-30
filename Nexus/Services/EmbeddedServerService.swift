@@ -10,6 +10,9 @@ struct EmbeddedServer: Identifiable, Codable {
     var port: Int
     var isRunning: Bool = false
     var autoStart: Bool = false
+    // FTP login (empty = anonymous). Only used by the FTP server.
+    var ftpUsername: String = ""
+    var ftpPassword: String = ""
 
     enum ServerType: String, Codable, CaseIterable, Identifiable {
         case http   = "HTTP"
@@ -72,6 +75,25 @@ struct EmbeddedServer: Identifiable, Codable {
             default:      return ""
             }
         }
+    }
+}
+
+// Tolerant decoder — see Session.swift for the rationale. Lets a new field (e.g.
+// ftpUsername/ftpPassword) be added without resetting the user's saved servers.
+extension EmbeddedServer {
+    enum CodingKeys: String, CodingKey {
+        case id, type, rootDirectory, port, isRunning, autoStart, ftpUsername, ftpPassword
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id            = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        type          = try c.decodeIfPresent(ServerType.self, forKey: .type) ?? .http
+        rootDirectory = try c.decodeIfPresent(String.self, forKey: .rootDirectory) ?? ""
+        port          = try c.decodeIfPresent(Int.self, forKey: .port) ?? type.defaultPort
+        isRunning     = false   // never restore as running
+        autoStart     = try c.decodeIfPresent(Bool.self, forKey: .autoStart) ?? false
+        ftpUsername   = try c.decodeIfPresent(String.self, forKey: .ftpUsername) ?? ""
+        ftpPassword   = try c.decodeIfPresent(String.self, forKey: .ftpPassword) ?? ""
     }
 }
 
@@ -166,7 +188,8 @@ final class EmbeddedServerService {
 
         case .ftp:
             if isPortInUse(server.port) { throw EmbeddedServerError.portInUse(server.port) }
-            guard let s = NativeFTPServer(rootDirectory: rootURL, port: server.port) else {
+            guard let s = NativeFTPServer(rootDirectory: rootURL, port: server.port,
+                                          username: server.ftpUsername, password: server.ftpPassword) else {
                 throw EmbeddedServerError.portInUse(server.port)
             }
             s.onLog = log

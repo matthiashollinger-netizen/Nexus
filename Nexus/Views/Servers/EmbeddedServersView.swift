@@ -10,6 +10,10 @@ struct EmbeddedServersView: View {
 
     private let columns = [GridItem(.flexible(), spacing: DS.Space.md), GridItem(.flexible(), spacing: DS.Space.md)]
 
+    /// The server types offered in the manager. Syslog/Telnet are intentionally
+    /// hidden (not needed); SMB is surfaced via macOS File Sharing (see SMBCard).
+    static let shownTypes: [EmbeddedServer.ServerType] = [.http, .tftp, .ftp]
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: DS.Space.md) {
@@ -26,9 +30,10 @@ struct EmbeddedServersView: View {
 
             ScrollView {
                 LazyVGrid(columns: columns, spacing: DS.Space.md) {
-                    ForEach(EmbeddedServer.ServerType.allCases) { type in
+                    ForEach(Self.shownTypes) { type in
                         cardForType(type)
                     }
+                    SMBCard()
                 }
                 .padding(DS.Space.xl)
             }
@@ -59,21 +64,20 @@ struct EmbeddedServersView: View {
 
     @ViewBuilder
     private func cardForType(_ type: EmbeddedServer.ServerType) -> some View {
-        if type.isAvailable, let idx = serverService.servers.firstIndex(where: { $0.type == type }) {
+        // All shown types are available; the instance is created by ensureDefaultInstances.
+        if let idx = serverService.servers.firstIndex(where: { $0.type == type }) {
             ServerCard(server: $serverService.servers[idx],
                        logs: serverService.logs(for: serverService.servers[idx]),
-                       syslogServer: type == .syslog ? serverService.syslogServer(for: serverService.servers[idx]) : nil,
+                       syslogServer: nil,
                        onStart: { Task { await startServer(serverService.servers[idx]) } },
                        onStop: { serverService.stop(serverService.servers[idx]) },
                        onConfigure: { configuringServer = serverService.servers[idx] })
-        } else {
-            DeactivatedServerCard(type: type)
         }
     }
 
     private func ensureDefaultInstances() {
         var changed = false
-        for type in EmbeddedServer.ServerType.allCases where type.isAvailable {
+        for type in Self.shownTypes {
             if !serverService.servers.contains(where: { $0.type == type }) {
                 serverService.servers.append(EmbeddedServer(type: type, port: type.defaultPort))
                 changed = true
@@ -88,28 +92,36 @@ struct EmbeddedServersView: View {
     }
 }
 
-// MARK: - Deactivated server card (SFTP, Telnet)
+// MARK: - SMB card (macOS File Sharing)
+//
+// A full SMB server can't be shipped in-process (huge protocol), but macOS already
+// has one. Surface it like a server and jump straight to the Sharing settings.
 
-private struct DeactivatedServerCard: View {
-    let type: EmbeddedServer.ServerType
-
+private struct SMBCard: View {
     var body: some View {
         NexusCard(hoverLift: false) {
             VStack(alignment: .leading, spacing: DS.Space.md) {
                 HStack(spacing: DS.Space.sm) {
-                    Image(systemName: type.systemImage).font(.title3).foregroundStyle(.tertiary)
+                    Image(systemName: "externaldrive.connected.to.line.below")
+                        .font(.title3).symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(DS.Color.accent)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(type.displayName).font(DS.Font.headline).foregroundStyle(.secondary)
-                        Text("server.coming_soon").font(DS.Font.caption).foregroundStyle(.tertiary)
+                        Text("SMB").font(DS.Font.headline)
+                        Text("server.system_service").font(DS.Font.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
-                Text(LocalizedStringKey(type.noteKey))
-                    .font(DS.Font.caption).foregroundStyle(.tertiary)
+                Text("server.note.smb")
+                    .font(DS.Font.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                Button("server.open_settings") {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.Sharing-Settings.extension") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .buttonStyle(.bordered).controlSize(.small)
             }
         }
-        .opacity(0.75)
     }
 }
 
@@ -263,7 +275,8 @@ struct ServerConfigSheet: View {
 
             Form {
                 LabeledContent("server.port") {
-                    TextField("", value: $server.port, format: .number).frame(width: 80)
+                    // .grouping(.never) → "8080", not "8.080" (German thousands separator).
+                    TextField("", value: $server.port, format: .number.grouping(.never)).frame(width: 80)
                 }
                 if server.type.usesRootDirectory {
                     LabeledContent("server.root") {
@@ -279,6 +292,20 @@ struct ServerConfigSheet: View {
                             }
                             .controlSize(.small)
                         }
+                    }
+                }
+                if server.type == .ftp {
+                    Section {
+                        LabeledContent("server.ftp.user") {
+                            TextField("server.ftp.anonymous", text: $server.ftpUsername).frame(width: 160)
+                        }
+                        LabeledContent("server.ftp.password") {
+                            SecureField("", text: $server.ftpPassword).frame(width: 160)
+                        }
+                    } header: {
+                        Text("server.ftp.auth")
+                    } footer: {
+                        Text("server.ftp.auth.hint").font(DS.Font.caption).foregroundStyle(.secondary)
                     }
                 }
                 Toggle("server.autostart", isOn: $server.autoStart)

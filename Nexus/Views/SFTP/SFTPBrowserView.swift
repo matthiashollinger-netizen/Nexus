@@ -4,6 +4,13 @@ import UniformTypeIdentifiers
 
 // MARK: - SFTP Browser View
 
+/// A text file fetched for in-app editing.
+struct RemoteEditTarget: Identifiable {
+    let id = UUID()
+    let item: SFTPItem
+    let content: String
+}
+
 struct SFTPBrowserView: View {
     @Environment(AppViewModel.self) private var vm
     let cs: ConnectionSession
@@ -18,6 +25,7 @@ struct SFTPBrowserView: View {
     @State private var showNewFolderDialog = false
     @State private var newFolderName = ""
     @State private var isDropTargeted = false
+    @State private var editTarget: RemoteEditTarget? = nil
 
     private var currentPath: String {
         vm.sftpCurrentPath
@@ -87,7 +95,7 @@ struct SFTPBrowserView: View {
                                 vm.sftpCurrentPath = newPath
                                 Task { await loadDirectory(path: newPath) }
                             } else {
-                                Task { await downloadAndOpen(item: item) }
+                                Task { await openFile(item: item) }
                             }
                         }
                         .contextMenu {
@@ -175,6 +183,14 @@ struct SFTPBrowserView: View {
         .overlay {
             if let progress = transferProgress {
                 TransferProgressOverlay(progress: progress)
+            }
+        }
+        // Integrated remote-file editor (text files)
+        .sheet(item: $editTarget) { target in
+            if let conn = sftpConnection() {
+                RemoteFileEditorView(fileName: target.item.name, remotePath: target.item.path,
+                                     conn: conn, initialContent: target.content)
+                    .onDisappear { Task { await loadDirectory(path: currentPath) } }
             }
         }
         // Rename sheet
@@ -270,6 +286,28 @@ struct SFTPBrowserView: View {
             try await SFTPService.shared.downloadFile(conn, remotePath: item.path, to: tempURL)
             transferProgress = nil
             NSWorkspace.shared.open(tempURL)
+        } catch {
+            transferProgress = nil
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Double-click: downloads the file, opens TEXT in the integrated editor (editable +
+    /// upload-on-save) and falls back to the external app for binary files.
+    private func openFile(item: SFTPItem) async {
+        guard let conn = sftpConnection() else { return }
+        transferProgress = TransferProgress(filename: item.name, type: .download, fraction: 0)
+        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("nexus_sftp_\(UUID().uuidString)_\(item.name)")
+        do {
+            try await SFTPService.shared.downloadFile(conn, remotePath: item.path, to: tempURL)
+            transferProgress = nil
+            if let content = try? String(contentsOf: tempURL, encoding: .utf8), !content.contains("\0") {
+                editTarget = RemoteEditTarget(item: item, content: content)
+                try? FileManager.default.removeItem(at: tempURL)
+            } else {
+                NSWorkspace.shared.open(tempURL)   // binary → external app
+            }
         } catch {
             transferProgress = nil
             errorMessage = error.localizedDescription

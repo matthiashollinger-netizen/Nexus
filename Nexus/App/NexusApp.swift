@@ -10,16 +10,17 @@ struct NexusApp: App {
             ContentView()
                 .environment(appViewModel)
                 .environment(updaterViewModel)
-                // Explicit minimum prevents the window from shrinking when sheets
-                // open/close as attached panels, which causes the "sliding" position drift.
-                .frame(minWidth: 900, minHeight: 600)
+                // Keep the window min height ≥ the tallest attached sheet (AddSessionView
+                // is 620). If the window can be shorter than the sheet, macOS grows it to
+                // fit and the window visibly "slides down" — this floor prevents that.
+                .frame(minWidth: 900, minHeight: 680)
                 // nexus:// deep links (open/connect a session from a link).
                 .onOpenURL { appViewModel.handleURL($0) }
         }
         .commands {
             NexusCommands(vm: appViewModel, updaterVM: updaterViewModel)
         }
-        .defaultSize(width: 1100, height: 720)
+        .defaultSize(width: 1100, height: 760)
         .windowResizability(.contentMinSize)
 
         Settings {

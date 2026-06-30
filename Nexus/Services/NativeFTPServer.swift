@@ -13,16 +13,21 @@ final class NativeFTPServer {
 
     private let rootDirectory: URL
     private let port: NWEndpoint.Port
+    private let username: String
+    private let password: String
     private var listener: NWListener?
     private let queue = DispatchQueue(label: "com.hollinger.Nexus.ftp")
     private var sessions: [ObjectIdentifier: FTPSession] = [:]
 
     var onLog: ((String) -> Void)?
 
-    init?(rootDirectory: URL, port: Int) {
+    /// `username`/`password` empty → anonymous (any login accepted).
+    init?(rootDirectory: URL, port: Int, username: String = "", password: String = "") {
         guard port > 0, port <= 65535, let p = NWEndpoint.Port(rawValue: UInt16(port)) else { return nil }
         self.rootDirectory = rootDirectory
         self.port = p
+        self.username = username
+        self.password = password
     }
 
     func start() throws {
@@ -33,6 +38,7 @@ final class NativeFTPServer {
         listener.newConnectionHandler = { [weak self] connection in
             guard let self else { return }
             let session = FTPSession(control: connection, rootDirectory: self.rootDirectory,
+                                     username: self.username, password: self.password,
                                      queue: self.queue, log: { self.onLog?($0) })
             self.sessions[ObjectIdentifier(connection)] = session
             session.onClose = { [weak self] in
@@ -66,15 +72,24 @@ private final class FTPSession {
     private let queue: DispatchQueue
     private let log: (String) -> Void
 
+    private let username: String
+    private let password: String
+    private var providedUser = ""
+    private var authenticated = false
+
     private var cwd = "/"                       // virtual current dir (relative to root)
     private var dataListener: NWListener?       // passive-mode data listener
     private var pendingDataConnection: NWConnection?
+    private var activeEndpoint: NWEndpoint?     // active-mode (PORT) target on the client
     private var renameFrom: String?
     var onClose: (() -> Void)?
 
-    init(control: NWConnection, rootDirectory: URL, queue: DispatchQueue, log: @escaping (String) -> Void) {
+    init(control: NWConnection, rootDirectory: URL, username: String, password: String,
+         queue: DispatchQueue, log: @escaping (String) -> Void) {
         self.control = control
         self.rootDirectory = rootDirectory.standardizedFileURL
+        self.username = username
+        self.password = password
         self.queue = queue
         self.log = log
     }
@@ -115,9 +130,25 @@ private final class FTPSession {
         let arg = parts.count > 1 ? parts[1] : ""
         log("FTP ← \(cmd) \(cmd == "PASS" ? "****" : arg)")
 
+        // Commands allowed before login; everything else requires authentication.
+        let openCommands: Set<String> = ["USER", "PASS", "QUIT", "FEAT", "SYST", "NOOP", "OPTS"]
+        if !authenticated && !openCommands.contains(cmd) {
+            send("530 Please login with USER and PASS"); return
+        }
+
         switch cmd {
-        case "USER": send("331 User name okay, need password")
-        case "PASS": send("230 Login successful")
+        case "USER":
+            providedUser = arg
+            if username.isEmpty { authenticated = true; send("230 Login successful") }
+            else { send("331 User name okay, need password") }
+        case "PASS":
+            if username.isEmpty {
+                authenticated = true; send("230 Login successful")
+            } else if providedUser == username && arg == password {
+                authenticated = true; send("230 Login successful")
+            } else {
+                authenticated = false; send("530 Login incorrect")
+            }
         case "SYST": send("215 UNIX Type: L8")
         case "FEAT": send("211-Features:\r\n PASV\r\n UTF8\r\n211 End")
         case "OPTS": send("200 OK")
@@ -127,6 +158,7 @@ private final class FTPSession {
         case "CWD", "XCWD": changeDirectory(arg)
         case "CDUP": changeDirectory("..")
         case "PASV": enterPassive()
+        case "PORT": enterActive(arg)
         case "LIST", "NLST": listDirectory(nameOnly: cmd == "NLST")
         case "RETR": retrieve(arg)
         case "STOR": store(arg)
@@ -174,6 +206,22 @@ private final class FTPSession {
             }
         }
         listener.start(queue: queue)
+    }
+
+    /// Active mode: the client's `PORT h1,h2,h3,h4,p1,p2` tells us where to dial for
+    /// data. Many older network devices only do active FTP.
+    private func enterActive(_ arg: String) {
+        let nums = arg.split(separator: ",").compactMap { Int($0) }
+        guard nums.count == 6, nums.allSatisfy({ $0 >= 0 && $0 <= 255 }) else {
+            send("501 Syntax error in PORT"); return
+        }
+        let ip = "\(nums[0]).\(nums[1]).\(nums[2]).\(nums[3])"
+        let portNum = nums[4] * 256 + nums[5]
+        guard let p = NWEndpoint.Port(rawValue: UInt16(portNum)) else { send("501 Bad port"); return }
+        dataListener?.cancel(); dataListener = nil
+        pendingDataConnection = nil
+        activeEndpoint = .hostPort(host: NWEndpoint.Host(ip), port: p)
+        send("200 PORT command successful")
     }
 
     private func listDirectory(nameOnly: Bool) {
@@ -246,7 +294,22 @@ private final class FTPSession {
     // MARK: - Data channel helpers
 
     private func withDataConnection(_ work: @escaping (NWConnection?) -> Void) {
-        // The client may connect slightly after PASV; poll briefly for the connection.
+        // Active mode: we dial the client's PORT target.
+        if let endpoint = activeEndpoint {
+            activeEndpoint = nil
+            let conn = NWConnection(to: endpoint, using: .tcp)
+            pendingDataConnection = conn
+            conn.stateUpdateHandler = { state in
+                switch state {
+                case .ready: conn.stateUpdateHandler = nil; work(conn)
+                case .failed, .cancelled: conn.stateUpdateHandler = nil; work(nil)
+                default: break
+                }
+            }
+            conn.start(queue: queue)
+            return
+        }
+        // Passive mode: the client connects to us; poll briefly for the connection.
         func attempt(_ remaining: Int) {
             if let conn = pendingDataConnection {
                 work(conn)

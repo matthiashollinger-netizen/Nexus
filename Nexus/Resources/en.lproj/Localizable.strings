@@ -806,3 +806,15 @@
 "toolbox.wol.sent" = "Magic packet sent to the broadcast address.";
 "toolbox.wol.invalid" = "Invalid MAC address — use AA:BB:CC:DD:EE:FF.";
 "toolbox.wol.failed" = "Could not send the packet.";
+
+// MARK: - v3.0.2 — FTP auth / SMB
+"server.note.smb" = "macOS already includes an SMB file server. Enable File Sharing in System Settings so devices can mount this Mac over SMB.";
+"server.ftp.auth" = "Login";
+"server.ftp.auth.hint" = "Leave the username empty for anonymous access.";
+"server.ftp.user" = "Username";
+"server.ftp.password" = "Password";
+"server.ftp.anonymous" = "anonymous";
+
+// MARK: - v3.0.2 — Remote editor
+"editor.save_upload" = "Save & upload";
+"editor.saved" = "Saved to server";
