@@ -2,6 +2,20 @@
 
 ---
 
+## [3.0.2] - 2026-06-30
+
+### Behoben / Verbessert
+
+- **SFTP:** Doppelklick auf eine Textdatei öffnet sie im integrierten Editor
+  (editierbar, „Speichern & hochladen" lädt sie zurück).
+- **FTP-Server:** Benutzer/Passwort konfigurierbar + erzwungen; Active-Mode (PORT).
+- **Server-Manager:** Ports ohne Tausenderpunkt; Liste auf HTTP/TFTP/FTP fokussiert;
+  neue SMB-Karte (macOS Dateifreigabe). Klare Fehlermeldung bei privilegierten/belegten
+  Ports (TFTP/FTP auf 69/21 brauchen Root → ≥ 1024 nutzen).
+- **Fenster-Drift** beim Session-Anlegen behoben.
+
+---
+
 ## [3.0.1] - 2026-06-12
 
 ### Behoben — KRITISCH

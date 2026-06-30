@@ -2,6 +2,30 @@
 
 ---
 
+## [3.0.2] - 2026-06-30
+
+### Behoben / Verbessert
+
+- **SFTP-Browser:** Doppelklick auf eine Textdatei öffnet sie im **integrierten
+  Editor** (Syntax-Highlighting, editierbar); „Speichern & hochladen" lädt sie per
+  sftp zurück auf den Server. Binärdateien öffnen weiter extern.
+- **FTP-Server:** **Benutzername & Passwort** sind jetzt konfigurierbar und werden
+  erzwungen (leer = anonymer Zugriff). Zusätzlich **Active-Mode (PORT)** für Geräte,
+  die kein Passiv-FTP sprechen.
+- **Server-Manager:** Ports ohne Tausenderpunkt (8080 statt „8.080"). Liste auf
+  HTTP/TFTP/FTP fokussiert; Syslog & Telnet ausgeblendet (nicht benötigt). Neue
+  **SMB-Karte** (macOS Dateifreigabe) mit Direktlink in die Freigabe-Einstellungen.
+- **Klare Port-Fehlermeldung:** Ein privilegierter Port (< 1024, z. B. 69/21) oder ein
+  belegter Port scheiterte bisher still im Hintergrund (Karte zeigte „läuft"). Jetzt
+  erscheint sofort „Port braucht Admin-Rechte — nutze ≥ 1024 (6969/2121)" bzw.
+  „belegt". **Hinweis:** TFTP/FTP auf den Standardports 69/21 brauchen Root, das eine
+  normale macOS-App nicht hat — bitte 6969/2121 verwenden (HTTP 8080 läuft bereits).
+- **Fenster-Drift:** Beim Anlegen einer neuen Session zog macOS das ganze Fenster nach
+  unten, weil das Sheet höher als die Fenster-Mindesthöhe war. Mindesthöhe angehoben
+  (600 → 680), sodass das Sheet immer passt.
+
+---
+
 ## [3.0.1] - 2026-06-12
 
 ### Behoben — KRITISCH (Terminal)
