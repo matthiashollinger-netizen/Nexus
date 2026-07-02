@@ -100,10 +100,27 @@ actor SFTPService {
         return args
     }
 
+    // MARK: - Command quoting (injection-safe)
+
+    /// Quotes a path for safe interpolation into an sftp command line. sftp reads our
+    /// commands from stdin, one per line, with a shell-like tokenizer that honours
+    /// double quotes and backslash escapes. We escape backslash and double-quote, and
+    /// REJECT newline / carriage-return / NUL — those can't be escaped inside a quoted
+    /// argument and would otherwise let a crafted filename inject extra sftp commands.
+    nonisolated func quote(_ path: String) throws -> String {
+        guard !path.contains("\n"), !path.contains("\r"), !path.contains("\0") else {
+            throw SFTPError.operationFailed("Illegal character in path")
+        }
+        let escaped = path
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "\"\(escaped)\""
+    }
+
     // MARK: - Public API
 
     func listDirectory(_ conn: SFTPConnection, path: String) async throws -> [SFTPItem] {
-        let output = try await runBatch(conn, commands: "ls -la \"\(path)\"\nquit\n")
+        let output = try await runBatch(conn, commands: "ls -la \(try quote(path))\nquit\n")
         return parseLsOutput(output, basePath: path)
     }
 
@@ -130,7 +147,7 @@ actor SFTPService {
     }
 
     func downloadFile(_ conn: SFTPConnection, remotePath: String, to localURL: URL) async throws {
-        let output = try await runBatch(conn, commands: "get \"\(remotePath)\" \"\(localURL.path)\"\nquit\n")
+        let output = try await runBatch(conn, commands: "get \(try quote(remotePath)) \(try quote(localURL.path))\nquit\n")
         let low = output.lowercased()
         if low.contains("no such file") || low.contains("permission denied") || low.contains("failure") {
             throw SFTPError.operationFailed(output)
@@ -138,7 +155,7 @@ actor SFTPService {
     }
 
     func uploadFile(_ conn: SFTPConnection, from localURL: URL, remotePath: String) async throws {
-        let output = try await runBatch(conn, commands: "put \"\(localURL.path)\" \"\(remotePath)\"\nquit\n")
+        let output = try await runBatch(conn, commands: "put \(try quote(localURL.path)) \(try quote(remotePath))\nquit\n")
         let low = output.lowercased()
         if low.contains("permission denied") || low.contains("failure") {
             throw SFTPError.operationFailed(output)
@@ -146,7 +163,7 @@ actor SFTPService {
     }
 
     func rename(_ conn: SFTPConnection, from: String, to: String) async throws {
-        let output = try await runBatch(conn, commands: "rename \"\(from)\" \"\(to)\"\nquit\n")
+        let output = try await runBatch(conn, commands: "rename \(try quote(from)) \(try quote(to))\nquit\n")
         let low = output.lowercased()
         if low.contains("failure") || low.contains("permission denied") || low.contains("no such file") {
             throw SFTPError.operationFailed(output)
@@ -155,7 +172,7 @@ actor SFTPService {
 
     func delete(_ conn: SFTPConnection, path: String, isDirectory: Bool) async throws {
         // rmdir only works on empty directories — SFTP protocol limitation.
-        let cmd = isDirectory ? "rmdir \"\(path)\"" : "rm \"\(path)\""
+        let cmd = isDirectory ? "rmdir \(try quote(path))" : "rm \(try quote(path))"
         let output = try await runBatch(conn, commands: "\(cmd)\nquit\n")
         let low = output.lowercased()
         if isDirectory && (low.contains("failure") || low.contains("not empty")) {
@@ -167,7 +184,7 @@ actor SFTPService {
     }
 
     func createDirectory(_ conn: SFTPConnection, path: String) async throws {
-        let output = try await runBatch(conn, commands: "mkdir \"\(path)\"\nquit\n")
+        let output = try await runBatch(conn, commands: "mkdir \(try quote(path))\nquit\n")
         let low = output.lowercased()
         if low.contains("failure") || low.contains("permission denied") {
             throw SFTPError.operationFailed(output)
@@ -199,12 +216,11 @@ actor SFTPService {
             env.removeValue(forKey: "SSH_ASKPASS_REQUIRE")
             env.removeValue(forKey: "DISPLAY")
 
-            if let pwd = password, !pwd.isEmpty {
+            if let pwd = password, !pwd.isEmpty, let scriptPath = createAskPassScript(password: pwd) {
                 // Write temp askpass script. SSH_ASKPASS_REQUIRE=force ensures SSH
                 // always calls the helper instead of trying interactive input.
                 // DISPLAY=: is required on macOS — empty string or ":0" both work
                 // but bare ":" is most reliable across SSH versions.
-                let scriptPath = createAskPassScript(password: pwd)
                 askpassScriptPath = scriptPath
                 env["SSH_ASKPASS"]         = scriptPath
                 env["SSH_ASKPASS_REQUIRE"] = "force"
@@ -268,20 +284,18 @@ actor SFTPService {
 
     // MARK: - Askpass script helper
 
-    /// Creates a temporary shell script that outputs `password` to stdout.
-    /// The caller is responsible for deleting the file after use.
-    private func createAskPassScript(password: String) -> String {
+    /// Creates a temporary 0700 shell script that outputs `password` to stdout.
+    /// Returns nil if the file couldn't be created. The caller deletes it after use.
+    private func createAskPassScript(password: String) -> String? {
         // Escape characters that are special inside double-quoted shell strings
         let escaped = password
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
             .replacingOccurrences(of: "$",  with: "\\$")
             .replacingOccurrences(of: "`",  with: "\\`")
-        let script = "#!/bin/sh\necho \"\(escaped)\"\n"
-        let path = NSTemporaryDirectory() + "nexus_sftp_\(UUID().uuidString).sh"
-        try? script.write(toFile: path, atomically: true, encoding: .utf8)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: path)
-        return path
+        let script = "#!/bin/sh\nprintf '%s\\n' \"\(escaped)\"\n"
+        // Created 0700 from the start (no world-readable window, symlink-safe).
+        return SecureTempScript.write(script, prefix: "nexus_sftp")
     }
 
     // MARK: - Parse `ls -la` output

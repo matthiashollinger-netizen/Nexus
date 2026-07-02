@@ -114,6 +114,7 @@ struct CredentialDetailView: View {
     @Environment(AppViewModel.self) private var vm
     @State private var showEdit = false
     @State private var revealPassword = false
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         Form {
@@ -168,11 +169,21 @@ struct CredentialDetailView: View {
             }
             ToolbarItem(placement: .automatic) {
                 Button(role: .destructive) {
-                    vm.deleteCredential(credential)
+                    showDeleteConfirm = true
                 } label: {
                     Image(systemName: "trash")
                 }
             }
+        }
+        .confirmationDialog(
+            Text(String(format: NSLocalizedString("cred.delete.confirm", comment: ""), credential.name)),
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("action.delete", role: .destructive) { vm.deleteCredential(credential) }
+            Button("action.cancel", role: .cancel) { }
+        } message: {
+            Text("cred.delete.confirm.message")
         }
         .sheet(isPresented: $showEdit) {
             CredentialEditSheet(credential: credential)

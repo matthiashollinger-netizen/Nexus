@@ -104,7 +104,7 @@ final class NexusSSHTerminalView: LocalProcessTerminalView {
 
     private func startSSH() {
         guard !cs.session.host.isEmpty else {
-            cs.state = .failed("Kein Hostname konfiguriert")
+            cs.state = .failed(String(localized: "session.error.no_host"))
             return
         }
         cs.state = .connecting

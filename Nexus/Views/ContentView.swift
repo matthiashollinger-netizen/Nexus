@@ -122,6 +122,25 @@ struct MainView: View {
         .sheet(item: $vm.editingSnippetsSession) { session in
             SnippetEditorView(session: session).environment(vm)
         }
+        // nexus://connect links are confirmed before dialing — a crafted link must not
+        // silently connect the user to an arbitrary (possibly internal) host.
+        .confirmationDialog(
+            "url.connect.confirm.title",
+            isPresented: Binding(
+                get: { vm.pendingURLConnect != nil },
+                set: { if !$0 { vm.pendingURLConnect = nil } }
+            ),
+            presenting: vm.pendingURLConnect
+        ) { session in
+            Button("url.connect.confirm.action") {
+                vm.connect(to: session)
+                vm.pendingURLConnect = nil
+            }
+            Button("action.cancel", role: .cancel) { vm.pendingURLConnect = nil }
+        } message: { session in
+            Text(String(format: NSLocalizedString("url.connect.confirm.message", comment: ""),
+                        "\(session.username.isEmpty ? "" : session.username + "@")\(session.host):\(session.port)"))
+        }
         // ⌘K Command Palette — a floating overlay (not a sheet) so it hovers over
         // the whole split view, Spotlight-style.
         .overlay {

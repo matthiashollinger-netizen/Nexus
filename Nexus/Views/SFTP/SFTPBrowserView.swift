@@ -26,6 +26,7 @@ struct SFTPBrowserView: View {
     @State private var newFolderName = ""
     @State private var isDropTargeted = false
     @State private var editTarget: RemoteEditTarget? = nil
+    @State private var deleteTarget: SFTPItem? = nil
 
     private var currentPath: String {
         vm.sftpCurrentPath
@@ -102,7 +103,7 @@ struct SFTPBrowserView: View {
                             SFTPContextMenu(item: item,
                                            onDownload: { Task { await downloadFile(item: item) } },
                                            onRename: { renameItem = item; renameText = item.name },
-                                           onDelete: { Task { await deleteItem(item: item) } },
+                                           onDelete: { deleteTarget = item },
                                            onNewFolder: { showNewFolderDialog = true })
                         }
                 }
@@ -201,6 +202,22 @@ struct SFTPBrowserView: View {
             } onCancel: {
                 renameItem = nil
             }
+        }
+        // Delete confirmation — remote deletion is permanent (no trash, no undo).
+        .confirmationDialog(
+            Text(String(format: NSLocalizedString("sftp.delete.confirm", comment: ""),
+                        deleteTarget?.name ?? "")),
+            isPresented: Binding(get: { deleteTarget != nil },
+                                 set: { if !$0 { deleteTarget = nil } }),
+            presenting: deleteTarget
+        ) { item in
+            Button("action.delete", role: .destructive) {
+                deleteTarget = nil
+                Task { await deleteItem(item: item) }
+            }
+            Button("action.cancel", role: .cancel) { deleteTarget = nil }
+        } message: { _ in
+            Text("sftp.delete.confirm.message")
         }
         // New folder alert
         .alert("sftp.new_folder", isPresented: $showNewFolderDialog) {

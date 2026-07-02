@@ -2,6 +2,53 @@
 
 ---
 
+## [3.0.3] - 2026-07-02
+
+### Sicherheit (umfassendes Review + Härtung)
+
+- **Netzwerk-Toolbox – Argument-Injection geschlossen:** Host-Eingaben werden validiert
+  (nur Buchstaben, Ziffern, Punkte, Bindestriche, Doppelpunkte; kein führendes „-").
+  Ein Host wie „-f …" konnte sonst als Flag an ping/dig/nc durchgereicht werden. Der
+  Port muss 1–65535 sein.
+- **FTP-Server – SSRF/FTP-Bounce verhindert:** Der Active-Mode (PORT) verbindet sich nur
+  noch zur Adresse des Clients selbst (RFC 2577) statt zu beliebigen — auch internen —
+  Hosts.
+- **FTP-Server – Brute-Force-Schutz:** Fehlversuche werden zunehmend verzögert, nach 5
+  Versuchen wird die Verbindung getrennt.
+- **SFTP – Command-Injection geschlossen:** Datei-/Ordnernamen werden vor der Übergabe an
+  `sftp` korrekt maskiert; Zeilenumbrüche/Steuerzeichen werden abgelehnt.
+- **Passwort-Hilfsskripte gehärtet:** Das temporäre SSH_ASKPASS-Skript wird von Anfang an
+  mit `0700` erzeugt (kein kurzzeitig weltweit lesbares Fenster, symlink-sicher).
+- **Stärkerer Passwort-Tresor:** Schlüsselableitung von HKDF auf **PBKDF2-SHA256
+  (210 000 Runden)** umgestellt — deutlich teurer für Offline-Angriffe. Bestehende
+  Tresore werden beim ersten Entsperren automatisch und **verlustfrei** migriert.
+- **nexus://-Links:** Ein `connect`-Link verbindet nicht mehr automatisch, sondern fragt
+  zuerst nach Bestätigung (Schutz vor untergeschobenen Zielen).
+
+### Ports unter 1024 (neu)
+
+- **Standard-Ports 69/21 per Bestätigung freischalten:** Im Server-Manager gibt es bei
+  TFTP/FTP „Standard-Port aktivieren". Nach einer Admin-Passwort-Abfrage richtet Nexus
+  über den macOS-Paketfilter (pf) eine Weiterleitung **69 → 6969** bzw. **21 → 2121** ein,
+  sodass Geräte die Standard-Ports erreichen — ohne die App als Root zu betreiben. Die
+  Weiterleitung bleibt bis zum expliziten Deaktivieren bestehen und lässt sich jederzeit
+  wieder abschalten.
+
+### Behoben
+
+- **FTP-Server:** Speicherleck des Passiv-Listeners (Referenzzyklus) behoben; im
+  Active-Mode wird ein fehlgeschlagener Datenkanal jetzt sauber geschlossen (kein
+  Datei-Deskriptor-Leck).
+- **SFTP-Editor:** Temporäre Datei wird auch bei fehlgeschlagenem Upload zuverlässig
+  entfernt.
+- **Bestätigung vor dem Löschen:** SFTP-Dateien/-Ordner, Sessions und Zugangsdaten fragen
+  jetzt vor dem endgültigen Löschen nach.
+- **Toolbox:** „Ausgabe kopieren"-Button; klare Fehlermeldung bei ungültigem Host/Port.
+- **Lokalisierung:** Eine hartcodierte deutsche Terminal-Fehlermeldung ist nun
+  zweisprachig (de/en).
+
+---
+
 ## [3.0.2] - 2026-06-30
 
 ### Behoben / Verbessert

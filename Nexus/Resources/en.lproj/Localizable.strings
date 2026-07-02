@@ -819,3 +819,26 @@
 "editor.save_upload" = "Save & upload";
 "editor.saved" = "Saved to server";
 "server.error.privileged_port" = "Port %lld requires admin privileges. Use a port \u2265 1024 (e.g. 6969 for TFTP, 2121 for FTP) and point your device at that port.";
+
+// MARK: - v3.0.3 — Security review (validation, confirmations, ports)
+"session.error.no_host" = "No hostname configured";
+"toolbox.copy" = "Copy output";
+"toolbox.invalid_host" = "Invalid host — use letters, digits, dots, hyphens or colons only (no leading “-”).";
+"toolbox.invalid_port" = "Invalid port — enter a number from 1 to 65535.";
+"url.connect.confirm.title" = "Connect to this host?";
+"url.connect.confirm.message" = "A link is asking Nexus to connect to %@. Only continue if you trust where the link came from.";
+"url.connect.confirm.action" = "Connect";
+"sftp.delete.confirm" = "Delete “%@”?";
+"sftp.delete.confirm.message" = "This permanently deletes the item on the remote server. It cannot be undone.";
+"cred.delete.confirm" = "Delete “%@”?";
+"cred.delete.confirm.message" = "This removes the stored credential. It cannot be undone.";
+"session.delete.confirm" = "Delete “%@”?";
+"server.enable_privileged_port" = "Enable standard port";
+"server.disable_privileged_port" = "Disable standard-port forwarding";
+"server.privileged.hint" = "Standard ports (TFTP 69 / FTP 21) need a one-time admin approval.";
+"server.privileged.confirm.title" = "Enable standard port with admin rights?";
+"server.privileged.confirm.message" = "Nexus will use the macOS packet filter (pf) to forward the standard ports (TFTP 69, FTP 21) to the high ports the app listens on. You’ll be asked for your admin password. The forwarding stays active until you disable it.";
+"server.privileged.confirm.action" = "Enable & Authorize";
+"server.privileged.enabled" = "Standard-port forwarding active (69→6969, 21→2121)";
+"server.error.privileged_denied" = "Admin approval was cancelled — forwarding was not set up.";
+"server.error.privileged_failed" = "Could not enable the standard port: %@";

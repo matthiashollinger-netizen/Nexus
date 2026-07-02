@@ -372,6 +372,7 @@ struct SessionRow: View {
     @Environment(AppViewModel.self) private var vm
     @Environment(SidebarDragModel.self) private var dragModel
     @State private var hovering = false
+    @State private var showDeleteConfirm = false
 
     private var displayName: String { session.name.isEmpty ? session.host : session.name }
     private var liveState: ConnectionState? { vm.liveState(for: session) }
@@ -437,9 +438,17 @@ struct SessionRow: View {
             Button { vm.editingSession = session } label: {
                 Label("action.edit", systemImage: "pencil")
             }
-            Button(role: .destructive) { vm.deleteSession(session) } label: {
+            Button(role: .destructive) { showDeleteConfirm = true } label: {
                 Label("action.delete", systemImage: "trash")
             }
+        }
+        .confirmationDialog(
+            Text(String(format: NSLocalizedString("session.delete.confirm", comment: ""), displayName)),
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("action.delete", role: .destructive) { vm.deleteSession(session) }
+            Button("action.cancel", role: .cancel) { }
         }
     }
 

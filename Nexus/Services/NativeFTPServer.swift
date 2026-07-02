@@ -1,14 +1,16 @@
 import Foundation
 import Network
 
-/// A minimal but functional FTP server (RFC 959, passive mode) built on
+/// A minimal but functional FTP server (RFC 959, passive + active mode) built on
 /// Network.framework — no external tools. Lets a network device (or any FTP client)
-/// connect to the Mac to download/upload files. Anonymous access; the chosen folder
-/// is the FTP root.
+/// connect to the Mac to download/upload files. Optional username/password auth; the
+/// chosen folder is the FTP root.
 ///
-/// Supported: USER/PASS (any accepted), SYST, FEAT, PWD, CWD, CDUP, TYPE, PASV,
-/// LIST, NLST, RETR, STOR, DELE, MKD, QUIT. Active mode (PORT) is not implemented —
-/// passive mode is what modern clients and most network gear use.
+/// Supported: USER/PASS, SYST, FEAT, PWD, CWD, CDUP, TYPE, PASV, PORT, LIST, NLST,
+/// RETR, STOR, DELE, MKD, RNFR/RNTO, QUIT.
+///
+/// Security: PORT (active mode) only dials the client's own control-connection IP
+/// (RFC 2577, blocks FTP-bounce/SSRF); password auth is rate-limited per session.
 final class NativeFTPServer {
 
     private let rootDirectory: URL
@@ -76,6 +78,7 @@ private final class FTPSession {
     private let password: String
     private var providedUser = ""
     private var authenticated = false
+    private var failedLogins = 0                // brute-force throttle (RFC-2577-style)
 
     private var cwd = "/"                       // virtual current dir (relative to root)
     private var dataListener: NWListener?       // passive-mode data listener
@@ -145,9 +148,19 @@ private final class FTPSession {
             if username.isEmpty {
                 authenticated = true; send("230 Login successful")
             } else if providedUser == username && arg == password {
-                authenticated = true; send("230 Login successful")
+                authenticated = true; failedLogins = 0; send("230 Login successful")
             } else {
-                authenticated = false; send("530 Login incorrect")
+                authenticated = false
+                failedLogins += 1
+                // Throttle automated guessing: delay the rejection (growing with each
+                // failure) and drop the connection after 5 attempts.
+                let delay = min(Double(failedLogins), 5.0)
+                let shouldDrop = failedLogins >= 5
+                queue.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    guard let self else { return }
+                    self.send("530 Login incorrect")
+                    if shouldDrop { self.close(); self.onClose?() }
+                }
             }
         case "SYST": send("215 UNIX Type: L8")
         case "FEAT": send("211-Features:\r\n PASV\r\n UTF8\r\n211 End")
@@ -194,8 +207,10 @@ private final class FTPSession {
             self?.pendingDataConnection = conn
             conn.start(queue: self?.queue ?? .global())
         }
-        listener.stateUpdateHandler = { [weak self] state in
-            guard let self else { return }
+        // [weak listener] breaks the listener → stateUpdateHandler → listener cycle
+        // that would otherwise leak the NWListener (and its socket) after each PASV.
+        listener.stateUpdateHandler = { [weak self, weak listener] state in
+            guard let self, let listener else { return }
             if case .ready = state, let p = listener.port?.rawValue {
                 // 227 Entering Passive Mode (h1,h2,h3,h4,p1,p2)
                 let ip = EmbeddedServerService.localIPAddress() ?? "127.0.0.1"
@@ -218,6 +233,16 @@ private final class FTPSession {
         let ip = "\(nums[0]).\(nums[1]).\(nums[2]).\(nums[3])"
         let portNum = nums[4] * 256 + nums[5]
         guard let p = NWEndpoint.Port(rawValue: UInt16(portNum)) else { send("501 Bad port"); return }
+        // RFC 2577: the data endpoint MUST be the client itself. Refusing any other
+        // address blocks the FTP-bounce / SSRF attack where a client makes the server
+        // dial an arbitrary internal host. LAN devices send their own address here.
+        guard let clientIP = controlRemoteIP() else {
+            send("501 Cannot verify client address"); return
+        }
+        guard clientIP == ip else {
+            log("FTP PORT rejected: \(ip) ≠ client \(clientIP)")
+            send("501 PORT address must match the client address"); return
+        }
         dataListener?.cancel(); dataListener = nil
         pendingDataConnection = nil
         activeEndpoint = .hostPort(host: NWEndpoint.Host(ip), port: p)
@@ -302,7 +327,9 @@ private final class FTPSession {
             conn.stateUpdateHandler = { state in
                 switch state {
                 case .ready: conn.stateUpdateHandler = nil; work(conn)
-                case .failed, .cancelled: conn.stateUpdateHandler = nil; work(nil)
+                case .failed, .cancelled:
+                    // Release the socket/fd — a bare work(nil) would leak it.
+                    conn.stateUpdateHandler = nil; conn.cancel(); work(nil)
                 default: break
                 }
             }
@@ -352,6 +379,24 @@ private final class FTPSession {
                 }
             }
             loop()
+        }
+    }
+
+    /// The client's source IP on the control connection, used for RFC 2577 active-mode
+    /// validation. Returns nil if it can't be determined (active mode is then refused).
+    private func controlRemoteIP() -> String? {
+        let endpoint = control.currentPath?.remoteEndpoint ?? control.endpoint
+        guard case let .hostPort(host, _) = endpoint else { return nil }
+        switch host {
+        case .ipv4(let addr):
+            return addr.rawValue.map(String.init).joined(separator: ".")
+        case .ipv6(let addr):
+            // Best-effort textual form; drop any scope-id ("fe80::1%en0").
+            return "\(addr)".components(separatedBy: "%").first
+        case .name(let name, _):
+            return name
+        @unknown default:
+            return nil
         }
     }
 

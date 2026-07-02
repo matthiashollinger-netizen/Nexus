@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // MARK: - Network Toolbox
 //
@@ -36,6 +37,7 @@ struct NetworkToolboxView: View {
     @State private var mac = ""
     @State private var runner = NetworkToolRunner()
     @State private var wolStatus: LocalizedStringKey? = nil
+    @State private var inputError: LocalizedStringKey? = nil
 
     var body: some View {
         HSplitView {
@@ -53,7 +55,7 @@ struct NetworkToolboxView: View {
         VStack(alignment: .leading, spacing: DS.Space.xs) {
             SectionHeader("toolbox.title").padding(.horizontal, DS.Space.md).padding(.top, DS.Space.lg)
             ForEach(NetTool.allCases) { tool in
-                Button { selected = tool; runner.stop(); wolStatus = nil } label: {
+                Button { selected = tool; runner.stop(); wolStatus = nil; inputError = nil } label: {
                     Label(tool.title, systemImage: tool.icon)
                         .font(DS.Font.body)
                         .foregroundStyle(selected == tool ? DS.Color.accent : DS.Color.textPrimary)
@@ -76,10 +78,25 @@ struct NetworkToolboxView: View {
     private var detail: some View {
         VStack(alignment: .leading, spacing: DS.Space.lg) {
             inputs
+            if let inputError {
+                InfoCard(style: .danger, message: inputError)
+            }
             if selected == .wol, let status = wolStatus {
                 InfoCard(style: .info, message: status)
             }
             if selected != .wol {
+                if !runner.output.isEmpty {
+                    HStack {
+                        Spacer()
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(runner.output, forType: .string)
+                        } label: {
+                            Label("toolbox.copy", systemImage: "doc.on.doc")
+                        }
+                        .buttonStyle(.borderless).controlSize(.small)
+                    }
+                }
                 outputPane
             }
             Spacer(minLength: 0)
@@ -142,8 +159,22 @@ struct NetworkToolboxView: View {
         }
     }
 
+    /// Validates a host before it becomes a process argument. Rejects a leading '-'
+    /// (would be parsed as a CLI flag, e.g. `dig -f /etc/passwd`) and any character
+    /// outside the hostname / IPv4 / IPv6 set — blocking argument injection.
+    private func isValidHost(_ h: String) -> Bool {
+        guard !h.isEmpty, !h.hasPrefix("-") else { return false }
+        return h.range(of: "^[A-Za-z0-9._:%-]+$", options: .regularExpression) != nil
+    }
+
     private func run() {
         let h = host.trimmingCharacters(in: .whitespaces)
+        inputError = nil
+
+        if selected != .wol {
+            guard isValidHost(h) else { inputError = "toolbox.invalid_host"; return }
+        }
+
         switch selected {
         case .ping:
             runner.run(executable: "/sbin/ping", args: ["-c", "5", "-t", "5", h])
@@ -153,7 +184,8 @@ struct NetworkToolboxView: View {
             runner.run(executable: "/usr/bin/dig", args: ["+nostats", h])
         case .port:
             let p = port.trimmingCharacters(in: .whitespaces)
-            runner.run(executable: "/usr/bin/nc", args: ["-vz", "-G", "3", h, p])
+            guard let pn = Int(p), pn > 0, pn <= 65535 else { inputError = "toolbox.invalid_port"; return }
+            runner.run(executable: "/usr/bin/nc", args: ["-vz", "-G", "3", h, "\(pn)"])
         case .wol:
             switch WakeOnLANService.wake(mac: mac) {
             case .sent: wolStatus = "toolbox.wol.sent"

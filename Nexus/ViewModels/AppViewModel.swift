@@ -57,6 +57,10 @@ final class AppViewModel {
     // Command Palette (⌘K)
     var showCommandPalette: Bool = false
 
+    // A connect requested by a nexus://connect link. Held pending an explicit user
+    // confirmation so a crafted link can't silently dial an arbitrary host.
+    var pendingURLConnect: Session? = nil
+
     // Unlock state
     var isUnlocked: Bool = false
     var masterPassword: String = ""
@@ -375,7 +379,9 @@ final class AppViewModel {
             let type = (q("type") ?? "ssh").lowercased()
             session.connectionType = (type == "telnet") ? .telnet : (type == "serial" ? .serial : .ssh)
             session.port = Int(q("port") ?? "") ?? session.connectionType.defaultPort
-            connect(to: session)
+            // Don't auto-dial a host handed to us by a link — a crafted nexus://connect
+            // could otherwise probe internal hosts or phish. Ask first.
+            pendingURLConnect = session
         default:
             break
         }

@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import CommonCrypto
 
 final class DatabaseService {
     let appSupportURL: URL
@@ -64,34 +65,33 @@ final class DatabaseService {
     }
 
     // MARK: - Credentials (AES-256-GCM encrypted)
-    // File format: [12 nonce][32 salt][ciphertext][16 tag]
-    // The salt at bytes 12-43 is the SAME salt used to derive the key via HKDF.
+    //
+    // Two on-disk formats, distinguished by a 4-byte magic prefix:
+    //   • V2 (current): "NXS2" + [12 nonce][32 salt][ciphertext][16 tag]
+    //     — key = PBKDF2-SHA256(password, salt, 210k iterations). PBKDF2 is a proper
+    //     password-stretching KDF; brute-forcing a weak master password is ~10^5×
+    //     costlier than the old HKDF single round.
+    //   • V1 (legacy): [12 nonce][32 salt][ciphertext][16 tag] — key = HKDF-SHA256.
+    // Legacy blobs are still decrypted and transparently upgraded to V2 on next read.
 
     func loadCredentials(masterPassword: String) throws -> [Credential] {
         let url = appSupportURL.appendingPathComponent("credentials.enc")
         guard let raw = try? Data(contentsOf: url), raw.count > 44 else { return [] }
 
-        let nonce = raw[..<12]
-        let salt  = raw[12..<44]   // salt used for key derivation
-        let rest  = raw[44...]     // ciphertext + 16-byte tag
+        let (decrypted, wasLegacy) = try decryptBlob(raw, password: masterPassword)
+        let credentials = try JSONDecoder().decode([Credential].self, from: decrypted)
 
-        let key = deriveKey(password: masterPassword, salt: salt)
-        let decrypted = try gcmDecrypt(ciphertextAndTag: rest, key: key, nonce: nonce)
-        return try JSONDecoder().decode([Credential].self, from: decrypted)
+        // Transparently migrate an old HKDF store to PBKDF2 on first successful read.
+        if wasLegacy {
+            try? saveCredentials(credentials, masterPassword: masterPassword)
+        }
+        return credentials
     }
 
     func saveCredentials(_ credentials: [Credential], masterPassword: String) throws {
         let url = appSupportURL.appendingPathComponent("credentials.enc")
         let json = try JSONEncoder().encode(credentials)
-        let salt = Data(randomBytes(32))
-        let key  = deriveKey(password: masterPassword, salt: salt)
-        let box  = try AES.GCM.seal(json, using: key)
-        // Store the SAME salt that was used to derive the key
-        var out = Data()
-        out.append(contentsOf: box.nonce)  // 12 bytes
-        out.append(salt)                   // 32 bytes — matches key derivation above
-        out.append(box.ciphertext)
-        out.append(box.tag)                // 16 bytes
+        let out  = try encryptBlob(json, password: masterPassword)
         try out.write(to: url, options: .atomic)
     }
 
@@ -107,25 +107,15 @@ final class DatabaseService {
             exportDate: Date()
         )
         let json = try JSONEncoder().encode(bundle)
-        let salt = Data(randomBytes(32))
-        let key  = deriveKey(password: masterPassword, salt: salt)
-        let box  = try AES.GCM.seal(json, using: key)
-        var out = Data()
-        out.append(contentsOf: box.nonce)
-        out.append(salt)
-        out.append(box.ciphertext)
-        out.append(box.tag)
+        let out  = try encryptBlob(json, password: masterPassword)
         try out.write(to: url)
     }
 
     func importDatabase(from url: URL, masterPassword: String) throws {
         let raw = try Data(contentsOf: url)
         guard raw.count > 44 else { throw DBError.invalidFormat }
-        let nonce = raw[..<12]
-        let salt  = raw[12..<44]
-        let rest  = raw[44...]
-        let key = deriveKey(password: masterPassword, salt: salt)
-        let decrypted = try gcmDecrypt(ciphertextAndTag: rest, key: key, nonce: nonce)
+        // Accepts both new (PBKDF2) and older (HKDF) export bundles.
+        let (decrypted, _) = try decryptBlob(raw, password: masterPassword)
         let bundle = try JSONDecoder().decode(NexusExport.self, from: decrypted)
         saveSessions(bundle.sessions)
         saveFolders(bundle.folders)
@@ -287,6 +277,51 @@ final class DatabaseService {
         try? FileManager.default.copyItem(at: url, to: dest)
     }
 
+    // MARK: - Versioned blob crypto
+
+    /// 4-byte magic marking the PBKDF2 (V2) format. A legacy V1 blob starts with a
+    /// random AES-GCM nonce instead, so a collision is ~2^-32 (negligible).
+    private static let magicV2 = Data("NXS2".utf8)
+    /// PBKDF2-SHA256 work factor (OWASP-recommended floor for 2023+).
+    private static let pbkdf2Iterations = 210_000
+
+    /// Encrypts `plaintext` as a V2 blob (magic + nonce + salt + ciphertext + tag),
+    /// keyed with PBKDF2-SHA256 over a fresh 32-byte salt.
+    func encryptBlob(_ plaintext: Data, password: String) throws -> Data {
+        let salt = Data(randomBytes(32))
+        let key  = try deriveKeyPBKDF2(password: password, salt: salt)
+        let box  = try AES.GCM.seal(plaintext, using: key)
+        var out = Data()
+        out.append(Self.magicV2)          // 4 bytes
+        out.append(contentsOf: box.nonce) // 12 bytes
+        out.append(salt)                  // 32 bytes
+        out.append(box.ciphertext)
+        out.append(box.tag)               // 16 bytes
+        return out
+    }
+
+    /// Decrypts a V2 (PBKDF2) or legacy V1 (HKDF) blob. Returns the plaintext and
+    /// whether the input was the legacy format (so the caller can re-save as V2).
+    func decryptBlob(_ raw: Data, password: String) throws -> (data: Data, legacy: Bool) {
+        let magic = Self.magicV2
+        if raw.count > magic.count + 44, raw.prefix(magic.count) == magic {
+            let body  = raw.dropFirst(magic.count)
+            let nonce = body.prefix(12)
+            let salt  = body.dropFirst(12).prefix(32)
+            let rest  = body.dropFirst(44)
+            let key   = try deriveKeyPBKDF2(password: password, salt: salt)
+            return (try gcmDecrypt(ciphertextAndTag: rest, key: key, nonce: nonce), false)
+        }
+        // Legacy V1: no magic, HKDF-derived key.
+        guard raw.count > 44 else { throw DBError.invalidFormat }
+        let nonce = raw.prefix(12)
+        let salt  = raw.dropFirst(12).prefix(32)
+        let rest  = raw.dropFirst(44)
+        let key   = deriveKey(password: password, salt: salt)
+        return (try gcmDecrypt(ciphertextAndTag: rest, key: key, nonce: nonce), true)
+    }
+
+    /// Legacy V1 key derivation (HKDF-SHA256). Kept only to decrypt pre-3.0.3 blobs.
     private func deriveKey(password: String, salt: some DataProtocol) -> SymmetricKey {
         let inputKey = SymmetricKey(data: Data(password.utf8))
         return HKDF<SHA256>.deriveKey(
@@ -295,6 +330,30 @@ final class DatabaseService {
             info: Data("NexusCredentialsV1".utf8),
             outputByteCount: 32
         )
+    }
+
+    /// V2 key derivation: PBKDF2-SHA256 (proper password-stretching KDF).
+    private func deriveKeyPBKDF2(password: String, salt: some DataProtocol) throws -> SymmetricKey {
+        let pwData   = Data(password.utf8)
+        let saltData = Data(salt)
+        var derived  = [UInt8](repeating: 0, count: 32)
+
+        let status = derived.withUnsafeMutableBufferPointer { out -> Int32 in
+            saltData.withUnsafeBytes { saltBuf in
+                pwData.withUnsafeBytes { pwBuf in
+                    CCKeyDerivationPBKDF(
+                        CCPBKDFAlgorithm(kCCPBKDF2),
+                        pwBuf.bindMemory(to: CChar.self).baseAddress, pwData.count,
+                        saltBuf.bindMemory(to: UInt8.self).baseAddress, saltData.count,
+                        CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
+                        UInt32(Self.pbkdf2Iterations),
+                        out.baseAddress, out.count
+                    )
+                }
+            }
+        }
+        guard Int(status) == kCCSuccess else { throw DBError.decryptionFailed }
+        return SymmetricKey(data: Data(derived))
     }
 
     private func gcmDecrypt(ciphertextAndTag: some DataProtocol, key: SymmetricKey, nonce: some DataProtocol) throws -> Data {

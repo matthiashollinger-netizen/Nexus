@@ -819,3 +819,26 @@
 "editor.save_upload" = "Speichern & hochladen";
 "editor.saved" = "Auf Server gespeichert";
 "server.error.privileged_port" = "Port %lld ben\u00f6tigt Admin-Rechte. Nutze einen Port \u2265 1024 (z. B. 6969 f\u00fcr TFTP, 2121 f\u00fcr FTP) und richte dein Ger\u00e4t auf diesen Port.";
+
+// MARK: - v3.0.3 — Sicherheitsreview (Validierung, Bestätigungen, Ports)
+"session.error.no_host" = "Kein Hostname konfiguriert";
+"toolbox.copy" = "Ausgabe kopieren";
+"toolbox.invalid_host" = "Ungültiger Host — nur Buchstaben, Ziffern, Punkte, Bindestriche oder Doppelpunkte (kein führendes „-“).";
+"toolbox.invalid_port" = "Ungültiger Port — Zahl von 1 bis 65535 eingeben.";
+"url.connect.confirm.title" = "Mit diesem Host verbinden?";
+"url.connect.confirm.message" = "Ein Link möchte, dass Nexus sich mit %@ verbindet. Nur fortfahren, wenn du der Quelle des Links vertraust.";
+"url.connect.confirm.action" = "Verbinden";
+"sftp.delete.confirm" = "„%@“ löschen?";
+"sftp.delete.confirm.message" = "Löscht das Objekt endgültig auf dem entfernten Server. Kann nicht rückgängig gemacht werden.";
+"cred.delete.confirm" = "„%@“ löschen?";
+"cred.delete.confirm.message" = "Entfernt die gespeicherten Zugangsdaten. Kann nicht rückgängig gemacht werden.";
+"session.delete.confirm" = "„%@“ löschen?";
+"server.enable_privileged_port" = "Standard-Port aktivieren";
+"server.disable_privileged_port" = "Standard-Port-Weiterleitung deaktivieren";
+"server.privileged.hint" = "Standard-Ports (TFTP 69 / FTP 21) benötigen einmalig eine Admin-Freigabe.";
+"server.privileged.confirm.title" = "Standard-Port mit Admin-Rechten aktivieren?";
+"server.privileged.confirm.message" = "Nexus richtet über den macOS-Paketfilter (pf) eine Weiterleitung der Standard-Ports (TFTP 69, FTP 21) auf die hohen Ports ein, die die App nutzt. Du wirst nach deinem Admin-Passwort gefragt. Die Weiterleitung bleibt aktiv, bis du sie deaktivierst.";
+"server.privileged.confirm.action" = "Aktivieren & freigeben";
+"server.privileged.enabled" = "Standard-Port-Weiterleitung aktiv (69→6969, 21→2121)";
+"server.error.privileged_denied" = "Admin-Freigabe abgebrochen — die Weiterleitung wurde nicht eingerichtet.";
+"server.error.privileged_failed" = "Standard-Port konnte nicht aktiviert werden: %@";

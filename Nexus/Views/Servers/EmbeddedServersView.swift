@@ -7,6 +7,9 @@ struct EmbeddedServersView: View {
     @State private var serverService = EmbeddedServerService.shared
     @State private var configuringServer: EmbeddedServer? = nil
     @State private var errorMessage: String? = nil
+    @State private var showPrivilegedConfirm = false
+    @State private var privilegedBusy = false
+    @State private var privilegedEnabled = false
 
     private let columns = [GridItem(.flexible(), spacing: DS.Space.md), GridItem(.flexible(), spacing: DS.Space.md)]
 
@@ -38,6 +41,18 @@ struct EmbeddedServersView: View {
                 .padding(DS.Space.xl)
             }
 
+            if privilegedEnabled {
+                HStack(spacing: DS.Space.sm) {
+                    Label("server.privileged.enabled", systemImage: "checkmark.shield.fill")
+                        .font(DS.Font.caption).foregroundStyle(DS.Color.stateConnected)
+                    Spacer()
+                    Button("server.disable_privileged_port") { disablePrivilegedPorts() }
+                        .buttonStyle(.bordered).controlSize(.small)
+                        .disabled(privilegedBusy)
+                }
+                .padding(.horizontal, DS.Space.md).padding(.vertical, DS.Space.sm)
+            }
+
             if let err = errorMessage {
                 HStack {
                     InfoCard(style: .danger, message: LocalizedStringKey(err))
@@ -60,6 +75,47 @@ struct EmbeddedServersView: View {
                 }
             }
         }
+        .confirmationDialog("server.privileged.confirm.title",
+                            isPresented: $showPrivilegedConfirm,
+                            titleVisibility: .visible) {
+            Button("server.privileged.confirm.action") { enablePrivilegedPorts() }
+            Button("action.cancel", role: .cancel) { }
+        } message: {
+            Text("server.privileged.confirm.message")
+        }
+    }
+
+    private func enablePrivilegedPorts() {
+        privilegedBusy = true
+        Task {
+            do {
+                // Off the main thread — the elevation shows a modal admin dialog.
+                try await Task.detached { try PrivilegedPortManager.enable() }.value
+                privilegedEnabled = true
+                errorMessage = nil
+            } catch let e as PrivilegedPortManager.PortError {
+                if case .cancelled = e {} else { errorMessage = e.localizedDescription }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            privilegedBusy = false
+        }
+    }
+
+    private func disablePrivilegedPorts() {
+        privilegedBusy = true
+        Task {
+            do {
+                try await Task.detached { try PrivilegedPortManager.disable() }.value
+                privilegedEnabled = false
+                errorMessage = nil
+            } catch let e as PrivilegedPortManager.PortError {
+                if case .cancelled = e {} else { errorMessage = e.localizedDescription }
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            privilegedBusy = false
+        }
     }
 
     @ViewBuilder
@@ -71,7 +127,8 @@ struct EmbeddedServersView: View {
                        syslogServer: nil,
                        onStart: { Task { await startServer(serverService.servers[idx]) } },
                        onStop: { serverService.stop(serverService.servers[idx]) },
-                       onConfigure: { configuringServer = serverService.servers[idx] })
+                       onConfigure: { configuringServer = serverService.servers[idx] },
+                       onEnablePrivileged: { showPrivilegedConfirm = true })
         }
     }
 
@@ -134,6 +191,7 @@ struct ServerCard: View {
     let onStart: () -> Void
     let onStop: () -> Void
     let onConfigure: () -> Void
+    var onEnablePrivileged: (() -> Void)? = nil
 
     @State private var showLogs = false
 
@@ -180,9 +238,18 @@ struct ServerCard: View {
 
                 Divider()
 
-                if server.port < 1024 {
-                    Label("server.privileged_port_warning", systemImage: "exclamationmark.triangle.fill")
-                        .font(DS.Font.caption).foregroundStyle(DS.Color.stateConnecting)
+                // TFTP/FTP gear hardcodes the standard ports (69/21); offer to make the
+                // server reachable there via the admin-authorized pf redirect. Shown on
+                // these two cards regardless of the (high) port the app actually binds.
+                if server.type == .tftp || server.type == .ftp {
+                    HStack(spacing: DS.Space.sm) {
+                        Label("server.privileged.hint", systemImage: "lock.shield")
+                            .font(DS.Font.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: DS.Space.sm)
+                        Button("server.enable_privileged_port") { onEnablePrivileged?() }
+                            .buttonStyle(.bordered).controlSize(.small)
+                    }
                 }
 
                 actions

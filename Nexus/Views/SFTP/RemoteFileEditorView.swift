@@ -67,10 +67,11 @@ struct RemoteFileEditorView: View {
         status = nil
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("nexus_edit_\(UUID().uuidString)_\(fileName)")
+        // Guarantee the local temp copy is removed even if the upload throws.
+        defer { try? FileManager.default.removeItem(at: tmp) }
         do {
             try content.write(to: tmp, atomically: true, encoding: .utf8)
             try await SFTPService.shared.uploadFile(conn, from: tmp, remotePath: remotePath)
-            try? FileManager.default.removeItem(at: tmp)
             status = "editor.saved"
             isError = false
         } catch {

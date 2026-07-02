@@ -37,11 +37,10 @@ enum NexusAskPassService {
             .replacingOccurrences(of: "`",  with: "\\`")
         let script = "#!/bin/sh\nprintf '%s\\n' \"\(escaped)\"\n"
 
-        let path = NSTemporaryDirectory() + "nexus_askpass_\(UUID().uuidString).sh"
-        guard (try? script.write(toFile: path, atomically: true, encoding: .utf8)) != nil else {
+        // Created 0700 from the start (no world-readable window, symlink-safe).
+        guard let path = SecureTempScript.write(script, prefix: "nexus_askpass") else {
             return nil
         }
-        try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: path)
 
         lock.lock()
         scriptPaths[token] = path
