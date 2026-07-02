@@ -252,7 +252,9 @@ FILE_INFO="$(curl -sf \
     "https://api.github.com/repos/${GITHUB_REPO}/contents/appcast.xml?ref=main" 2>/dev/null || echo '{}')"
 FILE_SHA="$(echo "$FILE_INFO" | python3 -c "import json,sys; print(json.load(sys.stdin).get('sha',''))" 2>/dev/null || echo '')"
 
-CONTENT_B64="$(base64 "$REPO_ROOT/appcast.xml" | tr -d '\n')"
+# macOS BSD base64 needs stdin redirection (bare filename arg is GNU-only, and
+# aborts the promote before the stable appcast reaches main).
+CONTENT_B64="$(base64 < "$REPO_ROOT/appcast.xml" | tr -d '\n')"
 
 if [ -n "$FILE_SHA" ]; then
     SHA_FIELD=",\"sha\":\"${FILE_SHA}\""
