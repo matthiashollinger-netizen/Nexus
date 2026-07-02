@@ -6,16 +6,16 @@
         <description>Most recent changes with links to updates.</description>
         <language>en</language>
         <item>
-            <title>Nexus 3.0.2</title>
-            <sparkle:releaseNotesLink>https://github.com/matthiashollinger-netizen/Nexus/releases/tag/v3.0.2</sparkle:releaseNotesLink>
-            <pubDate>Tue, 30 Jun 2026 08:53:48 +0000</pubDate>
+            <title>Nexus 3.0.3</title>
+            <sparkle:releaseNotesLink>https://github.com/matthiashollinger-netizen/Nexus/releases/tag/v3.0.3</sparkle:releaseNotesLink>
+            <pubDate>Thu, 02 Jul 2026 10:01:10 +0000</pubDate>
             <enclosure
-                url="https://github.com/matthiashollinger-netizen/Nexus/releases/download/v3.0.2/Nexus-3.0.2.dmg"
-                sparkle:version="3.0.2"
-                sparkle:shortVersionString="3.0.2"
-                length="4054066"
+                url="https://github.com/matthiashollinger-netizen/Nexus/releases/download/v3.0.3/Nexus-3.0.3.dmg"
+                sparkle:version="3.0.3"
+                sparkle:shortVersionString="3.0.3"
+                length="4111536"
                 type="application/octet-stream"
-                sparkle:edSignature="aqJdl01/4SMBh2KjwqWLOSYTCJvRy0OvSu+d2B7Ub/RoCdx1MMVwro8+6AZe+tEeEVbWo2pvxulBVtoIm/9uDw=="
+                sparkle:edSignature="tkzJgZQEHaZu8YEL4mjDqXUlCD69TCwlkRCQt2xJKMd+N3cXMPi6ml9WLRm/jOHjDejvqCV7dNjfcpO/oppUBw=="
             />
         </item>
     </channel>
