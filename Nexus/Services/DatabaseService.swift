@@ -78,17 +78,29 @@ final class DatabaseService {
         let url = appSupportURL.appendingPathComponent("credentials.enc")
         guard let raw = try? Data(contentsOf: url), raw.count > 44 else { return [] }
 
-        let (decrypted, wasLegacy) = try decryptBlob(raw, password: masterPassword)
-        let credentials = try JSONDecoder().decode([Credential].self, from: decrypted)
+        // Reading NEVER rewrites the store. The on-disk format is upgraded to PBKDF2
+        // only when the user actually saves a credential change (see saveCredentials),
+        // so merely opening the vault with a newer build can't silently convert it and
+        // lock out an older Nexus version. Both formats stay readable here.
+        let (decrypted, _) = try decryptBlob(raw, password: masterPassword)
+        return try JSONDecoder().decode([Credential].self, from: decrypted)
+    }
 
-        // Transparently migrate an old HKDF store to PBKDF2 on first successful read.
-        if wasLegacy {
-            try? saveCredentials(credentials, masterPassword: masterPassword)
-        }
-        return credentials
+    /// True if a credential store exists on disk AND is still in the legacy (pre-3.0.3,
+    /// HKDF) format — i.e. the next `saveCredentials` will upgrade it to PBKDF2 (V2).
+    /// Returns false when there is no store yet (nothing to upgrade) or it is already V2.
+    func credentialStoreIsLegacy() -> Bool {
+        let url = appSupportURL.appendingPathComponent("credentials.enc")
+        guard let raw = try? Data(contentsOf: url), raw.count >= 4 else { return false }
+        return raw.prefix(4) != Self.magicV2
     }
 
     func saveCredentials(_ credentials: [Credential], masterPassword: String) throws {
+        // Never encrypt the vault with an empty password. That would replace the real
+        // store with an empty-password blob the real password can no longer open — e.g.
+        // if the unlock screen's "Skip" was used and masterPassword was never set. Refuse
+        // rather than silently corrupt the vault. (Callers use try? so this no-ops.)
+        guard !masterPassword.isEmpty else { throw DBError.emptyPassword }
         let url = appSupportURL.appendingPathComponent("credentials.enc")
         let json = try JSONEncoder().encode(credentials)
         let out  = try encryptBlob(json, password: masterPassword)
@@ -409,11 +421,13 @@ struct BackupInfo: Identifiable {
 enum DBError: LocalizedError {
     case decryptionFailed
     case invalidFormat
+    case emptyPassword
 
     var errorDescription: String? {
         switch self {
         case .decryptionFailed: return String(localized: "error.wrong_password")
         case .invalidFormat: return String(localized: "error.invalid_format")
+        case .emptyPassword: return String(localized: "error.empty_password")
         }
     }
 }

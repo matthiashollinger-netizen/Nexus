@@ -842,3 +842,9 @@
 "server.privileged.enabled" = "Standard-port forwarding active (69→6969, 21→2121)";
 "server.error.privileged_denied" = "Admin approval was cancelled — forwarding was not set up.";
 "server.error.privileged_failed" = "Could not enable the standard port: %@";
+
+// MARK: - v3.0.4 — gentler credential-format migration
+"action.ok" = "OK";
+"cred.format.upgrade.title" = "Credential vault upgraded";
+"cred.format.upgrade.message" = "Your saved credentials were re-encrypted with a stronger format (PBKDF2). Nexus versions older than 3.0.3 can no longer open this vault — keep using 3.0.3 or newer.";
+"error.empty_password" = "Cannot save credentials without a master password.";

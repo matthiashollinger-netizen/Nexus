@@ -30,6 +30,7 @@ struct PasswordManagerView: View {
     }
 
     var body: some View {
+        @Bindable var vm = vm
         NavigationSplitView {
             List(selection: $editingCredential) {
                 // Password groups (shared, reusable)
@@ -88,6 +89,13 @@ struct PasswordManagerView: View {
             defaultFilename: "nexus-export"
         ) { _ in }
         .frame(minWidth: 700, minHeight: 460)
+        // One-time notice the first time a credential change upgrades a pre-3.0.3 vault
+        // to the new PBKDF2 format (older Nexus versions can no longer open it).
+        .alert("cred.format.upgrade.title", isPresented: $vm.showCredentialFormatUpgradeNotice) {
+            Button("action.ok") { }
+        } message: {
+            Text("cred.format.upgrade.message")
+        }
     }
 }
 

@@ -842,3 +842,9 @@
 "server.privileged.enabled" = "Standard-Port-Weiterleitung aktiv (69→6969, 21→2121)";
 "server.error.privileged_denied" = "Admin-Freigabe abgebrochen — die Weiterleitung wurde nicht eingerichtet.";
 "server.error.privileged_failed" = "Standard-Port konnte nicht aktiviert werden: %@";
+
+// MARK: - v3.0.4 — sanftere Tresor-Migration
+"action.ok" = "OK";
+"cred.format.upgrade.title" = "Zugangsdaten-Tresor aktualisiert";
+"cred.format.upgrade.message" = "Deine gespeicherten Zugangsdaten wurden mit einem stärkeren Format (PBKDF2) neu verschlüsselt. Nexus-Versionen älter als 3.0.3 können diesen Tresor nicht mehr öffnen — bleib bei 3.0.3 oder neuer.";
+"error.empty_password" = "Zugangsdaten können ohne Master-Passwort nicht gespeichert werden.";

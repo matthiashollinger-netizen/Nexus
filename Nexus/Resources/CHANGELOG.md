@@ -2,6 +2,33 @@
 
 ---
 
+## [3.0.4] - 2026-07-02
+
+### Geändert — Sanftere Tresor-Migration
+
+- Der Zugangsdaten-Tresor wird **nicht mehr beim bloßen Entsperren** auf das neue
+  PBKDF2-Format gehoben, sondern **erst wenn du tatsächlich Zugangsdaten änderst**
+  (hinzufügen / bearbeiten / löschen). Beim ersten Mal erscheint ein **einmaliger
+  Hinweis**, dass ältere Nexus-Versionen (vor 3.0.3) den Tresor danach nicht mehr öffnen
+  können.
+- Hintergrund: In 3.0.3 konnte ein kurzer Blick mit einem neueren Build den Tresor still
+  ins neue Format überführen und eine noch installierte **ältere** Version aussperren
+  (kein Datenverlust, aber verwirrend). **Lesen/Entsperren verändert den Tresor jetzt
+  nie** — nur ein bewusstes Speichern.
+
+### Behoben — kritisch (Datensicherheit)
+
+- **Tresor-Beschädigung durch „Überspringen" verhindert:** Wurde im Master-Passwort-
+  Dialog „Überspringen" geklickt (Passwort bleibt leer) und danach eine Zugangsdaten-
+  Änderung gespeichert, verschlüsselte Nexus den Tresor mit einem **leeren** Passwort —
+  dein echtes Passwort öffnete ihn danach nicht mehr. Nexus **verweigert jetzt jedes
+  Speichern mit leerem Master-Passwort** (auf DB- und ViewModel-Ebene abgesichert).
+  Betraf auch 3.0.2 / 3.0.3.
+- CSV-Import zeigt jetzt ebenfalls den einmaligen Format-Hinweis, wenn er einen alten
+  Tresor aktualisiert.
+
+---
+
 ## [3.0.3] - 2026-07-02
 
 ### Sicherheit (umfassendes Review + Härtung)

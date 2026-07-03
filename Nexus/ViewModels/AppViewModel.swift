@@ -61,6 +61,10 @@ final class AppViewModel {
     // confirmation so a crafted link can't silently dial an arbitrary host.
     var pendingURLConnect: Session? = nil
 
+    // Shown once, when a credential save first upgrades a pre-3.0.3 (HKDF) vault to the
+    // new PBKDF2 format — so the user knows older Nexus versions can no longer open it.
+    var showCredentialFormatUpgradeNotice: Bool = false
+
     // Unlock state
     var isUnlocked: Bool = false
     var masterPassword: String = ""
@@ -408,8 +412,14 @@ final class AppViewModel {
     }
 
     private func saveCredentialsSilently() {
-        guard settings.masterPasswordEnabled else { return }
+        // Never persist with an empty master password (e.g. the unlock screen was
+        // skipped) — that would overwrite the real vault with an empty-password blob.
+        guard settings.masterPasswordEnabled, !masterPassword.isEmpty else { return }
+        // Check BEFORE writing: saveCredentials always writes PBKDF2 (V2), so if the
+        // store is currently legacy this save is the one-time format upgrade.
+        let wasLegacy = db.credentialStoreIsLegacy()
         try? db.saveCredentials(credentials, masterPassword: masterPassword)
+        if wasLegacy { showCredentialFormatUpgradeNotice = true }
     }
 
     // MARK: - Helpers
@@ -563,7 +573,10 @@ final class AppViewModel {
         db.saveFolders(self.folders)
         db.saveSessions(self.sessions)
         if settings.masterPasswordEnabled && !masterPassword.isEmpty {
+            // Same one-time format-upgrade notice as manual credential edits.
+            let wasLegacy = db.credentialStoreIsLegacy()
             try? db.saveCredentials(self.credentials, masterPassword: masterPassword)
+            if wasLegacy { showCredentialFormatUpgradeNotice = true }
         }
     }
 
